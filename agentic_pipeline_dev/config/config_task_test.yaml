@@ -1,0 +1,11 @@
+tasks:
+
+- gt_code_path: /home/yjh/sim_sandbox/sim_code.py
+  name: sim
+  working_folder: /home/yjh/sim_sandbox/
+  python_path: /home/yjh/.conda/envs/sim/bin/python
+
+- gt_code_path: /home/yjh/bpm_sandbox/bpm_code.py
+  name: bpm
+  working_folder: /home/yjh/bpm_sandbox/
+  python_path: /home/yjh/.conda/envs/ragas/bin/python

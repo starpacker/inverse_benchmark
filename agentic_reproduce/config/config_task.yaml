@@ -1,0 +1,141 @@
+tasks:
+
+- gt_code_path: /home/yjh/sim_sandbox/sim_code.py
+  name: sim
+  working_folder: /home/yjh/sim_sandbox/
+  python_path: /home/yjh/.conda/envs/sim/bin/python
+
+- gt_code_path: /home/yjh/ad_pty/code_2/main.py
+  name: ptyrad
+  working_folder: /home/yjh/ad_pty/code_2
+  python_path: /home/yjh/.conda/envs/ptyrad/bin/python
+  
+- gt_code_path: /home/yjh/lfm_sandbox/lfm_code.py
+  name: lfm
+  working_folder: /home/yjh/lfm_sandbox/
+  python_path: /home/yjh/.conda/envs/eht/bin/python
+
+- gt_code_path: /data/yjh/PyTomography-main/pytomography_standalone.py
+  name: PyTomography-main
+  working_folder: /data/yjh/PyTomography-main_sandbox
+  python_path: /usr/local/anaconda3/bin/python
+
+- gt_code_path: /data/yjh/s2ISM-main_sandbox/s2ISM_code.py
+  name: s2ISM-main
+  working_folder: /data/yjh/s2ISM-main_sandbox
+  python_path: /data/yjh/s2ism_env/bin/python
+
+- gt_code_path: /data/yjh/semiblindpsfdeconv-master/semiblind_demo.py
+  name: semiblindpsfdeconv-master
+  working_folder: /data/yjh/semiblindpsfdeconv-master_sandbox
+  python_path: /data/yjh/semiblind/bin/python
+
+- gt_code_path: /home/yjh/oopao_sh_sandbox/main.py
+  name: oopao_sh
+  working_folder: /home/yjh/oopao_sh_sandbox/
+  python_path: /home/yjh/.conda/envs/ao/bin/python
+
+- gt_code_path: /home/yjh/oopao_zernike_sandbox/main.py
+  name: oopao+zernike
+  working_folder: /home/yjh/oopao_zernike_sandbox/
+  python_path: /home/yjh/.conda/envs/ao/bin/python
+
+- gt_code_path: /home/yjh/BayHunter_standalone/bayhunter_code.py
+  name: bayhunt
+  working_folder: /home/yjh/BayHunter_standalone/
+  python_path: /home/yjh/.conda/envs/bayhunt/bin/python
+
+- gt_code_path: /home/yjh/pyeit_sandbox/examples/eit_dynamic_jac3d.py
+  name: pyeit
+  working_folder: /home/yjh/pyeit_sandbox/examples
+  python_path: /home/yjh/.conda/envs/eht/bin/python
+
+- gt_code_path: /home/yjh/bpm_sandbox/bpm_code.py
+  name: bpm
+  working_folder: /home/yjh/bpm_sandbox/
+  python_path: /home/yjh/.conda/envs/ragas/bin/python
+
+- gt_code_path: /home/yjh/diff_sandbox/diff_code.py
+  name: diff
+  working_folder: /home/yjh/diff_sandbox/
+  python_path: /home/yjh/.conda/envs/ragas/bin/python
+
+- gt_code_path: /home/yjh/insar_sandbox/insar_code.py
+  name: insar
+  working_folder: /home/yjh/insar_sandbox/
+  python_path: /home/yjh/.conda/envs/ragas/bin/python
+
+- gt_code_path: /home/yjh/pat_sandbox/pat_code.py
+  name: pat
+  working_folder: /home/yjh/pat_sandbox/
+  python_path: /home/yjh/.conda/envs/patato/bin/python
+
+- gt_code_path: /home/yjh/lensless_admm_sandbox/lensless_admm_code.py
+  name: lensless_admm
+  working_folder: /home/yjh/lensless_admm_sandbox/
+  python_path: /home/yjh/.conda/envs/lensless/bin/python
+
+- gt_code_path: /home/yjh/lensless_dl_sandbox/lensless_dl_code.py
+  name: lensless_dl
+  working_folder: /home/yjh/lensless_dl_sandbox/
+  python_path: /home/yjh/.conda/envs/lensless/bin/python
+
+- gt_code_path: /home/yjh/pnp_cassi_sandbox/pnp_cassi_code.py
+  name: pnp_cassi
+  working_folder: /home/yjh/pnp_cassi_sandbox/
+  python_path: /home/yjh/.conda/envs/lensless/bin/python
+
+- gt_code_path: /home/yjh/fpm_inr_sandbox/fpm_inr_code.py
+  name: fpm_inr
+  working_folder: /home/yjh/fpm_inr_sandbox/
+  python_path: /home/yjh/.conda/envs/lensless/bin/python
+
+- gt_code_path: /home/yjh/flfm_sandbox/flfm_code.py
+  name: flfm
+  working_folder: /home/yjh/flfm_sandbox/
+  python_path: /home/yjh/flfm_sandbox/venv/bin/python
+
+- gt_code_path: /home/yjh/lenstronomy_simple_ring_sandbox/main.py
+  name: lenstronomy_simple_ring
+  working_folder: /home/yjh/lenstronomy_simple_ring_sandbox/
+  python_path: /home/yjh/.conda/envs/lenstr/bin/python
+
+- gt_code_path: /home/yjh/lenstronomy_quad_quasar_sandbox/main.py
+  name: lenstronomy_quad_quasar
+  working_folder: /home/yjh/lenstronomy_quad_quasar_sandbox/
+  python_path: /home/yjh/.conda/envs/lenstr/bin/python
+
+- gt_code_path: /home/yjh/lenstronomy_double_quasar_sandbox/main.py
+  name: lenstronomy_double_quasar
+  working_folder: /home/yjh/lenstronomy_double_quasar_sandbox/
+  python_path: /home/yjh/.conda/envs/lenstr/bin/python
+
+- gt_code_path: /home/yjh/lenstronomy_shapelets_sandbox/main.py
+  name: lenstronomy_shapelets
+  working_folder: /home/yjh/lenstronomy_shapelets_sandbox/
+  python_path: /home/yjh/.conda/envs/lenstr/bin/python
+
+- gt_code_path: /home/yjh/lenstronomy_host_decomp_sandbox/main.py
+  name: lenstronomy_host_decomp
+  working_folder: /home/yjh/lenstronomy_host_decomp_sandbox/
+  python_path: /home/yjh/.conda/envs/lenstr/bin/python
+
+- gt_code_path: /home/yjh/dpi_task1_sandbox/dpi_task1.py
+  name: dpi_task1
+  working_folder: /home/yjh/dpi_task1_sandbox/
+  python_path: /home/yjh/.conda/envs/dpi/bin/python
+
+- gt_code_path: /home/yjh/dpi_task2_sandbox/dpi_task2.py
+  name: dpi_task2
+  working_folder: /home/yjh/dpi_task2_sandbox/
+  python_path: /home/yjh/.conda/envs/dpi/bin/python
+
+- gt_code_path: /home/yjh/dpi_task3_sandbox/dpi_task3.py
+  name: dpi_task3
+  working_folder: /home/yjh/dpi_task3_sandbox/
+  python_path: /home/yjh/.conda/envs/dpi/bin/python
+
+- gt_code_path: /data/yjh/AMICO-master/amico_code.py
+  name: amico
+  working_folder: /data/yjh/AMICO-master/
+  python_path: /usr/local/anaconda3/bin/python

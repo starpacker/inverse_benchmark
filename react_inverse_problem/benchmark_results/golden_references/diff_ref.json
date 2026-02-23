@@ -1,0 +1,105 @@
+{
+  "golden_plan": {
+    "algorithm_name": "Differentiable Ray Tracing Lens Inversion",
+    "objective_function": "\\min_{\\theta} \\frac{1}{|\\Omega|} \\sum_{u \\in \\Omega} \\| \\mathcal{T}(u; \\theta) - \\mathbf{p}_{cap}(u) \\|_2^2",
+    "variables": {
+      "primal": [
+        "lensgroup.surfaces[0].c (Curvature 1)",
+        "lensgroup.surfaces[1].c (Curvature 2)",
+        "lensgroup.surfaces[1].d (Thickness)",
+        "lensgroup.origin (Position)",
+        "lensgroup.theta_x (Tilt X)",
+        "lensgroup.theta_y (Tilt Y)"
+      ],
+      "dual": [],
+      "constants": [
+        "ps_cap (Measured Intersection Points)",
+        "valid_cap (Valid Pixel Mask)",
+        "angle (Rotation Angle)",
+        "DM (DiffMetrology Scene Geometry)"
+      ]
+    },
+    "initialization": [
+      {
+        "variable": "lensgroup.surfaces[0].c",
+        "value": "0.00",
+        "shape": "Scalar"
+      },
+      {
+        "variable": "lensgroup.surfaces[1].c",
+        "value": "0.00",
+        "shape": "Scalar"
+      },
+      {
+        "variable": "lensgroup.surfaces[1].d",
+        "value": "3.00",
+        "shape": "Scalar"
+      },
+      {
+        "variable": "lensgroup.theta_x",
+        "value": "0.00",
+        "shape": "Scalar"
+      },
+      {
+        "variable": "lensgroup.theta_y",
+        "value": "0.00",
+        "shape": "Scalar"
+      }
+    ],
+    "iteration_loop": [
+      {
+        "step_order": 1,
+        "step_name": "Forward Ray Tracing",
+        "mathematical_formula": "\\mathbf{p}_{model} = \\text{Trace}(\\theta_{current}, \\text{angle})",
+        "operator_requirements": [
+          "Differentiable Ray Tracer"
+        ],
+        "input_variables": [
+          "primal",
+          "angle",
+          "valid_cap"
+        ],
+        "output_variables": [
+          "ps_model"
+        ]
+      },
+      {
+        "step_order": 2,
+        "step_name": "Residual Computation",
+        "mathematical_formula": "\\mathcal{L} = \\frac{1}{N} \\sum_{i \\in \\text{valid}} \\| \\mathbf{p}_{model, i} - \\mathbf{p}_{cap, i} \\|^2",
+        "operator_requirements": [
+          "MSE Loss",
+          "Masking"
+        ],
+        "input_variables": [
+          "ps_model",
+          "ps_cap",
+          "valid_cap"
+        ],
+        "output_variables": [
+          "loss_value"
+        ]
+      },
+      {
+        "step_order": 3,
+        "step_name": "Parameter Update (Adam)",
+        "mathematical_formula": "\\theta_{k+1} = \\theta_k - \\eta \\cdot \\text{Adam}(\\nabla_{\\theta} \\mathcal{L})",
+        "operator_requirements": [
+          "Automatic Differentiation",
+          "Adam Optimizer"
+        ],
+        "input_variables": [
+          "loss_value",
+          "primal"
+        ],
+        "output_variables": [
+          "primal"
+        ]
+      }
+    ],
+    "stopping_criterion": "Fixed iteration count (maxit=5)"
+  },
+  "task_description": "### Task Description\nThe objective is to recover the physical and geometric parameters of an optical lens (specifically the \"LE1234-A\" lens) using **Differentiable Metrology**. Physically, the setup consists of a camera observing a display screen through the lens in question. By displaying sinusoidal patterns on the screen (Phase Measuring Deflectometry), we can determine which pixel on the camera sensor corresponds to which physical point on the display screen.\n\nMathematically, this is an inverse rendering problem. We model the system using a differentiable ray tracer. The forward model traces light rays from the camera, through the lens surfaces, to the screen. The goal is to optimize the lens parameters so that the simulated ray intersection points on the screen match the experimentally measured intersection points.\n\n### Known Information\n1.  **Observations ($\\mathbf{p}_{obs}$):** A set of 2D intersection points on the display screen, derived from captured phase-shifted images. These points represent where rays passing through specific camera pixels hit the screen.\n2.  **System Calibration:** The intrinsic and extrinsic parameters of the camera, and the geometric position/rotation of the display screen relative to the camera.\n3.  **Forward Operator ($F(\\cdot)$):** A differentiable ray tracing function. Given a set of lens parameters $\\mathbf{x}$, it computes the expected intersection points on the screen: $\\mathbf{p}_{est} = F(\\mathbf{x})$.\n4.  **Initial Guess:** A perturbed initialization of the lens parameters (e.g., curvatures set to 0.0, thickness set to 3.0).\n\n### Goal\nRecover the vector of lens parameters $\\mathbf{x}$ that minimizes the discrepancy between the modeled and measured ray intersections.\nThe vector $\\mathbf{x}$ includes:\n*   **Surface Curvatures ($c$):** The curvature of the front and back surfaces of the lens.\n*   **Thickness ($d$):** The distance between the two lens surfaces.\n*   **Pose ($\\mathbf{t}, \\theta$):** The 3D position (origin) and tilt angles ($\\theta_x, \\theta_y$) of the lens group.\n\nMathematically, solve the optimization problem:\n$$ \\hat{\\mathbf{x}} = \\arg\\min_{\\mathbf{x}} \\sum_{i \\in \\Omega} \\| F(\\mathbf{x})_i - (\\mathbf{p}_{obs})_i \\|_2^2 $$\nwhere $\\Omega$ is the set of valid pixels (the mask `valid_cap`).\n\n### Regularization\n**None.**\nThe problem is formulated as a standard Non-Linear Least Squares (NLLS) optimization without explicit sparsity (L1) or smoothness (TV) penalties in the loss function. The constraints are implicit in the parameterization of the lens model.",
+  "generated_by": "gemini-3-pro-preview",
+  "timestamp": "2026-01-11T20:51:59.143935"
+}

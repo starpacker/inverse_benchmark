@@ -1,0 +1,222 @@
+{
+  "task_name": "diff",
+  "code_path": "/home/yjh/diff_sandbox/diff_code.py",
+  "task_description": "### Task Description\nThe objective is to recover the physical and geometric parameters of an optical lens (specifically the \"LE1234-A\" lens) using **Differentiable Metrology**. Physically, the setup consists of a camera observing a display screen through the lens in question. By displaying sinusoidal patterns on the screen (Phase Measuring Deflectometry), we can determine which pixel on the camera sensor corresponds to which physical point on the display screen.\n\nMathematically, this is an inverse rendering problem. We model the system using a differentiable ray tracer. The forward model traces light rays from the camera, through the lens surfaces, to the screen. The goal is to optimize the lens parameters so that the simulated ray intersection points on the screen match the experimentally measured intersection points.\n\n### Known Information\n1.  **Observations ($\\mathbf{p}_{obs}$):** A set of 2D intersection points on the display screen, derived from captured phase-shifted images. These points represent where rays passing through specific camera pixels hit the screen.\n2.  **System Calibration:** The intrinsic and extrinsic parameters of the camera, and the geometric position/rotation of the display screen relative to the camera.\n3.  **Forward Operator ($F(\\cdot)$):** A differentiable ray tracing function. Given a set of lens parameters $\\mathbf{x}$, it computes the expected intersection points on the screen: $\\mathbf{p}_{est} = F(\\mathbf{x})$.\n4.  **Initial Guess:** A perturbed initialization of the lens parameters (e.g., curvatures set to 0.0, thickness set to 3.0).\n\n### Goal\nRecover the vector of lens parameters $\\mathbf{x}$ that minimizes the discrepancy between the modeled and measured ray intersections.\nThe vector $\\mathbf{x}$ includes:\n*   **Surface Curvatures ($c$):** The curvature of the front and back surfaces of the lens.\n*   **Thickness ($d$):** The distance between the two lens surfaces.\n*   **Pose ($\\mathbf{t}, \\theta$):** The 3D position (origin) and tilt angles ($\\theta_x, \\theta_y$) of the lens group.\n\nMathematically, solve the optimization problem:\n$$ \\hat{\\mathbf{x}} = \\arg\\min_{\\mathbf{x}} \\sum_{i \\in \\Omega} \\| F(\\mathbf{x})_i - (\\mathbf{p}_{obs})_i \\|_2^2 $$\nwhere $\\Omega$ is the set of valid pixels (the mask `valid_cap`).\n\n### Regularization\n**None.**\nThe problem is formulated as a standard Non-Linear Least Squares (NLLS) optimization without explicit sparsity (L1) or smoothness (TV) penalties in the loss function. The constraints are implicit in the parameterization of the lens model.",
+  "golden_plan": {
+    "algorithm_name": "Differentiable Ray Tracing Lens Inversion",
+    "objective_function": "\\min_{\\theta} \\frac{1}{|\\Omega|} \\sum_{u \\in \\Omega} \\| \\mathcal{T}(u; \\theta) - \\mathbf{p}_{cap}(u) \\|_2^2",
+    "variables": {
+      "primal": [
+        "lensgroup.surfaces[0].c (Curvature 1)",
+        "lensgroup.surfaces[1].c (Curvature 2)",
+        "lensgroup.surfaces[1].d (Thickness)",
+        "lensgroup.origin (Position)",
+        "lensgroup.theta_x (Tilt X)",
+        "lensgroup.theta_y (Tilt Y)"
+      ],
+      "dual": [],
+      "constants": [
+        "ps_cap (Measured Intersection Points)",
+        "valid_cap (Valid Pixel Mask)",
+        "angle (Rotation Angle)",
+        "DM (DiffMetrology Scene Geometry)"
+      ]
+    },
+    "initialization": [
+      {
+        "variable": "lensgroup.surfaces[0].c",
+        "value": "0.00",
+        "shape": "Scalar"
+      },
+      {
+        "variable": "lensgroup.surfaces[1].c",
+        "value": "0.00",
+        "shape": "Scalar"
+      },
+      {
+        "variable": "lensgroup.surfaces[1].d",
+        "value": "3.00",
+        "shape": "Scalar"
+      },
+      {
+        "variable": "lensgroup.theta_x",
+        "value": "0.00",
+        "shape": "Scalar"
+      },
+      {
+        "variable": "lensgroup.theta_y",
+        "value": "0.00",
+        "shape": "Scalar"
+      }
+    ],
+    "iteration_loop": [
+      {
+        "step_order": 1,
+        "step_name": "Forward Ray Tracing",
+        "mathematical_formula": "\\mathbf{p}_{model} = \\text{Trace}(\\theta_{current}, \\text{angle})",
+        "operator_requirements": [
+          "Differentiable Ray Tracer"
+        ],
+        "input_variables": [
+          "primal",
+          "angle",
+          "valid_cap"
+        ],
+        "output_variables": [
+          "ps_model"
+        ]
+      },
+      {
+        "step_order": 2,
+        "step_name": "Residual Computation",
+        "mathematical_formula": "\\mathcal{L} = \\frac{1}{N} \\sum_{i \\in \\text{valid}} \\| \\mathbf{p}_{model, i} - \\mathbf{p}_{cap, i} \\|^2",
+        "operator_requirements": [
+          "MSE Loss",
+          "Masking"
+        ],
+        "input_variables": [
+          "ps_model",
+          "ps_cap",
+          "valid_cap"
+        ],
+        "output_variables": [
+          "loss_value"
+        ]
+      },
+      {
+        "step_order": 3,
+        "step_name": "Parameter Update (Adam)",
+        "mathematical_formula": "\\theta_{k+1} = \\theta_k - \\eta \\cdot \\text{Adam}(\\nabla_{\\theta} \\mathcal{L})",
+        "operator_requirements": [
+          "Automatic Differentiation",
+          "Adam Optimizer"
+        ],
+        "input_variables": [
+          "loss_value",
+          "primal"
+        ],
+        "output_variables": [
+          "primal"
+        ]
+      }
+    ],
+    "stopping_criterion": "Fixed iteration count (maxit=5)"
+  },
+  "candidate_plan": {
+    "algorithm_name": "Non-Linear Least Squares Optimization via Gauss-Newton",
+    "initialization": [
+      "Initialize lens curvatures $c_1, c_2$ to 0.0 (flat surfaces)",
+      "Initialize lens thickness $d$ to 3.0 mm",
+      "Initialize lens pose: position $\\mathbf{t} = \\mathbf{0}$, tilt angles $\\theta_x = \\theta_y = 0$",
+      "Load observed screen points $\\mathbf{p}_{obs}$ and valid pixel mask $\\Omega$"
+    ],
+    "iteration_loop": [
+      {
+        "step_order": 1,
+        "step_name": "Forward Ray Tracing",
+        "mathematical_description": "\\mathbf{p}_{est} = F(\\mathbf{x})",
+        "required_operators": [
+          "DifferentiableRayTracer"
+        ],
+        "inputs": [
+          "x"
+        ],
+        "outputs": [
+          "p_est"
+        ]
+      },
+      {
+        "step_order": 2,
+        "step_name": "Residual Computation",
+        "mathematical_description": "\\mathbf{r}_i = \\mathbf{p}_{est,i} - \\mathbf{p}_{obs,i}, \\quad \\forall i \\in \\Omega",
+        "required_operators": [
+          "MaskedSubtraction"
+        ],
+        "inputs": [
+          "p_est",
+          "p_obs",
+          "valid_cap"
+        ],
+        "outputs": [
+          "r"
+        ]
+      },
+      {
+        "step_order": 3,
+        "step_name": "Jacobian Evaluation",
+        "mathematical_description": "J_{ij} = \\frac{\\partial r_i}{\\partial x_j} = \\frac{\\partial F(\\mathbf{x})_i}{\\partial x_j}, \\quad i \\in \\Omega, \\, j \\in \\{1,\\dots,\\dim(\\mathbf{x})\\}",
+        "required_operators": [
+          "AutodiffJacobian"
+        ],
+        "inputs": [
+          "x",
+          "F"
+        ],
+        "outputs": [
+          "J"
+        ]
+      },
+      {
+        "step_order": 4,
+        "step_name": "Gauss-Newton Step",
+        "mathematical_description": "\\Delta \\mathbf{x} = - (J^\\top J)^{-1} J^\\top \\mathbf{r}",
+        "required_operators": [
+          "MatrixMultiply",
+          "MatrixInverse",
+          "Transpose"
+        ],
+        "inputs": [
+          "J",
+          "r"
+        ],
+        "outputs": [
+          "delta_x"
+        ]
+      },
+      {
+        "step_order": 5,
+        "step_name": "Parameter Update",
+        "mathematical_description": "\\mathbf{x} \\leftarrow \\mathbf{x} + \\Delta \\mathbf{x}",
+        "required_operators": [
+          "VectorAdd"
+        ],
+        "inputs": [
+          "x",
+          "delta_x"
+        ],
+        "outputs": [
+          "x"
+        ]
+      },
+      {
+        "step_order": 6,
+        "step_name": "Convergence Check",
+        "mathematical_description": "\\text{Stop if } \\|\\Delta \\mathbf{x}\\|_2 < \\epsilon \\text{ or } \\|\\mathbf{r}\\|_2^2 \\text{ stagnates}",
+        "required_operators": [
+          "Norm",
+          "Comparison"
+        ],
+        "inputs": [
+          "delta_x",
+          "r"
+        ],
+        "outputs": []
+      }
+    ],
+    "_meta": {
+      "generated_at": "2026-01-11T21:07:13.050244",
+      "model": "qwen3-max"
+    }
+  },
+  "evaluation": {
+    "step_by_step_analysis": "### Analysis\n\n1.  **Task Alignment**: The Candidate Plan correctly identifies the task as recovering lens parameters (curvatures, thickness, pose) using Differentiable Ray Tracing. It formulates the problem as a Non-Linear Least Squares (NLLS) optimization, which aligns perfectly with the Task Description.\n\n2.  **Algorithm Comparison**: \n    *   The **Reference Plan** uses a first-order optimization method (**Adam**) to minimize the MSE loss.\n    *   The **Candidate Plan** proposes a **Gauss-Newton** method. While this differs from the Reference Plan's optimizer, Gauss-Newton is a standard, and often superior, algorithm for small-parameter NLLS problems (like geometric calibration). It is a valid algorithmic substitution.\n\n3.  **Completeness**: \n    *   The critical **Forward Operator** (Differentiable Ray Tracer) is present in Step 1.\n    *   The **Residual/Loss computation** is present in Step 2.\n    *   The optimization logic is fully fleshed out (Jacobian -> Matrix Solve -> Update), replacing the 'black box' Adam optimizer of the reference with explicit linear algebra operations suitable for NLLS.\n\n4.  **Mathematical Correctness**: \n    *   The Gauss-Newton update formula $\\Delta \\mathbf{x} = - (J^\\top J)^{-1} J^\\top \\mathbf{r}$ is mathematically correct.\n    *   The definition of the Jacobian and residuals is correct.\n    *   Dimensionality is handled correctly (Jacobian is $N_{pixels} \\times N_{params}$, resulting in a square matrix $J^T J$ of size $N_{params} \\times N_{params}$).\n\n5.  **Logical Dependency**: \n    *   The sequence of operations is logical: Forward Pass -> Residuals -> Jacobian Calculation -> Solver -> Update.\n    *   All inputs for each step are generated in previous steps or initialization.\n\n### Conclusion\nThe Candidate Plan is a high-quality, mathematically rigorous alternative to the Reference Plan. It correctly implements the physics (Ray Tracing) and uses a robust optimization strategy (Gauss-Newton) appropriate for the problem structure.",
+    "completeness_score": 5,
+    "completeness_reason": "The candidate includes all critical physical operators (Ray Tracer) and replaces the Reference optimizer (Adam) with a fully detailed and valid alternative (Gauss-Newton) without missing any necessary steps for the solution.",
+    "correctness_score": 5,
+    "correctness_reason": "The mathematical formulation for the Gauss-Newton optimization (Jacobian definition, Normal Equations solve) is perfectly correct for the Non-Linear Least Squares problem described.",
+    "logical_dependency_score": 5,
+    "logical_dependency_reason": "The data flow forms a valid closed loop. Variables are defined before use, and the order of operations (Forward -> Residual -> Jacobian -> Update) is physically and mathematically consistent.",
+    "final_weighted_score": 5.0,
+    "is_pass": true
+  }
+}

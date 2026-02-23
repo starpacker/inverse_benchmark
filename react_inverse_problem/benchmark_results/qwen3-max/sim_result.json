@@ -1,0 +1,241 @@
+{
+  "task_name": "sim",
+  "code_path": "/home/yjh/sim_sandbox/sim_code.py",
+  "task_description": "Based on the provided code, here is the Task Description for the student.\n\n### Task Description\n**Sparse Hessian Deconvolution for Microscopy**\n\nYou are tasked with restoring a high-quality, sharp 3D volumetric image (or 2D image) from a blurred and noisy observation obtained via a microscopy system. The imaging process is modeled as a linear shift-invariant system where the true specimen structure is convolved with a Point Spread Function (PSF) and corrupted by noise.\n\nTo recover the latent image, you must implement an iterative reconstruction algorithm that solves an inverse problem. Because deconvolution is ill-posed, you will employ a specific type of regularization that enforces two priors:\n1.  **Hessian-based Sparsity (Second-order Total Variation):** This penalizes the second-order derivatives of the image, favoring piecewise-linear solutions (reducing the \"staircase effect\" often seen in standard Total Variation).\n2.  **Intensity Sparsity:** This assumes the background is dark and the signal is sparse (L1 norm of the image).\n\nYou will solve this optimization problem using a variable splitting method. Following the sparse reconstruction, a refinement step using a classical iterative deconvolution method (like Richardson-Lucy) is applied.\n\n### Algorithm\n**ADMM (Alternating Direction Method of Multipliers) / Split Bregman**\n*   The primary solver uses ADMM to split the complex regularization terms (Hessian and Sparsity) from the data fidelity term.\n*   This involves an iterative loop where you alternate between:\n    1.  Solving a linear system in the Fourier domain (Primal update).\n    2.  Applying soft-thresholding (Shrinkage) operators to auxiliary variables (Proximal update).\n    3.  Updating Lagrange multipliers (Dual update).\n\n### Known Information\n1.  **Observation ($y$):** The input blurred image stack (preprocessed to remove background).\n2.  **Forward Operator ($A$):** A convolution operation with a Gaussian Point Spread Function (PSF).\n    *   Mathematically: $A(x) = k * x$\n    *   Implemented via FFT: $\\mathcal{F}^{-1}(\\mathcal{F}(k) \\cdot \\mathcal{F}(x))$\n3.  **PSF Parameters:** The standard deviation ($\\sigma$) for the Gaussian kernel is provided.\n\n### Goal\nRecover the latent image **$x$** that minimizes the energy function defined by the data fidelity and regularization terms.\n\n### Regularization\nThe objective function to minimize is:\n\n$$ \\min_x \\frac{\\mu}{2} \\| y - x \\|_2^2 + \\lambda_1 \\| \\mathcal{H}x \\|_1 + \\lambda_2 \\| x \\|_1 $$\n\nWhere:\n*   $\\| y - x \\|_2^2$ is the fidelity term (note: in this specific ADMM implementation, the convolution is often handled implicitly or via the splitting, but the code treats the fidelity update in the Fourier domain).\n*   $\\| \\mathcal{H}x \\|_1$ is the **Hessian regularization**, representing the L1 norm of the second-order spatial derivatives ($D_{xx}, D_{yy}, D_{zz}, D_{xy}, D_{xz}, D_{yz}$).\n*   $\\| x \\|_1$ is the **Sparsity regularization** on the pixel intensities.\n*   $\\mu, \\lambda_1, \\lambda_2$ are weighting parameters (corresponding to `fidelity`, `1` (implicit), and `sparsity` in the code).",
+  "golden_plan": {
+    "algorithm_name": "Two-Stage Inversion: Split Bregman Sparse Hessian Reconstruction followed by Accelerated Richardson-Lucy Deconvolution",
+    "objective_function": "\\min_{g} \\frac{\\text{fidelity}}{2} \\|g - f\\|_2^2 + \\mu \\sum_{i \\in \\{xx,yy,zz,xy,xz,yz\\}} \\|D_i g\\|_1 + \\mu \\cdot \\text{sparsity} \\|g\\|_1",
+    "variables": {
+      "primal": [
+        "g"
+      ],
+      "dual": [
+        "b_{xx}",
+        "b_{yy}",
+        "b_{zz}",
+        "b_{xy}",
+        "b_{xz}",
+        "b_{yz}",
+        "b_{sparse}"
+      ],
+      "constants": [
+        "fidelity",
+        "sparsity",
+        "mu",
+        "tcontinuity",
+        "sigma"
+      ]
+    },
+    "initialization": [
+      {
+        "variable": "g_update",
+        "value": "(fidelity / mu) * f",
+        "shape": "Same as input image f"
+      },
+      {
+        "variable": "b_{all}",
+        "value": "Zeros",
+        "shape": "Same as input image f"
+      },
+      {
+        "variable": "Normalize",
+        "value": "(fidelity / mu) + sparsity^2 + \\sum |\\mathcal{F}(D_i)|^2",
+        "shape": "Frequency domain grid"
+      }
+    ],
+    "iteration_loop": [
+      {
+        "step_order": 1,
+        "step_name": "Primal Update (g)",
+        "mathematical_formula": "g^{(k+1)} = \\mathcal{F}^{-1} \\left( \frac{\\mathcal{F}(\\text{g\\_update}^{(k)})}{\\text{Normalize}} \\right)",
+        "operator_requirements": [
+          "FFT",
+          "IFFT",
+          "Division"
+        ],
+        "input_variables": [
+          "g_update",
+          "Normalize"
+        ],
+        "output_variables": [
+          "g"
+        ]
+      },
+      {
+        "step_order": 2,
+        "step_name": "Reset RHS Accumulator",
+        "mathematical_formula": "\\text{g\\_update}^{(k+1)} = \\frac{\\text{fidelity}}{\\mu} f",
+        "operator_requirements": [
+          "Scalar Multiplication"
+        ],
+        "input_variables": [
+          "f",
+          "fidelity",
+          "mu"
+        ],
+        "output_variables": [
+          "g_update"
+        ]
+      },
+      {
+        "step_order": 3,
+        "step_name": "Hessian Split Bregman Updates",
+        "mathematical_formula": "\\forall i \\in \\{xx,..,yz\\}: d_i = \\text{shrink}(D_i g + b_i, \\mu); \\quad b_i \\leftarrow b_i + D_i g - d_i; \\quad \\text{g\\_update} \\leftarrow \\text{g\\_update} + w_i D_i^T(d_i - b_i)",
+        "operator_requirements": [
+          "Forward Difference",
+          "Backward Difference",
+          "Shrink (Soft Threshold)",
+          "Addition"
+        ],
+        "input_variables": [
+          "g",
+          "b_{xx}",
+          "b_{yy}",
+          "b_{zz}",
+          "b_{xy}",
+          "b_{xz}",
+          "b_{yz}",
+          "g_update"
+        ],
+        "output_variables": [
+          "b_{xx}",
+          "b_{yy}",
+          "b_{zz}",
+          "b_{xy}",
+          "b_{xz}",
+          "b_{yz}",
+          "g_update"
+        ]
+      },
+      {
+        "step_order": 4,
+        "step_name": "Sparsity Split Bregman Update",
+        "mathematical_formula": "d_s = \\text{shrink}(g + b_s, \\mu); \\quad b_s \\leftarrow b_s + g - d_s; \\quad \\text{g\\_update} \\leftarrow \\text{g\\_update} + \\text{sparsity} \\cdot (d_s - b_s)",
+        "operator_requirements": [
+          "Shrink (Soft Threshold)",
+          "Addition"
+        ],
+        "input_variables": [
+          "g",
+          "b_{sparse}",
+          "g_update"
+        ],
+        "output_variables": [
+          "b_{sparse}",
+          "g_update"
+        ]
+      }
+    ],
+    "stopping_criterion": "Relative change in residual ||f - g||_2 < 1e-4 or max iterations reached"
+  },
+  "candidate_plan": {
+    "algorithm_name": "ADMM for Sparse Hessian Deconvolution",
+    "initialization": [
+      "Initialize latent image estimate x to the observed image y",
+      "Initialize auxiliary variables d_hess (for Hessian terms) and d_sparse (for sparsity) to zero tensors of appropriate shape",
+      "Initialize dual variables b_hess and b_sparse to zero tensors matching d_hess and d_sparse",
+      "Precompute the Fourier transform of the Gaussian PSF: K = FFT(k)",
+      "Precompute the frequency-domain denominator for the primal update: denom = mu * |K|^2 + rho_hess * |H_freq|^2 + rho_sparse"
+    ],
+    "iteration_loop": [
+      {
+        "step_order": 1,
+        "step_name": "Primal Update (x-update)",
+        "mathematical_description": "x^{(t+1)} = \\mathcal{F}^{-1}\\left( \\frac{ \\mu \\overline{K} \\cdot \\mathcal{F}(y) + \\rho_{\\text{hess}} \\sum_{i} \\overline{H_i} \\cdot \\mathcal{F}(d_{\\text{hess},i} - b_{\\text{hess},i}) + \\rho_{\\text{sparse}} \\mathcal{F}(d_{\\text{sparse}} - b_{\\text{sparse}}) }{ \\mu |K|^2 + \\rho_{\\text{hess}} \\sum_{i} |H_i|^2 + \\rho_{\\text{sparse}} } \\right)",
+        "required_operators": [
+          "FFT",
+          "IFFT",
+          "Element-wise multiplication",
+          "Element-wise division",
+          "Complex conjugate"
+        ],
+        "inputs": [
+          "y",
+          "K",
+          "d_hess",
+          "b_hess",
+          "d_sparse",
+          "b_sparse",
+          "mu",
+          "rho_hess",
+          "rho_sparse",
+          "H_freq (Fourier symbols of Hessian filters)"
+        ],
+        "outputs": [
+          "x"
+        ]
+      },
+      {
+        "step_order": 2,
+        "step_name": "Hessian Auxiliary Update (d_hess-update)",
+        "mathematical_description": "d_{\\text{hess}}^{(t+1)} = \\mathcal{S}_{\\lambda_1 / \\rho_{\\text{hess}}} \\left( \\mathcal{H} x^{(t+1)} + b_{\\text{hess}}^{(t)} \\right)",
+        "required_operators": [
+          "Hessian operator (spatial second derivatives)",
+          "Soft-thresholding (shrinkage)"
+        ],
+        "inputs": [
+          "x",
+          "b_hess",
+          "lambda_1",
+          "rho_hess"
+        ],
+        "outputs": [
+          "d_hess"
+        ]
+      },
+      {
+        "step_order": 3,
+        "step_name": "Sparsity Auxiliary Update (d_sparse-update)",
+        "mathematical_description": "d_{\\text{sparse}}^{(t+1)} = \\mathcal{S}_{\\lambda_2 / \\rho_{\\text{sparse}}} \\left( x^{(t+1)} + b_{\\text{sparse}}^{(t)} \\right)",
+        "required_operators": [
+          "Soft-thresholding (shrinkage)"
+        ],
+        "inputs": [
+          "x",
+          "b_sparse",
+          "lambda_2",
+          "rho_sparse"
+        ],
+        "outputs": [
+          "d_sparse"
+        ]
+      },
+      {
+        "step_order": 4,
+        "step_name": "Dual Update (b_hess and b_sparse)",
+        "mathematical_description": "b_{\\text{hess}}^{(t+1)} = b_{\\text{hess}}^{(t)} + (\\mathcal{H} x^{(t+1)} - d_{\\text{hess}}^{(t+1)}) \\quad ; \\quad b_{\\text{sparse}}^{(t+1)} = b_{\\text{sparse}}^{(t)} + (x^{(t+1)} - d_{\\text{sparse}}^{(t+1)})",
+        "required_operators": [
+          "Hessian operator",
+          "Element-wise subtraction",
+          "Element-wise addition"
+        ],
+        "inputs": [
+          "x",
+          "d_hess",
+          "d_sparse",
+          "b_hess",
+          "b_sparse"
+        ],
+        "outputs": [
+          "b_hess",
+          "b_sparse"
+        ]
+      }
+    ],
+    "_meta": {
+      "generated_at": "2026-01-11T21:05:57.135033",
+      "model": "qwen3-max"
+    }
+  },
+  "evaluation": {
+    "step_by_step_analysis": "### Step-by-Step Analysis\n\n1.  **Task Interpretation & Forward Model**: \n    *   The **Task Description** contains a contradiction. The text describes a \"Deconvolution\" task with a Forward Operator $A(x) = k * x$ (convolution). However, the mathematical formula provided in the description is $\\min_x \\frac{\\mu}{2} \\| y - x \\|_2^2$, which corresponds to a **Denoising** problem (where $A$ is Identity). \n    *   The **Reference Plan** follows the *Formula* (Denoising), treating the problem as a reconstruction step followed by a separate deconvolution step (as indicated by its title). It uses a simplified denominator in the primal update that lacks the convolution kernel $|K|^2$.\n    *   The **Candidate Plan** follows the *Text and Title* (Deconvolution), implementing a full ADMM Deconvolution solver where the primal update includes the convolution kernel $K$ in the denominator ($\\mu |K|^2 + \\dots$).\n    *   **Evaluation Decision**: The Candidate Plan's interpretation is mathematically more robust for the stated goal of \"Sparse Hessian Deconvolution\" and correctly utilizes the \"Known Information\" regarding the PSF. It is a generalization of the Reference Plan. Therefore, the deviation from the Reference Plan's simplified model is accepted as a valid (and likely superior) approach.\n\n2.  **Completeness**:\n    *   The Candidate Plan includes all necessary operators: FFT, IFFT, Complex Conjugate, Element-wise multiplication/division, and Soft-thresholding (Shrinkage).\n    *   It correctly identifies the need for Hessian operators in both spatial (for auxiliary updates) and frequency (for primal inversion) domains.\n\n3.  **Mathematical Correctness**:\n    *   **Primal Update**: The Candidate correctly derives the closed-form solution for the $x$-update in the Fourier domain for the Deconvolution problem: $x = \\mathcal{F}^{-1} \\left( \\frac{A^H y + \\rho D^H (d-b)}{\\mu A^H A + \\rho D^H D} \\right)$. The terms match: $\\mu \\overline{K} \\mathcal{F}(y)$ corresponds to $A^H y$, and the denominator $\\mu |K|^2 + \\dots$ is correct.\n    *   **Proximal Updates**: The soft-thresholding steps for Hessian and Sparsity are correctly applied to the auxiliary variables.\n    *   **Dual Updates**: The standard scaled-ADMM dual update $b \\leftarrow b + (Ax - z)$ is correctly implemented.\n\n4.  **Logical Dependency**:\n    *   The data flow is valid. Variables initialized in the `initialization` block are used in Step 1. Outputs of Step 1 feed into Steps 2 and 3. Outputs of 2 and 3 feed into Step 4. The loop is closed and consistent.\n    *   Dimensionality is handled implicitly but correctly (tensors match image dimensions).",
+    "completeness_score": 5,
+    "completeness_reason": "The plan includes all necessary physical (FFT/Convolution) and mathematical (Shrinkage/Linear Algebra) operators required for the algorithm.",
+    "correctness_score": 5,
+    "correctness_reason": "The mathematical derivation is flawless for the standard ADMM Deconvolution problem. Although it differs from the Reference Plan (which solves a simplified Denoising problem), the Candidate's approach is mathematically valid and consistent with the Task Description's definition of the Forward Operator.",
+    "logical_dependency_score": 5,
+    "logical_dependency_reason": "The sequence of operations forms a valid closed loop. All inputs are defined before use, and the order of Primal -> Auxiliary -> Dual updates is correct for ADMM.",
+    "final_weighted_score": 5.0,
+    "is_pass": true
+  }
+}

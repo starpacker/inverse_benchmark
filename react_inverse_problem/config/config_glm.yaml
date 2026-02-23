@@ -1,0 +1,68 @@
+# Done
+
+global:
+  sandbox_root: "/data/yjh/react_inverse_problem_sandboxes"
+  default_settings:
+    model_name: "gemini-3-pro-preview"
+    max_rounds: 10
+
+tasks:
+
+  - name: "pnp_cassi"
+    python_path: "/home/yjh/.conda/envs/lensless/bin/python"
+    working_folder: "/home/yjh/pnp_cassi_sandbox/"
+    questions_file: "/home/yjh/new_flow/output_pnp_cassi_tutorial/coding_questions.json"
+
+  - name: "fpm_inr"
+    python_path: "/home/yjh/.conda/envs/lensless/bin/python"
+    working_folder: "/home/yjh/fpm_inr_sandbox/"
+    questions_file: "/home/yjh/new_flow/output_fpm_inr_tutorial/coding_questions.json"
+
+  - name: "flfm"
+    python_path: "/home/yjh/flfm_sandbox/venv/bin/python"
+    working_folder: "/home/yjh/flfm_sandbox/"
+    questions_file: "/home/yjh/new_flow/output_flfm_tutorial/coding_questions.json"
+
+  - name: "lenstronomy_simple_ring"
+    python_path: "/home/yjh/.conda/envs/lenstr/bin/python"
+    working_folder: "/home/yjh/lenstronomy_simple_ring_sandbox/"
+    questions_file: "/home/yjh/new_flow/output_lenstronomy_simple_ring/coding_questions.json"
+
+  - name: "lenstronomy_quad_quasar"
+    python_path: "/home/yjh/.conda/envs/lenstr/bin/python"
+    working_folder: "/home/yjh/lenstronomy_quad_quasar_sandbox/"
+    questions_file: "/home/yjh/new_flow/output_lenstronomy_quad_quasar/coding_questions.json"
+
+  - name: "lenstronomy_double_quasar"
+    python_path: "/home/yjh/.conda/envs/lenstr/bin/python"
+    working_folder: "/home/yjh/lenstronomy_double_quasar_sandbox/"
+    questions_file: "/home/yjh/new_flow/output_lenstronomy_double_quasar/coding_questions.json"
+
+  - name: "lenstronomy_shapelets"
+    python_path: "/home/yjh/.conda/envs/lenstr/bin/python"
+    working_folder: "/home/yjh/lenstronomy_shapelets_sandbox/"
+    questions_file: "/home/yjh/new_flow/output_lenstronomy_shapelets/coding_questions.json"
+
+  - name: "lenstronomy_host_decomp"
+    python_path: "/home/yjh/.conda/envs/lenstr/bin/python"
+    working_folder: "/home/yjh/lenstronomy_host_decomp_sandbox/"
+    questions_file: "/home/yjh/new_flow/output_lenstronomy_host_decomp/coding_questions.json"
+
+  - name: "dpi_task1"
+    python_path: "/home/yjh/.conda/envs/dpi/bin/python"
+    working_folder: "/home/yjh/dpi_task1_sandbox/"
+    questions_file: "/home/yjh/new_flow/output_dpi_task1/coding_questions.json"
+
+  - name: "dpi_task2"
+    python_path: "/home/yjh/.conda/envs/dpi/bin/python"
+    working_folder: "/home/yjh/dpi_task2_sandbox/"
+    questions_file: "/home/yjh/new_flow/output_dpi_task2/coding_questions.json"
+
+  - name: "dpi_task3"
+    python_path: "/home/yjh/.conda/envs/dpi/bin/python"
+    working_folder: "/home/yjh/dpi_task3_sandbox/"
+    questions_file: "/home/yjh/new_flow/output_dpi_task3/coding_questions.json"
+
+
+
+  

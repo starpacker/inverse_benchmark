@@ -1,0 +1,17 @@
+global:
+  sandbox_root: /data/yjh/react_inverse_problem_sandboxes
+  default_settings:
+    model_name: gemini-3-pro-preview
+    max_rounds: 10
+tasks:
+  - name: "diff"
+    python_path: "/home/yjh/.conda/envs/ragas/bin/python"
+    working_folder: "/home/yjh/diff_sandbox/"
+    questions_file: "/home/yjh/new_flow/output_diff_tutorial/coding_questions.json"
+
+# - name: us-beamform-linarray-master
+#   python_path: /usr/local/anaconda3/bin/python
+#   working_folder: /data/yjh/us-beamform-linarray-master_sandbox
+# - name: nirfaster-FF-main_2
+#   python_path: /usr/local/anaconda3/bin/python
+#   working_folder: /data/yjh/nirfaster-FF-main_2_sandbox

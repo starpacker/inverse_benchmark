@@ -1,0 +1,224 @@
+{
+  "task_name": "spectral_ct_examples-master",
+  "code_path": "/data/yjh/spectral_ct_examples-master_sandbox/spectral_ct_code.py",
+  "task_description": "### Task Description\nThe task is to reconstruct a multi-channel (2-material) tomographic image from noisy projection data. Unlike standard CT where noise is often assumed to be independent and identically distributed (i.i.d.), this problem involves **correlated Gaussian noise** between the two channels. To handle this, the reconstruction must account for the noise covariance structure (data whitening). Furthermore, since the two material channels (e.g., bone and soft tissue) share similar structural boundaries, the reconstruction must utilize a joint prior that encourages structural similarity between the channels.\n\n### Known Information\n*   **Observations ($y$):** A set of noisy sinograms with shape $(2, N_{angles}, N_{detectors})$, representing projections of two distinct materials.\n*   **Forward Operator ($\\mathcal{A}$):** The Ray Transform (Radon Transform), applied diagonally to both material channels.\n*   **Noise Statistics ($\\Sigma$):** The noise covariance matrix between the channels is estimated from the data, allowing for the computation of a whitening matrix $W = \\Sigma^{-1/2}$.\n\n### Goal\nRecover the clean, multi-channel volume $x$ (shape $2 \\times H \\times W$) that minimizes the data discrepancy while satisfying the regularization constraints.\n\n### Regularization\n1.  **Data Fidelity:** Weighted $L_2$-norm squared (Whitened Least Squares), mathematically $\\| W(\\mathcal{A}x - y) \\|_2^2$, to account for correlated noise.\n2.  **Regularizer:** **Nuclear Norm of the Gradient** (often referred to as Joint Total Variation or Vectorial TV). This penalizes the nuclear norm of the Jacobian matrix of the image, encouraging the gradients of the two channels to be aligned (co-occurring edges).\n3.  **Constraint:** Non-negativity indicator function ($x \\geq 0$).\n\n### Algorithm\n**Douglas-Rachford Primal-Dual** splitting algorithm.",
+  "golden_plan": {
+    "algorithm_name": "Douglas-Rachford Primal-Dual for Multi-Material Tomography with Whitening and Nuclear Norm Regularization",
+    "objective_function": "\\min_{x \\geq 0} \\frac{1}{2} \\| W(Ax - b) \\|_2^2 + \\lambda \\| \\nabla x \\|_*",
+    "variables": {
+      "primal": [
+        "x"
+      ],
+      "dual": [
+        "y_1",
+        "y_2"
+      ],
+      "constants": [
+        "A (Diagonal Ray Transform)",
+        "W (Whitening Operator)",
+        "b (Noisy Data)",
+        "\\lambda (Regularization Parameter)",
+        "\\tau (Primal Step Size)",
+        "\\sigma (Dual Step Sizes)"
+      ]
+    },
+    "initialization": [
+      {
+        "variable": "x",
+        "value": "Filtered Back Projection (FBP) of input data",
+        "shape": "(2, 512, 512)"
+      },
+      {
+        "variable": "W",
+        "value": "Fractional matrix power (-0.5) of estimated covariance matrix",
+        "shape": "(2, 2) acting on sinogram channels"
+      },
+      {
+        "variable": "tau",
+        "value": "1.0",
+        "shape": "scalar"
+      },
+      {
+        "variable": "sigma",
+        "value": "(1.0/||WA||^2, 1.0/||Grad||^2)",
+        "shape": "tuple of scalars"
+      }
+    ],
+    "iteration_loop": [
+      {
+        "step_order": 1,
+        "step_name": "Primal Update (Proximal of Indicator Function)",
+        "mathematical_formula": "x^{k+1} = \\text{prox}_{\\tau f}(x^k - \\tau \\sum_i K_i^* y_i^k) = \\max(0, x^k - \\tau ( (WA)^* y_1^k + (\\nabla)^* y_2^k ))",
+        "operator_requirements": [
+          "Adjoint of Whitened Ray Transform",
+          "Adjoint of Gradient (Divergence)"
+        ],
+        "input_variables": [
+          "x",
+          "y_1",
+          "y_2"
+        ],
+        "output_variables": [
+          "x"
+        ]
+      },
+      {
+        "step_order": 2,
+        "step_name": "Dual Update 1 (Data Fidelity)",
+        "mathematical_formula": "y_1^{k+1} = \\text{prox}_{\\sigma_1 g_1^*}(y_1^k + \\sigma_1 K_1(2x^{k+1} - x^k))",
+        "operator_requirements": [
+          "Whitened Ray Transform",
+          "Proximal of Conjugate L2 Norm Squared"
+        ],
+        "input_variables": [
+          "x",
+          "y_1"
+        ],
+        "output_variables": [
+          "y_1"
+        ]
+      },
+      {
+        "step_order": 3,
+        "step_name": "Dual Update 2 (Regularization)",
+        "mathematical_formula": "y_2^{k+1} = \\text{prox}_{\\sigma_2 g_2^*}(y_2^k + \\sigma_2 K_2(2x^{k+1} - x^k))",
+        "operator_requirements": [
+          "Gradient Operator",
+          "Proximal of Conjugate Nuclear Norm"
+        ],
+        "input_variables": [
+          "x",
+          "y_2"
+        ],
+        "output_variables": [
+          "y_2"
+        ]
+      }
+    ],
+    "stopping_criterion": "Fixed number of iterations (50)"
+  },
+  "candidate_plan": {
+    "algorithm_name": "Douglas-Rachford Primal-Dual Splitting for Multi-Channel Tomographic Reconstruction",
+    "initialization": [
+      "Set initial guess for the multi-channel volume: x_0 = zeros(2, H, W)",
+      "Compute the whitening matrix W = \u03a3^(-1/2) using the noise covariance matrix \u03a3",
+      "Initialize the primal variable: p_0 = 0",
+      "Initialize the dual variable: q_0 = 0"
+    ],
+    "iteration_loop": [
+      {
+        "step_order": 1,
+        "step_name": "Gradient Step for Primal Variable (x)",
+        "mathematical_description": "x_{k+1} = \\text{prox}_{\\lambda_1 \\| \\nabla \\cdot \\|_*}(x_k - \\tau W^T \\mathcal{A}^T (\\mathcal{A}x_k - y))",
+        "required_operators": [
+          "Forward Operator",
+          "Jacobian",
+          "Nuclear Norm Proximal Operator",
+          "Matrix Transpose",
+          "Matrix Multiplication"
+        ],
+        "inputs": [
+          "x_k",
+          "W",
+          "y",
+          "\u03c4",
+          "\u03bb1"
+        ],
+        "outputs": [
+          "x_{k+1}"
+        ]
+      },
+      {
+        "step_order": 2,
+        "step_name": "Gradient Step for Primal Variable (p)",
+        "mathematical_description": "p_{k+1} = \\text{prox}_{\\lambda_2 \\| \\nabla \\cdot \\|_*}(p_k - \\tau W^T \\mathcal{A}^T (\\mathcal{A}p_k - y))",
+        "required_operators": [
+          "Forward Operator",
+          "Jacobian",
+          "Nuclear Norm Proximal Operator",
+          "Matrix Transpose",
+          "Matrix Multiplication"
+        ],
+        "inputs": [
+          "p_k",
+          "W",
+          "y",
+          "\u03c4",
+          "\u03bb2"
+        ],
+        "outputs": [
+          "p_{k+1}"
+        ]
+      },
+      {
+        "step_order": 3,
+        "step_name": "Dual Variable Update (q)",
+        "mathematical_description": "q_{k+1} = q_k + \\gamma (\\mathcal{A}x_{k+1} - y)",
+        "required_operators": [
+          "Forward Operator",
+          "Matrix Multiplication",
+          "Addition"
+        ],
+        "inputs": [
+          "q_k",
+          "x_{k+1}",
+          "y",
+          "\u03b3"
+        ],
+        "outputs": [
+          "q_{k+1}"
+        ]
+      },
+      {
+        "step_order": 4,
+        "step_name": "Proximity Operator for Primal-Dual Updates",
+        "mathematical_description": "x_{k+1} = \\text{prox}_{\\lambda_1 \\| \\nabla \\cdot \\|_*}(x_k - \\tau W^T \\mathcal{A}^T (\\mathcal{A}x_k - y))",
+        "required_operators": [
+          "Forward Operator",
+          "Nuclear Norm Proximal Operator",
+          "Matrix Transpose",
+          "Matrix Multiplication"
+        ],
+        "inputs": [
+          "x_k",
+          "W",
+          "y",
+          "\u03c4",
+          "\u03bb1"
+        ],
+        "outputs": [
+          "x_{k+1}"
+        ]
+      },
+      {
+        "step_order": 5,
+        "step_name": "Stopping Criterion Check",
+        "mathematical_description": "if \\|x_{k+1} - x_k\\|_2 < \\epsilon, stop iteration",
+        "required_operators": [
+          "Norm Computation"
+        ],
+        "inputs": [
+          "x_{k+1}",
+          "x_k",
+          "\u03b5"
+        ],
+        "outputs": []
+      }
+    ],
+    "_meta": {
+      "generated_at": "2026-01-11T21:22:38.979607",
+      "model": "gpt-5.2-thinking"
+    }
+  },
+  "evaluation": {
+    "step_by_step_analysis": "### Step-by-Step Analysis\n\n1.  **Algorithm Identification**: The Task Description asks for a \"Douglas-Rachford Primal-Dual\" algorithm (often synonymous with Chambolle-Pock/PDHG in this context) to solve a problem involving a Whitened Least Squares data term and a Nuclear Norm of Gradient regularizer. The Reference Plan correctly implements a Primal-Dual splitting method with one primal variable ($x$) and two dual variables ($y_1$ for data fidelity, $y_2$ for regularization).\n\n2.  **Candidate Plan Overview**: The Candidate Plan proposes a confusing mix of steps. It initializes variables `x`, `p`, and `q`. It then defines a loop with 5 steps.\n\n3.  **Metric 1: Completeness**:\n    *   The Reference Plan requires specific operators: Whitened Ray Transform ($WA$), Gradient ($\\nabla$), and their adjoints, plus proximal operators for the indicator function (non-negativity), the conjugate of the L2 norm, and the conjugate of the Nuclear Norm.\n    *   The Candidate Plan mentions \"Forward Operator\", \"Jacobian\", and \"Nuclear Norm Proximal Operator\". However, it misses the *Dual* proximal operators entirely. It attempts to solve the problem using what looks like a Gradient Descent or Proximal Gradient Descent approach (Forward-Backward splitting) rather than a Primal-Dual splitting approach, but even then, the formulation is flawed.\n    *   Crucially, the Candidate Plan does not explicitly handle the dual variables for the specific terms defined in the Reference Plan (Data Fidelity vs Regularization split). It tries to apply the Nuclear Norm prox directly on $x$ after a gradient descent step on the data fidelity, which is Proximal Gradient, not Primal-Dual.\n\n4.  **Metric 2: Mathematical Correctness**:\n    *   **Step 1 & 2**: The Candidate defines two identical steps for variables `x` and `p`. The formula $x_{k+1} = \\text{prox}_{\\dots}(x_k - \\tau \\nabla f(x_k))$ is a Proximal Gradient step. However, the gradient term $\\nabla f(x_k)$ is written as $W^T \\mathcal{A}^T (\\mathcal{A}x_k - y)$. This is mathematically incorrect for the Whitened Least Squares objective $\\| W(\\mathcal{A}x - y) \\|_2^2$. The correct gradient is $\\mathcal{A}^T W^T W (\\mathcal{A}x - y)$. The Candidate misses one $W$ (or $W^T$).\n    *   **Step 3**: This introduces a variable `q` updated via $q_{k+1} = q_k + \\gamma (\\mathcal{A}x_{k+1} - y)$. This looks like a Method of Multipliers update, which contradicts the Primal-Dual or Proximal Gradient logic established in Steps 1/2.\n    *   **Step 4**: This repeats Step 1 identically. This is redundant and algorithmically nonsensical.\n    *   **Overall**: The Candidate fails to implement the requested Primal-Dual algorithm. It mixes up Proximal Gradient Descent (FISTA-like) with Augmented Lagrangian methods, and even the gradient calculation is missing a term ($W^T W$).\n\n5.  **Metric 3: Logical Dependency**:\n    *   The flow is disjointed. Why are there variables `x` and `p` doing the exact same thing? `p` is never used in Step 3 or 4.\n    *   Step 4 overwrites `x_{k+1}` calculated in Step 1, rendering Step 1 useless.\n    *   The variable `q` is updated but never used to influence `x` or `p` in the next iteration (it is not an input to Step 1 or 2 in the next loop). This breaks the feedback loop required for convergence.\n\n6.  **Conclusion**: The Candidate Plan is a hallucination of mathematical terms that does not form a coherent algorithm, let alone the specific Primal-Dual one requested.",
+    "completeness_score": 2,
+    "completeness_reason": "The candidate mentions some relevant operators (Forward, Nuclear Norm prox) but misses the specific dual proximal operators required for the Primal-Dual splitting of the Reference Plan. It completely fails to structure the problem as a splitting of two functions.",
+    "correctness_score": 1,
+    "correctness_reason": "Major mathematical errors. 1) The gradient of the whitened data term is missing a W factor (should be A^T W^T W A, written as W^T A^T A). 2) It mixes Proximal Gradient steps with an Augmented Lagrangian dual update that feeds back into nothing. 3) Step 4 overwrites Step 1. 4) Variables 'p' and 'q' are effectively useless or disconnected.",
+    "logical_dependency_score": 1,
+    "logical_dependency_reason": "The data flow is broken. Variable 'q' is updated but never used in subsequent steps (no feedback loop). Variable 'p' is calculated but never used. Step 4 overwrites the output of Step 1.",
+    "final_weighted_score": 1.3,
+    "is_pass": false
+  }
+}

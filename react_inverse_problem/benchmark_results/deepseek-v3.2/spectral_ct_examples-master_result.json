@@ -1,0 +1,205 @@
+{
+  "task_name": "spectral_ct_examples-master",
+  "code_path": "/data/yjh/spectral_ct_examples-master_sandbox/spectral_ct_code.py",
+  "task_description": "### Task Description\nThe task is to reconstruct a multi-channel (2-material) tomographic image from noisy projection data. Unlike standard CT where noise is often assumed to be independent and identically distributed (i.i.d.), this problem involves **correlated Gaussian noise** between the two channels. To handle this, the reconstruction must account for the noise covariance structure (data whitening). Furthermore, since the two material channels (e.g., bone and soft tissue) share similar structural boundaries, the reconstruction must utilize a joint prior that encourages structural similarity between the channels.\n\n### Known Information\n*   **Observations ($y$):** A set of noisy sinograms with shape $(2, N_{angles}, N_{detectors})$, representing projections of two distinct materials.\n*   **Forward Operator ($\\mathcal{A}$):** The Ray Transform (Radon Transform), applied diagonally to both material channels.\n*   **Noise Statistics ($\\Sigma$):** The noise covariance matrix between the channels is estimated from the data, allowing for the computation of a whitening matrix $W = \\Sigma^{-1/2}$.\n\n### Goal\nRecover the clean, multi-channel volume $x$ (shape $2 \\times H \\times W$) that minimizes the data discrepancy while satisfying the regularization constraints.\n\n### Regularization\n1.  **Data Fidelity:** Weighted $L_2$-norm squared (Whitened Least Squares), mathematically $\\| W(\\mathcal{A}x - y) \\|_2^2$, to account for correlated noise.\n2.  **Regularizer:** **Nuclear Norm of the Gradient** (often referred to as Joint Total Variation or Vectorial TV). This penalizes the nuclear norm of the Jacobian matrix of the image, encouraging the gradients of the two channels to be aligned (co-occurring edges).\n3.  **Constraint:** Non-negativity indicator function ($x \\geq 0$).\n\n### Algorithm\n**Douglas-Rachford Primal-Dual** splitting algorithm.",
+  "golden_plan": {
+    "algorithm_name": "Douglas-Rachford Primal-Dual for Multi-Material Tomography with Whitening and Nuclear Norm Regularization",
+    "objective_function": "\\min_{x \\geq 0} \\frac{1}{2} \\| W(Ax - b) \\|_2^2 + \\lambda \\| \\nabla x \\|_*",
+    "variables": {
+      "primal": [
+        "x"
+      ],
+      "dual": [
+        "y_1",
+        "y_2"
+      ],
+      "constants": [
+        "A (Diagonal Ray Transform)",
+        "W (Whitening Operator)",
+        "b (Noisy Data)",
+        "\\lambda (Regularization Parameter)",
+        "\\tau (Primal Step Size)",
+        "\\sigma (Dual Step Sizes)"
+      ]
+    },
+    "initialization": [
+      {
+        "variable": "x",
+        "value": "Filtered Back Projection (FBP) of input data",
+        "shape": "(2, 512, 512)"
+      },
+      {
+        "variable": "W",
+        "value": "Fractional matrix power (-0.5) of estimated covariance matrix",
+        "shape": "(2, 2) acting on sinogram channels"
+      },
+      {
+        "variable": "tau",
+        "value": "1.0",
+        "shape": "scalar"
+      },
+      {
+        "variable": "sigma",
+        "value": "(1.0/||WA||^2, 1.0/||Grad||^2)",
+        "shape": "tuple of scalars"
+      }
+    ],
+    "iteration_loop": [
+      {
+        "step_order": 1,
+        "step_name": "Primal Update (Proximal of Indicator Function)",
+        "mathematical_formula": "x^{k+1} = \\text{prox}_{\\tau f}(x^k - \\tau \\sum_i K_i^* y_i^k) = \\max(0, x^k - \\tau ( (WA)^* y_1^k + (\\nabla)^* y_2^k ))",
+        "operator_requirements": [
+          "Adjoint of Whitened Ray Transform",
+          "Adjoint of Gradient (Divergence)"
+        ],
+        "input_variables": [
+          "x",
+          "y_1",
+          "y_2"
+        ],
+        "output_variables": [
+          "x"
+        ]
+      },
+      {
+        "step_order": 2,
+        "step_name": "Dual Update 1 (Data Fidelity)",
+        "mathematical_formula": "y_1^{k+1} = \\text{prox}_{\\sigma_1 g_1^*}(y_1^k + \\sigma_1 K_1(2x^{k+1} - x^k))",
+        "operator_requirements": [
+          "Whitened Ray Transform",
+          "Proximal of Conjugate L2 Norm Squared"
+        ],
+        "input_variables": [
+          "x",
+          "y_1"
+        ],
+        "output_variables": [
+          "y_1"
+        ]
+      },
+      {
+        "step_order": 3,
+        "step_name": "Dual Update 2 (Regularization)",
+        "mathematical_formula": "y_2^{k+1} = \\text{prox}_{\\sigma_2 g_2^*}(y_2^k + \\sigma_2 K_2(2x^{k+1} - x^k))",
+        "operator_requirements": [
+          "Gradient Operator",
+          "Proximal of Conjugate Nuclear Norm"
+        ],
+        "input_variables": [
+          "x",
+          "y_2"
+        ],
+        "output_variables": [
+          "y_2"
+        ]
+      }
+    ],
+    "stopping_criterion": "Fixed number of iterations (50)"
+  },
+  "candidate_plan": {
+    "algorithm_name": "Douglas-Rachford Primal-Dual for Multi-Channel CT with Whitening and Joint TV",
+    "initialization": [
+      "Initialize primal variable x_0 (2 x H x W) to zero or filtered backprojection.",
+      "Initialize dual variable v_0 for the data term to zeros of same shape as y (2, N_angles, N_detectors).",
+      "Initialize dual variable z_0 for the regularizer to zeros of shape (2, 2, H, W) representing the Jacobian field.",
+      "Set parameters: step sizes sigma > 0, tau > 0 such that sigma * tau < 1 / (||A||^2 + 8) for convergence.",
+      "Precompute the whitening matrix W = Sigma^{-1/2} and its adjoint W*."
+    ],
+    "iteration_loop": [
+      {
+        "step_order": 1,
+        "step_name": "Dual Update for Data Fidelity",
+        "mathematical_description": "v_{k+1} = \\text{prox}_{\\sigma f^*}(v_k + \\sigma W \\mathcal{A} \\bar{x}_k), where f^*(v) = \\frac{1}{2}\\|v + \\sigma W y\\|_2^2 - \\frac{\\sigma}{2}\\|W y\\|_2^2. This simplifies to: v_{k+1} = \\frac{v_k + \\sigma W (\\mathcal{A} \\bar{x}_k - y)}{1 + \\sigma}.",
+        "required_operators": [
+          "Whitened Forward Projection (W * A)",
+          "Scalar Multiplication",
+          "Vector Addition"
+        ],
+        "inputs": [
+          "v_k",
+          "x_bar_k",
+          "W",
+          "A",
+          "y",
+          "sigma"
+        ],
+        "outputs": [
+          "v_{k+1}"
+        ]
+      },
+      {
+        "step_order": 2,
+        "step_name": "Dual Update for Regularizer (Joint TV)",
+        "mathematical_description": "z_{k+1} = \\text{prox}_{\\sigma g^*}(z_k + \\sigma \\nabla \\bar{x}_k), where g^*(z) is the indicator of the spectral norm ball {z : \\|z\\|_{2,*} \\leq \\lambda}. The proximal operator is z_{k+1} = \\mathcal{P}_{\\|\\cdot\\|_{2,*} \\leq \\lambda}(z_k + \\sigma \\nabla \\bar{x}_k), performing singular value thresholding per spatial pixel to project onto the spectral norm ball of radius lambda.",
+        "required_operators": [
+          "Gradient Operator (nabla)",
+          "Spectral Norm Projection (per-pixel SVD, thresholding)"
+        ],
+        "inputs": [
+          "z_k",
+          "x_bar_k",
+          "sigma",
+          "lambda"
+        ],
+        "outputs": [
+          "z_{k+1}"
+        ]
+      },
+      {
+        "step_order": 3,
+        "step_name": "Primal Update",
+        "mathematical_description": "x_{k+1} = \\text{prox}_{\\tau h}(x_k - \\tau ( \\mathcal{A}^* W^* v_{k+1} + \\text{div} z_{k+1} )), where h(x) is the non-negativity indicator. This simplifies to: x_{k+1} = \\max(0, x_k - \\tau ( \\mathcal{A}^* W^* v_{k+1} + \\text{div} z_{k+1} )).",
+        "required_operators": [
+          "Whitened Backprojection (A* * W*)",
+          "Divergence Operator (div)",
+          "Scalar Multiplication",
+          "Vector Addition",
+          "Pointwise Maximum (threshold at 0)"
+        ],
+        "inputs": [
+          "x_k",
+          "v_{k+1}",
+          "z_{k+1}",
+          "A*",
+          "W*",
+          "tau"
+        ],
+        "outputs": [
+          "x_{k+1}"
+        ]
+      },
+      {
+        "step_order": 4,
+        "step_name": "Relaxation Step",
+        "mathematical_description": "\\bar{x}_{k+1} = 2 x_{k+1} - x_k.",
+        "required_operators": [
+          "Scalar Multiplication",
+          "Vector Addition"
+        ],
+        "inputs": [
+          "x_{k+1}",
+          "x_k"
+        ],
+        "outputs": [
+          "x_bar_{k+1}"
+        ]
+      }
+    ],
+    "_meta": {
+      "generated_at": "2026-01-11T21:03:05.190136",
+      "model": "deepseek-v3.2"
+    }
+  },
+  "evaluation": {
+    "step_by_step_analysis": "### Analysis\n\n**1. Completeness:**\nThe Candidate Plan successfully identifies all critical components of the task. \n- It incorporates the **Whitening Matrix** ($W$) and its adjoint into the data fidelity term.\n- It correctly identifies the **Nuclear Norm** regularizer and handles it via its dual (Spectral Norm projection).\n- It includes the **Forward Operator** (Ray Transform) and the **Gradient** operator.\n- It explicitly mentions the **Non-negativity** constraint.\n\n**2. Mathematical Correctness:**\n- **Dual Update (Data Fidelity):** The derived formula $v_{k+1} = \\frac{v_k + \\sigma W (\\mathcal{A} \\bar{x}_k - y)}{1 + \\sigma}$ is the correct closed-form solution for the proximal operator of the conjugate of a shifted quadratic (Least Squares) term in the Chambolle-Pock algorithm.\n- **Dual Update (Regularizer):** The candidate correctly identifies that the proximal operator for the dual of the Nuclear Norm is the projection onto the Spectral Norm ball (involving SVD and thresholding singular values). This is a non-trivial and correct derivation.\n- **Primal Update:** The candidate uses the formula $x_{k+1} = \\text{prox}_{\\tau h}(x_k - \\tau ( \\mathcal{A}^* W^* v_{k+1} + \\text{div} z_{k+1} ))$. There is a likely sign error here. The adjoint of the gradient $\\nabla$ is usually defined as $-\\text{div}$. Therefore, the update term $-\\tau \\nabla^* z$ should become $+\\tau \\text{div} z$. The candidate writes $-\\tau \\text{div} z$, effectively retaining the negative sign. Unless the candidate defines $\\text{div}$ as the negative divergence (non-standard), this is a sign error.\n- **Relaxation:** The step $\\bar{x}_{k+1} = 2 x_{k+1} - x_k$ is correct for this variant of the algorithm.\n\n**3. Logical Dependency:**\n- The sequence of operations (Dual updates $\\to$ Primal update $\\to$ Relaxation) is a valid implementation of the Douglas-Rachford/Chambolle-Pock algorithm.\n- All variables ($v, z, x, \\bar{x}$) are properly initialized or updated in a closed loop.\n- The dimensionality is handled correctly (e.g., applying SVD per pixel for the Jacobian field).\n\n**Conclusion:**\nThe plan is excellent, demonstrating a deep understanding of the specific proximal operators required for Whitened Least Squares and Nuclear Norm regularization. The only flaw is a minor sign convention error in the primal update step.",
+    "completeness_score": 5,
+    "completeness_reason": "All necessary physical operators (Whitening, Ray Transform) and mathematical operators (Gradient, Spectral Norm Projection, Adjoints) are present.",
+    "correctness_score": 4,
+    "correctness_reason": "The derivations for the specific proximal operators (Data Fidelity and Nuclear Norm) are sophisticated and correct. However, there is a standard sign error in the Primal Update step involving the divergence (should be +tau*div, is written as -tau*div).",
+    "logical_dependency_score": 5,
+    "logical_dependency_reason": "The data flow is valid. The algorithm follows the standard Chambolle-Pock loop structure (Dual -> Primal -> Extrapolation) correctly.",
+    "final_weighted_score": 4.6,
+    "is_pass": true
+  }
+}

@@ -1,0 +1,33 @@
+STDOUT:
+Loading input data...
+Input data type: <class 'numpy.ndarray'>, dtype: float32, shape: (81, 256, 256)
+Loaded diffraction patterns: shape=(81, 256, 256)
+Loaded probe from dataset/probe.npy: shape=(2, 256, 256)
+Loaded scan positions from dataset/scan_positions.npy: shape=(81, 2)
+Diffraction patterns: shape=(81, 256, 256), dtype=float64
+Probe: shape=(2, 256, 256), dtype=float64
+Scan positions: shape=(81, 2), min=[0 0], max=[320 320]
+N positions: 81, probe size: (256, 256), grid size: 9
+Phase 1: Running 200 epochs of ePIE...
+  Phase 1 Epoch 0: Fourier error = 8.106059e-01
+  Phase 1 Epoch 20: Fourier error = 2.959338e-02
+  Phase 1 Epoch 40: Fourier error = 2.153390e-02
+  Phase 1 Epoch 60: Fourier error = 1.853069e-02
+  Phase 1 Epoch 80: Fourier error = 1.685183e-02
+  Phase 1 Epoch 100: Fourier error = 1.574976e-02
+  Phase 1 Epoch 120: Fourier error = 1.495732e-02
+  Phase 1 Epoch 140: Fourier error = 1.435268e-02
+  Phase 1 Epoch 160: Fourier error = 1.387238e-02
+  Phase 1 Epoch 180: Fourier error = 1.347851e-02
+  Phase 1 Epoch 199: Fourier error = 1.316278e-02
+Support mask correlation: 0.0107
+  Correlation 0.0107 < threshold 0.5, skipping Phase 2
+Final Fourier error: 1.316278e-02
+Output shape: (2, 600, 600), dtype: float64
+Amplitude range: [0.000042, 0.200961]
+Phase range: [-3.141545, 3.141319]
+Saving result: shape=(2, 600, 600), dtype=float64
+Done. Output saved to output.npy
+
+
+STDERR:

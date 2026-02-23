@@ -1,0 +1,27 @@
+STDOUT:
+Input data shape: (81, 256, 256), dtype: float32
+Loaded 81 diffraction patterns of shape 256x256
+Scan grid: 9 x 9
+Derived parameters: n_obj=450, probe_diam=130, pitch=30, pad=22
+Probe fits in detector: 130 <= 256: True
+
+Trying probe_type='airy'...
+Object shape: (450, 450), Probe shape: (130, 130)
+Scan positions: 81, expected: 81
+R_substrate: (0.00497068892658153+0.004023053701372534j)
+R_cu: (0.022888356629052694-0.02880503605304215j)
+Running rpPIE with 81 positions, 200 iterations...
+Final object error: 1.242004e+01
+Final phase error: 1.532234e+00 rad
+Final Fourier error: 7.039173e-02
+
+Running standard PIE baseline for comparison...
+PIE baseline final object error: 8.759674e+01
+
+Saving result of shape (450, 450), dtype complex128
+Done. Output saved to output.npy
+
+
+STDERR:
+/home/yjh/agentic_reproduce/paper_sandbox/samsung_sandbox/solver.py:629: RuntimeWarning: invalid value encountered in divide
+  measured_amplitude * (psi_k / modulus),

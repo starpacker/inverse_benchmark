@@ -1,0 +1,62 @@
+# Done
+
+global:
+  sandbox_root: /data/yjh/react_inverse_problem_sandboxes
+  default_settings:
+    model_name: gemini-3-pro-preview
+    max_rounds: 10
+tasks:
+- name: mripy-master
+  python_path: /usr/local/anaconda3/bin/python
+  working_folder: /data/yjh/mripy-master_sandbox
+- name: oct-cbort-main
+  python_path: /usr/local/anaconda3/bin/python
+  working_folder: /data/yjh/oct-cbort-main_sandbox
+- name: phasorpy-main
+  python_path: /home/yjh/.conda/envs/phasorpy_env/bin/python
+  working_folder: /data/yjh/phasorpy-main_sandbox
+- name: PtyLab-main
+  python_path: /data/yjh/ptylab_env/bin/python
+  working_folder: /data/yjh/PtyLab-main_sandbox
+- name: PyAbel-master
+  python_path: /data/yjh/pyabel_env/bin/python
+  working_folder: /data/yjh/PyAbel-master_sandbox
+- name: pyDHM-master
+  python_path: /data/yjh/pydhm_env/bin/python
+  working_folder: /data/yjh/pyDHM-master_sandbox
+- name: PyHoloscope-main
+  python_path: /data/yjh/pyholoscope_new_env/bin/python
+  working_folder: /data/yjh/PyHoloscope-main_sandbox
+- name: PySMLFM-main
+  python_path: /data/yjh/pysmlfm_env/bin/python
+  working_folder: /data/yjh/PySMLFM-main_sandbox
+- name: PyTomography-main
+  python_path: /usr/local/anaconda3/bin/python
+  working_folder: /data/yjh/PyTomography-main_sandbox
+- name: s2ISM-main
+  python_path: /data/yjh/s2ism_env/bin/python
+  working_folder: /data/yjh/s2ISM-main_sandbox
+- name: semiblindpsfdeconv-master
+  python_path: /data/yjh/semiblind/bin/python
+  working_folder: /data/yjh/semiblindpsfdeconv-master_sandbox
+- name: spectral_ct_examples-master
+  python_path: /home/yjh/.conda/envs/spectral_ct/bin/python
+  working_folder: /data/yjh/spectral_ct_examples-master_sandbox
+- name: storm-analysis-master
+  python_path: /data/yjh/storm_env/bin/python
+  working_folder: /data/yjh/storm-analysis-master_sandbox
+- name: structured-light-python-main
+  python_path: /data/yjh/structured_light_env/bin/python
+  working_folder: /data/yjh/structured-light-python-main_sandbox
+- name: svmbir-master
+  python_path: python
+  working_folder: /data/yjh/svmbir-master_sandbox
+- name: tomopy-master
+  python_path: python
+  working_folder: /data/yjh/tomopy-master_sandbox
+- name: us-beamform-linarray-master
+  python_path: /usr/local/anaconda3/bin/python
+  working_folder: /data/yjh/us-beamform-linarray-master_sandbox
+- name: nirfaster-FF-main_2
+  python_path: /usr/local/anaconda3/bin/python
+  working_folder: /data/yjh/nirfaster-FF-main_2_sandbox

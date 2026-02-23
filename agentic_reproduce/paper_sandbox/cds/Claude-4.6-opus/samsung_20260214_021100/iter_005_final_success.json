@@ -1,0 +1,12 @@
+{
+  "exp_id": "samsung_20260214_021100",
+  "iteration": 5,
+  "stage": "final_success",
+  "timestamp": "2026-02-14 02:50:04",
+  "metrics": {
+    "psnr": 10.1902,
+    "ssim": 0.435071
+  },
+  "threshold": 8.77496,
+  "solver_code_path": "iter_05_solver.py"
+}

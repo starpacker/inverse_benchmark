@@ -1,0 +1,12 @@
+STDOUT:
+
+
+STDERR:
+Traceback (most recent call last):
+  File "/home/yjh/agentic_reproduce/paper_sandbox/samsung_sandbox/solver.py", line 1709, in <module>
+    result = solver.solve(
+  File "/home/yjh/agentic_reproduce/paper_sandbox/samsung_sandbox/solver.py", line 1572, in solve
+    result = self._run_rppie(
+  File "/home/yjh/agentic_reproduce/paper_sandbox/samsung_sandbox/solver.py", line 1118, in _run_rppie
+    probe_h, probe_w = probe.shape
+ValueError: too many values to unpack (expected 2)

@@ -1,0 +1,32 @@
+STDOUT:
+Loading input data...
+Input shape: (81, 256, 256), dtype: float32
+Input min: 0.0, max: 0.3063772916793823, mean: 0.010258392430841923
+Starting reconstruction...
+Output shape: (2, 600, 600), dtype: float32
+Amplitude - min: nan, max: nan, mean: nan
+Phase - min: nan, max: nan, mean: nan
+Error history (first 5): [1.7458881597906571e+28, 1.0839883729111598e+55, 7.94642566326916e+81, 5.964367411904058e+108, 4.493081889013523e+135]
+Error history (last 5): [nan, nan, nan, nan, nan]
+Result saved to output.npy
+
+
+STDERR:
+/home/yjh/agentic_reproduce/paper_sandbox/samsung_sandbox/solver.py:586: RuntimeWarning: overflow encountered in multiply
+  P += current_alpha_P * O_conj / (O_max * (O_abs2 + reg_P) + self.eps) * delta_psi
+/home/yjh/agentic_reproduce/paper_sandbox/samsung_sandbox/solver.py:583: RuntimeWarning: overflow encountered in square
+  O_abs2 = np.abs(O_patch_new) ** 2
+/home/yjh/agentic_reproduce/paper_sandbox/samsung_sandbox/solver.py:585: RuntimeWarning: overflow encountered in scalar power
+  reg_P = self.reg_P_factor * O_max ** 2
+/home/yjh/agentic_reproduce/paper_sandbox/samsung_sandbox/solver.py:449: RuntimeWarning: overflow encountered in square
+  numerator = np.sum((measured - Psi_amp) ** 2)
+/home/yjh/agentic_reproduce/paper_sandbox/samsung_sandbox/solver.py:577: RuntimeWarning: overflow encountered in multiply
+  O[ry:ry + ps, rx:rx + ps] += current_alpha_O * P_conj / (P_max * (P_abs2 + reg_O) + self.eps) * delta_psi
+/home/yjh/agentic_reproduce/paper_sandbox/samsung_sandbox/solver.py:586: RuntimeWarning: invalid value encountered in multiply
+  P += current_alpha_P * O_conj / (O_max * (O_abs2 + reg_P) + self.eps) * delta_psi
+/home/yjh/agentic_reproduce/paper_sandbox/samsung_sandbox/solver.py:586: RuntimeWarning: invalid value encountered in divide
+  P += current_alpha_P * O_conj / (O_max * (O_abs2 + reg_P) + self.eps) * delta_psi
+/home/yjh/agentic_reproduce/paper_sandbox/samsung_sandbox/solver.py:303: RuntimeWarning: invalid value encountered in divide
+  Psi_c = measured_amplitude * Psi / (Psi_amp + self.eps)
+/home/yjh/agentic_reproduce/paper_sandbox/samsung_sandbox/solver.py:577: RuntimeWarning: invalid value encountered in divide
+  O[ry:ry + ps, rx:rx + ps] += current_alpha_O * P_conj / (P_max * (P_abs2 + reg_O) + self.eps) * delta_psi

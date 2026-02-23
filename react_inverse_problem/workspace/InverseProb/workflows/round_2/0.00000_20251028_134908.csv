@@ -1,0 +1,16 @@
+inputs,prediction,score,cost
+"## Question description
+
+### Problem settings
+
+* Structured illumination microscopy (SIM) is more photon efficient than other SR methods in increasing the spatial resolution, and can operate at temporal resolutions up to 100 Hz. However, because SIM reconstruction is essentially an ill-posed inverse problem that is prone to reconstruction artifacts21, the fidelity and the quantitative nature of conventional Wiener reconstruction have been challenged.
+
+* For this SIM deconvolution problem, we propose to use an algorithm that incorporates both sparsity and continuity as the a priori knowledge to constrain the iterative deconvolution, which is known as the Sparse deconvolution method for SIM.
+
+* The input is the collected SIM image
+
+* The objective of this task is to deconvolute the collected SIM image with both **sparsity** and **continuity prior**.
+
+### Dataset Description
+
+* 2colorActin.tif: a tif file containing colected SIM data with shape of (5, 1152, 1152), 5 is the time axis and 1152 is the height and width. For this sequence of data, perform a step-by-step deconvolution.The path to the file is /fs-computility/pdz02_sunhe/shared/AFlow/inversedata/2colorActin.tif",1,0.0,0.0

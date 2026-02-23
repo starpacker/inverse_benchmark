@@ -1,0 +1,176 @@
+{
+  "golden_plan": {
+    "algorithm_name": "ADMM for Lensless Imaging with TV Regularization",
+    "objective_function": "\\min_{x} \\frac{1}{2} ||Ax - y||_2^2 + \\tau ||\\Psi x||_1 + I_{\\geq 0}(x)",
+    "variables": {
+      "primal": [
+        "image_est (x)",
+        "X (auxiliary for data fidelity)",
+        "U (auxiliary for TV)",
+        "W (auxiliary for non-negativity)"
+      ],
+      "dual": [
+        "xi (Lagrange multiplier for X)",
+        "eta (Lagrange multiplier for U)",
+        "rho (Lagrange multiplier for W)"
+      ],
+      "constants": [
+        "psf (H)",
+        "measurement (y)",
+        "mu1 (penalty parameter)",
+        "mu2 (penalty parameter)",
+        "mu3 (penalty parameter)",
+        "tau (TV weight)",
+        "PsiTPsi (Gram matrix of finite difference operator)"
+      ]
+    },
+    "initialization": [
+      {
+        "variable": "image_est",
+        "value": "Zeros",
+        "shape": "[1, D, H_pad, W_pad, C]"
+      },
+      {
+        "variable": "X",
+        "value": "Zeros",
+        "shape": "Same as image_est"
+      },
+      {
+        "variable": "U",
+        "value": "Zeros",
+        "shape": "Shape of finite_diff(image_est)"
+      },
+      {
+        "variable": "W",
+        "value": "Zeros",
+        "shape": "Same as image_est"
+      },
+      {
+        "variable": "xi",
+        "value": "Zeros",
+        "shape": "Same as image_est"
+      },
+      {
+        "variable": "eta",
+        "value": "Zeros",
+        "shape": "Shape of U"
+      },
+      {
+        "variable": "rho",
+        "value": "Zeros",
+        "shape": "Same as image_est"
+      }
+    ],
+    "iteration_loop": [
+      {
+        "step_order": 1,
+        "step_name": "U Update (TV Soft Thresholding)",
+        "mathematical_formula": "U^{(k+1)} = \\mathcal{S}_{\\tau/\\mu_2} (\\Psi x^{(k)} + \\eta^{(k)}/\\mu_2)",
+        "operator_requirements": [
+          "Finite Difference (Psi)",
+          "Soft Thresholding"
+        ],
+        "input_variables": [
+          "image_est",
+          "eta",
+          "mu2",
+          "tau"
+        ],
+        "output_variables": [
+          "U"
+        ]
+      },
+      {
+        "step_order": 2,
+        "step_name": "X Update (Data Fidelity Auxiliary)",
+        "mathematical_formula": "X^{(k+1)} = (I + \\mu_1)^{-1} (\\xi^{(k)} + \\mu_1 A x^{(k)} + y_{padded})",
+        "operator_requirements": [
+          "Convolution (A)",
+          "Element-wise division"
+        ],
+        "input_variables": [
+          "image_est",
+          "xi",
+          "mu1",
+          "data_padded",
+          "X_divmat"
+        ],
+        "output_variables": [
+          "X"
+        ]
+      },
+      {
+        "step_order": 3,
+        "step_name": "W Update (Non-negativity Projection)",
+        "mathematical_formula": "W^{(k+1)} = \\max(0, x^{(k)} + \\rho^{(k)}/\\mu_3)",
+        "operator_requirements": [
+          "Element-wise maximum"
+        ],
+        "input_variables": [
+          "image_est",
+          "rho",
+          "mu3"
+        ],
+        "output_variables": [
+          "W"
+        ]
+      },
+      {
+        "step_order": 4,
+        "step_name": "Image Update (Primal x via FFT)",
+        "mathematical_formula": "x^{(k+1)} = \\mathcal{F}^{-1} \\left[ \\frac{\\mathcal{F}[\\mu_3 W - \\rho + \\Psi^T(\\mu_2 U - \\eta) + A^T(\\mu_1 X - \\xi)]}{\\mu_1 |\\hat{H}|^2 + \\mu_2 |\\hat{\\Psi}|^2 + \\mu_3} \\right]",
+        "operator_requirements": [
+          "FFT",
+          "IFFT",
+          "Adjoint Finite Difference (Psi^T)",
+          "Adjoint Convolution (A^T)"
+        ],
+        "input_variables": [
+          "W",
+          "rho",
+          "U",
+          "eta",
+          "X",
+          "xi",
+          "mu1",
+          "mu2",
+          "mu3",
+          "R_divmat"
+        ],
+        "output_variables": [
+          "image_est"
+        ]
+      },
+      {
+        "step_order": 5,
+        "step_name": "Lagrangian Multiplier Updates",
+        "mathematical_formula": "\\begin{aligned} \\xi^{(k+1)} &= \\xi^{(k)} + \\mu_1 (A x^{(k+1)} - X^{(k+1)}) \\\\ \\eta^{(k+1)} &= \\eta^{(k)} + \\mu_2 (\\Psi x^{(k+1)} - U^{(k+1)}) \\\\ \\rho^{(k+1)} &= \\rho^{(k)} + \\mu_3 (x^{(k+1)} - W^{(k+1)}) \\end{aligned}",
+        "operator_requirements": [
+          "Convolution (A)",
+          "Finite Difference (Psi)"
+        ],
+        "input_variables": [
+          "xi",
+          "eta",
+          "rho",
+          "image_est",
+          "X",
+          "U",
+          "W",
+          "mu1",
+          "mu2",
+          "mu3"
+        ],
+        "output_variables": [
+          "xi",
+          "eta",
+          "rho"
+        ]
+      }
+    ],
+    "stopping_criterion": "Fixed number of iterations (n_iter)"
+  },
+  "task_description": "### Task Description\nThe objective is to solve a **Lensless Imaging** inverse problem. In this setup, a scene is captured without a focusing lens, resulting in a raw measurement that looks like a blurry, convolved version of the scene. You are performing **Non-blind Deconvolution**, meaning the specific blur pattern (Point Spread Function) is known.\n\nMathematically, the imaging model is defined as:\n$$y = x * h + n$$\nWhere:\n*   $y$ is the captured sensor measurement.\n*   $x$ is the unknown latent scene (the image we want to recover).\n*   $h$ is the Point Spread Function (PSF).\n*   $*$ denotes 2D convolution.\n*   $n$ is noise.\n\nYou must implement an optimization solver to invert this convolution operation while handling noise and ill-posedness through regularization.\n\n### Known Information\n1.  **Observation ($y$):** The raw, multiplexed image captured by the sensor.\n2.  **Kernel ($h$):** The Point Spread Function (PSF) of the lensless system.\n3.  **Forward Operator:** A 2D Convolution operator implemented in the Fourier domain (using FFTs) to simulate the physical image formation process.\n\n### Goal\nRecover the estimated image $\\hat{x}$ that minimizes the difference between the simulated measurement and the actual observation, subject to regularization constraints.\n\n### Algorithm\n**Alternating Direction Method of Multipliers (ADMM)**\n\n### Regularization\nTo stabilize the reconstruction and enforce prior knowledge about natural images, the following regularizers are used:\n1.  **Total Variation (TV):** Enforces piecewise smoothness (sparsity in the gradient domain) to reduce noise while preserving edges.\n2.  **Non-negativity:** Constrains the pixel values of the reconstructed image to be non-negative ($x \\ge 0$), as light intensity cannot be negative.",
+  "generated_by": "gemini-3-pro-preview",
+  "timestamp": "2026-01-11T20:53:01.669953"
+}

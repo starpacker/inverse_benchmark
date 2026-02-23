@@ -1,0 +1,214 @@
+global:
+  sandbox_root: "/data/yjh/reactmodel_collapse/50_high_pressure_quauntum"
+  default_settings:
+    model_name: "claude-opus-4-5-20251101-thinking"
+    max_rounds: 1
+
+tasks:
+  # - name: "sim"
+  #   python_path: "/home/yjh/.conda/envs/sim/bin/python"
+  #   working_folder: "/home/yjh/sim_sandbox/"
+  #   questions_file: "/home/yjh/new_flow/output_sim_tutorial/coding_questions.json"
+    
+  # - name: "ptyrad"
+  #   python_path: "/home/yjh/.conda/envs/ptyrad/bin/python"
+  #   working_folder: "/home/yjh/ad_pty/code_2"
+  #   questions_file: "/home/yjh/new_flow/output_ptyrad_tutorial/coding_questions.json"
+
+  # - name: "lfm"
+  #   python_path: "/home/yjh/.conda/envs/eht/bin/python"
+  #   working_folder: "/home/yjh/lfm_sandbox/"
+  #   questions_file: "/home/yjh/new_flow/output_lfm_tutorial/coding_questions.json"
+
+  # - name: "oopao_sh_wfs"
+  #   python_path: "/home/yjh/.conda/envs/ao/bin/python"
+  #   working_folder: "/home/yjh/oopao_sh_sandbox/"
+  #   questions_file: "/home/yjh/new_flow/output_oopao_sh_wfs/coding_questions.json"
+
+  # - name: "oopao_image_zernike"
+  #   python_path: "/home/yjh/.conda/envs/ao/bin/python"
+  #   working_folder: "/home/yjh/oopao_zernike_sandbox/"
+  #   questions_file: "/home/yjh/new_flow/output_oopao_image_zernike/coding_questions.json"
+
+  # - name: "bayhunt"
+  #   python_path: "/home/yjh/.conda/envs/bayhunt/bin/python"
+  #   working_folder: "/home/yjh/BayHunter_standalone/"
+  #   questions_file: "/home/yjh/new_flow/output_bayhunt_tutorial/coding_questions.json"
+
+  # - name: "pyeit"
+  #   python_path: "/home/yjh/.conda/envs/eht/bin/python"
+  #   working_folder: "/home/yjh/pyeit_sandbox/examples"
+  #   questions_file: "/home/yjh/new_flow/output_pyeit_tutorial/coding_questions.json"
+
+  # - name: "bpm"
+  #   python_path: "/home/yjh/.conda/envs/ragas/bin/python"
+  #   working_folder: "/home/yjh/bpm_sandbox/"
+  #   questions_file: "/home/yjh/new_flow/output_bpm_tutorial/coding_questions.json"
+
+  # - name: "diff"
+  #   python_path: "/home/yjh/.conda/envs/ragas/bin/python"
+  #   working_folder: "/home/yjh/diff_sandbox/"
+  #   questions_file: "/home/yjh/new_flow/output_diff_tutorial/coding_questions.json"
+
+  # - name: "insar"
+  #   python_path: "/home/yjh/.conda/envs/ragas/bin/python"
+  #   working_folder: "/home/yjh/insar_sandbox/"
+  #   questions_file: "/home/yjh/new_flow/output_insar_tutorial/coding_questions.json"
+
+  # - name: "pat"
+  #   python_path: "/home/yjh/.conda/envs/patato/bin/python"
+  #   working_folder: "/home/yjh/pat_sandbox/"
+  #   questions_file: "/home/yjh/new_flow/output_pat_tutorial/coding_questions.json"
+
+  # - name: "lensless_admm"
+  #   python_path: "/home/yjh/.conda/envs/lensless/bin/python"
+  #   working_folder: "/home/yjh/lensless_admm_sandbox/"
+  #   questions_file: "/home/yjh/new_flow/output_lensless_admm_tutorial/coding_questions.json"
+
+  # - name: "lensless_dl"
+  #   python_path: "/home/yjh/.conda/envs/lensless/bin/python"
+  #   working_folder: "/home/yjh/lensless_dl_sandbox/"
+  #   questions_file: "/home/yjh/new_flow/output_lensless_dl_tutorial/coding_questions.json"
+
+  # - name: "pnp_cassi"
+  #   python_path: "/home/yjh/.conda/envs/lensless/bin/python"
+  #   working_folder: "/home/yjh/pnp_cassi_sandbox/"
+  #   questions_file: "/home/yjh/new_flow/output_pnp_cassi_tutorial/coding_questions.json"
+
+  # - name: "fpm_inr"
+  #   python_path: "/home/yjh/.conda/envs/lensless/bin/python"
+  #   working_folder: "/home/yjh/fpm_inr_sandbox/"
+  #   questions_file: "/home/yjh/new_flow/output_fpm_inr_tutorial/coding_questions.json"
+
+  # - name: "flfm"
+  #   python_path: "/home/yjh/flfm_sandbox/venv/bin/python"
+  #   working_folder: "/home/yjh/flfm_sandbox/"
+  #   questions_file: "/home/yjh/new_flow/output_flfm_tutorial/coding_questions.json"
+
+  # - name: "lenstronomy_simple_ring"
+  #   python_path: "/home/yjh/.conda/envs/lenstr/bin/python"
+  #   working_folder: "/home/yjh/lenstronomy_simple_ring_sandbox/"
+  #   questions_file: "/home/yjh/new_flow/output_lenstronomy_simple_ring/coding_questions.json"
+
+  # - name: "lenstronomy_quad_quasar"
+  #   python_path: "/home/yjh/.conda/envs/lenstr/bin/python"
+  #   working_folder: "/home/yjh/lenstronomy_quad_quasar_sandbox/"
+  #   questions_file: "/home/yjh/new_flow/output_lenstronomy_quad_quasar/coding_questions.json"
+
+  # - name: "lenstronomy_double_quasar"
+  #   python_path: "/home/yjh/.conda/envs/lenstr/bin/python"
+  #   working_folder: "/home/yjh/lenstronomy_double_quasar_sandbox/"
+  #   questions_file: "/home/yjh/new_flow/output_lenstronomy_double_quasar/coding_questions.json"
+
+  # - name: "lenstronomy_shapelets"
+  #   python_path: "/home/yjh/.conda/envs/lenstr/bin/python"
+  #   working_folder: "/home/yjh/lenstronomy_shapelets_sandbox/"
+  #   questions_file: "/home/yjh/new_flow/output_lenstronomy_shapelets/coding_questions.json"
+
+  # - name: "lenstronomy_host_decomp"
+  #   python_path: "/home/yjh/.conda/envs/lenstr/bin/python"
+  #   working_folder: "/home/yjh/lenstronomy_host_decomp_sandbox/"
+  #   questions_file: "/home/yjh/new_flow/output_lenstronomy_host_decomp/coding_questions.json"
+
+  # - name: "dpi_task1"
+  #   python_path: "/home/yjh/.conda/envs/dpi/bin/python"
+  #   working_folder: "/home/yjh/dpi_task1_sandbox/"
+  #   questions_file: "/home/yjh/new_flow/output_dpi_task1/coding_questions.json"
+
+  # - name: "dpi_task2"
+  #   python_path: "/home/yjh/.conda/envs/dpi/bin/python"
+  #   working_folder: "/home/yjh/dpi_task2_sandbox/"
+  #   questions_file: "/home/yjh/new_flow/output_dpi_task2/coding_questions.json"
+
+  # - name: "dpi_task3"
+  #   python_path: "/home/yjh/.conda/envs/dpi/bin/python"
+  #   working_folder: "/home/yjh/dpi_task3_sandbox/"
+  #   questions_file: "/home/yjh/new_flow/output_dpi_task3/coding_questions.json"
+
+  # - name: AMICO-master
+  #   python_path: /usr/local/anaconda3/bin/python
+  #   working_folder: /data/yjh/AMICO-master_sandbox
+  # - name: carspy-main
+  #   python_path: /home/yjh/.conda/envs/carspy_env/bin/python
+  #   working_folder: /data/yjh/carspy-main_sandbox_small_exp_quantum
+  # - name: caustics-main
+  #   python_path: /data/yjh/caustics_env/bin/python
+  #   working_folder: /data/yjh/caustics-main_sandbox
+  # - name: CT-and-MR-Perfusion-Tool-main
+  #   python_path: /home/yjh/.conda/envs/pypet_custom/bin/python
+  #   working_folder: /data/yjh/CT-and-MR-Perfusion-Tool-main_sandbox
+  # - name: DiffuserCam-Tutorial-master
+  #   python_path: /data/yjh/diffusercam_env/bin/python
+  #   working_folder: /data/yjh/DiffuserCam-Tutorial-master_sandbox
+  # - name: dmipy-master
+  #   python_path: /home/yjh/.conda/envs/patato/bin/python
+  #   working_folder: /data/yjh/dmipy-master_sandbox
+  # - name: hcipy-master
+  #   python_path: /data/yjh/hcipy_env/bin/python
+  #   working_folder: /data/yjh/hcipy-master_sandbox
+  # - name: mne-master
+  #   python_path: /data/yjh/mne_env/bin/python
+  #   working_folder: /data/yjh/mne-master_sandbox
+  # - name: MPIRF-master
+  #   python_path: /data/yjh/mpirf_env/bin/python
+  #   working_folder: /data/yjh/MPIRF-master_sandbox
+  # - name: MRE-elast-master
+  #   python_path: /data/yjh/us-beamform-linarray-master/myenv/bin/python
+  #   working_folder: /data/yjh/MRE-elast-master_sandbox
+  # - name: mrf-reconstruction-mlmir2020-master
+  #   python_path: /usr/local/anaconda3/bin/python
+  #   working_folder: /data/yjh/mrf-reconstruction-mlmir2020-master_sandbox
+  # - name: mripy-master
+  #   python_path: /usr/local/anaconda3/bin/python
+  #   working_folder: /data/yjh/mripy-master_sandbox
+  # - name: oct-cbort-main
+  #   python_path: /usr/local/anaconda3/bin/python
+  #   working_folder: /data/yjh/oct-cbort-main_sandbox
+  # - name: phasorpy-main
+  #   python_path: /home/yjh/.conda/envs/phasorpy_env/bin/python
+  #   working_folder: /data/yjh/phasorpy-main_sandbox
+  # - name: PtyLab-main
+  #   python_path: /data/yjh/ptylab_env/bin/python
+  #   working_folder: /data/yjh/PtyLab-main_sandbox
+  # - name: PyAbel-master
+  #   python_path: /data/yjh/pyabel_env/bin/python
+  #   working_folder: /data/yjh/PyAbel-master_sandbox
+  # - name: pyDHM-master
+  #   python_path: /data/yjh/pydhm_env/bin/python
+  #   working_folder: /data/yjh/pyDHM-master_sandbox
+  # - name: PyHoloscope-main
+  #   python_path: /data/yjh/pyholoscope_new_env/bin/python
+  #   working_folder: /data/yjh/PyHoloscope-main_sandbox
+  # - name: PySMLFM-main
+  #   python_path: /data/yjh/pysmlfm_env/bin/python
+  #   working_folder: /data/yjh/PySMLFM-main_sandbox
+  # - name: PyTomography-main
+  #   python_path: /usr/local/anaconda3/bin/python
+  #   working_folder: /data/yjh/PyTomography-main_sandbox
+  - name: s2ISM-main
+    python_path: /data/yjh/s2ism_env/bin/python
+    working_folder: /data/yjh/s2ISM-main-small-exp_sandbox/s2ISM-main_sandbox_router
+  # - name: semiblindpsfdeconv-master
+  #   python_path: /data/yjh/semiblind/bin/python
+  #   working_folder: /data/yjh/semiblindpsfdeconv-master_sandbox
+  # - name: spectral_ct_examples-master
+  #   python_path: /home/yjh/.conda/envs/spectral_ct/bin/python
+  #   working_folder: /data/yjh/spectral_ct_examples-master_sandbox
+  # - name: storm-analysis-master
+  #   python_path: /data/yjh/storm_env/bin/python
+  #   working_folder: /data/yjh/storm-analysis-master_sandbox
+  # - name: structured-light-python-main
+  #   python_path: /data/yjh/structured_light_env/bin/python
+  #   working_folder: /data/yjh/structured-light-python-main_sandbox
+  # - name: svmbir-master
+  #   python_path: python
+  #   working_folder: /data/yjh/svmbir-master_sandbox
+  # - name: tomopy-master
+  #   python_path: python
+  #   working_folder: /data/yjh/tomopy-master_sandbox
+  # - name: us-beamform-linarray-master
+  #   python_path: /usr/local/anaconda3/bin/python
+  #   working_folder: /data/yjh/us-beamform-linarray-master_sandbox
+  # - name: nirfaster-FF-main_2
+  #   python_path: /usr/local/anaconda3/bin/python
+  #   working_folder: /data/yjh/nirfaster-FF-main_2_sandbox

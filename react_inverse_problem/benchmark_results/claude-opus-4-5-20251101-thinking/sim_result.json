@@ -1,0 +1,464 @@
+{
+  "task_name": "sim",
+  "code_path": "/home/yjh/sim_sandbox/sim_code.py",
+  "task_description": "Based on the provided code, here is the Task Description for the student.\n\n### Task Description\n**Sparse Hessian Deconvolution for Microscopy**\n\nYou are tasked with restoring a high-quality, sharp 3D volumetric image (or 2D image) from a blurred and noisy observation obtained via a microscopy system. The imaging process is modeled as a linear shift-invariant system where the true specimen structure is convolved with a Point Spread Function (PSF) and corrupted by noise.\n\nTo recover the latent image, you must implement an iterative reconstruction algorithm that solves an inverse problem. Because deconvolution is ill-posed, you will employ a specific type of regularization that enforces two priors:\n1.  **Hessian-based Sparsity (Second-order Total Variation):** This penalizes the second-order derivatives of the image, favoring piecewise-linear solutions (reducing the \"staircase effect\" often seen in standard Total Variation).\n2.  **Intensity Sparsity:** This assumes the background is dark and the signal is sparse (L1 norm of the image).\n\nYou will solve this optimization problem using a variable splitting method. Following the sparse reconstruction, a refinement step using a classical iterative deconvolution method (like Richardson-Lucy) is applied.\n\n### Algorithm\n**ADMM (Alternating Direction Method of Multipliers) / Split Bregman**\n*   The primary solver uses ADMM to split the complex regularization terms (Hessian and Sparsity) from the data fidelity term.\n*   This involves an iterative loop where you alternate between:\n    1.  Solving a linear system in the Fourier domain (Primal update).\n    2.  Applying soft-thresholding (Shrinkage) operators to auxiliary variables (Proximal update).\n    3.  Updating Lagrange multipliers (Dual update).\n\n### Known Information\n1.  **Observation ($y$):** The input blurred image stack (preprocessed to remove background).\n2.  **Forward Operator ($A$):** A convolution operation with a Gaussian Point Spread Function (PSF).\n    *   Mathematically: $A(x) = k * x$\n    *   Implemented via FFT: $\\mathcal{F}^{-1}(\\mathcal{F}(k) \\cdot \\mathcal{F}(x))$\n3.  **PSF Parameters:** The standard deviation ($\\sigma$) for the Gaussian kernel is provided.\n\n### Goal\nRecover the latent image **$x$** that minimizes the energy function defined by the data fidelity and regularization terms.\n\n### Regularization\nThe objective function to minimize is:\n\n$$ \\min_x \\frac{\\mu}{2} \\| y - x \\|_2^2 + \\lambda_1 \\| \\mathcal{H}x \\|_1 + \\lambda_2 \\| x \\|_1 $$\n\nWhere:\n*   $\\| y - x \\|_2^2$ is the fidelity term (note: in this specific ADMM implementation, the convolution is often handled implicitly or via the splitting, but the code treats the fidelity update in the Fourier domain).\n*   $\\| \\mathcal{H}x \\|_1$ is the **Hessian regularization**, representing the L1 norm of the second-order spatial derivatives ($D_{xx}, D_{yy}, D_{zz}, D_{xy}, D_{xz}, D_{yz}$).\n*   $\\| x \\|_1$ is the **Sparsity regularization** on the pixel intensities.\n*   $\\mu, \\lambda_1, \\lambda_2$ are weighting parameters (corresponding to `fidelity`, `1` (implicit), and `sparsity` in the code).",
+  "golden_plan": {
+    "algorithm_name": "Two-Stage Inversion: Split Bregman Sparse Hessian Reconstruction followed by Accelerated Richardson-Lucy Deconvolution",
+    "objective_function": "\\min_{g} \\frac{\\text{fidelity}}{2} \\|g - f\\|_2^2 + \\mu \\sum_{i \\in \\{xx,yy,zz,xy,xz,yz\\}} \\|D_i g\\|_1 + \\mu \\cdot \\text{sparsity} \\|g\\|_1",
+    "variables": {
+      "primal": [
+        "g"
+      ],
+      "dual": [
+        "b_{xx}",
+        "b_{yy}",
+        "b_{zz}",
+        "b_{xy}",
+        "b_{xz}",
+        "b_{yz}",
+        "b_{sparse}"
+      ],
+      "constants": [
+        "fidelity",
+        "sparsity",
+        "mu",
+        "tcontinuity",
+        "sigma"
+      ]
+    },
+    "initialization": [
+      {
+        "variable": "g_update",
+        "value": "(fidelity / mu) * f",
+        "shape": "Same as input image f"
+      },
+      {
+        "variable": "b_{all}",
+        "value": "Zeros",
+        "shape": "Same as input image f"
+      },
+      {
+        "variable": "Normalize",
+        "value": "(fidelity / mu) + sparsity^2 + \\sum |\\mathcal{F}(D_i)|^2",
+        "shape": "Frequency domain grid"
+      }
+    ],
+    "iteration_loop": [
+      {
+        "step_order": 1,
+        "step_name": "Primal Update (g)",
+        "mathematical_formula": "g^{(k+1)} = \\mathcal{F}^{-1} \\left( \frac{\\mathcal{F}(\\text{g\\_update}^{(k)})}{\\text{Normalize}} \\right)",
+        "operator_requirements": [
+          "FFT",
+          "IFFT",
+          "Division"
+        ],
+        "input_variables": [
+          "g_update",
+          "Normalize"
+        ],
+        "output_variables": [
+          "g"
+        ]
+      },
+      {
+        "step_order": 2,
+        "step_name": "Reset RHS Accumulator",
+        "mathematical_formula": "\\text{g\\_update}^{(k+1)} = \\frac{\\text{fidelity}}{\\mu} f",
+        "operator_requirements": [
+          "Scalar Multiplication"
+        ],
+        "input_variables": [
+          "f",
+          "fidelity",
+          "mu"
+        ],
+        "output_variables": [
+          "g_update"
+        ]
+      },
+      {
+        "step_order": 3,
+        "step_name": "Hessian Split Bregman Updates",
+        "mathematical_formula": "\\forall i \\in \\{xx,..,yz\\}: d_i = \\text{shrink}(D_i g + b_i, \\mu); \\quad b_i \\leftarrow b_i + D_i g - d_i; \\quad \\text{g\\_update} \\leftarrow \\text{g\\_update} + w_i D_i^T(d_i - b_i)",
+        "operator_requirements": [
+          "Forward Difference",
+          "Backward Difference",
+          "Shrink (Soft Threshold)",
+          "Addition"
+        ],
+        "input_variables": [
+          "g",
+          "b_{xx}",
+          "b_{yy}",
+          "b_{zz}",
+          "b_{xy}",
+          "b_{xz}",
+          "b_{yz}",
+          "g_update"
+        ],
+        "output_variables": [
+          "b_{xx}",
+          "b_{yy}",
+          "b_{zz}",
+          "b_{xy}",
+          "b_{xz}",
+          "b_{yz}",
+          "g_update"
+        ]
+      },
+      {
+        "step_order": 4,
+        "step_name": "Sparsity Split Bregman Update",
+        "mathematical_formula": "d_s = \\text{shrink}(g + b_s, \\mu); \\quad b_s \\leftarrow b_s + g - d_s; \\quad \\text{g\\_update} \\leftarrow \\text{g\\_update} + \\text{sparsity} \\cdot (d_s - b_s)",
+        "operator_requirements": [
+          "Shrink (Soft Threshold)",
+          "Addition"
+        ],
+        "input_variables": [
+          "g",
+          "b_{sparse}",
+          "g_update"
+        ],
+        "output_variables": [
+          "b_{sparse}",
+          "g_update"
+        ]
+      }
+    ],
+    "stopping_criterion": "Relative change in residual ||f - g||_2 < 1e-4 or max iterations reached"
+  },
+  "candidate_plan": {
+    "algorithm_name": "ADMM for Sparse Hessian Deconvolution with Richardson-Lucy Refinement",
+    "initialization": [
+      "Set x^0 = y (initial estimate from preprocessed observation)",
+      "Compute FFT of PSF kernel: K_fft = FFT(k)",
+      "Compute FFT of derivative filters: Dxx_fft, Dyy_fft, Dzz_fft, Dxy_fft, Dxz_fft, Dyz_fft",
+      "Precompute denominator: denom = mu + rho_h * (|Dxx_fft|^2 + |Dyy_fft|^2 + |Dzz_fft|^2 + 2|Dxy_fft|^2 + 2|Dxz_fft|^2 + 2|Dyz_fft|^2) + rho_s",
+      "Initialize auxiliary variables: z_xx = z_yy = z_zz = z_xy = z_xz = z_yz = z_s = 0",
+      "Initialize Bregman/dual variables: b_xx = b_yy = b_zz = b_xy = b_xz = b_yz = b_s = 0",
+      "Set regularization parameters: lambda_1 (Hessian weight), lambda_2 (sparsity weight), mu (fidelity weight)",
+      "Set ADMM penalty parameters: rho_h, rho_s",
+      "Set maximum iterations: N_admm, N_rl"
+    ],
+    "iteration_loop": [
+      {
+        "step_order": 1,
+        "step_name": "Compute Hessian Components",
+        "mathematical_description": "h_{xx} = D_{xx} * x, h_{yy} = D_{yy} * x, h_{zz} = D_{zz} * x, h_{xy} = D_{xy} * x, h_{xz} = D_{xz} * x, h_{yz} = D_{yz} * x",
+        "required_operators": [
+          "FFT",
+          "IFFT",
+          "Element-wise multiplication"
+        ],
+        "inputs": [
+          "x",
+          "Dxx_fft",
+          "Dyy_fft",
+          "Dzz_fft",
+          "Dxy_fft",
+          "Dxz_fft",
+          "Dyz_fft"
+        ],
+        "outputs": [
+          "h_xx",
+          "h_yy",
+          "h_zz",
+          "h_xy",
+          "h_xz",
+          "h_yz"
+        ]
+      },
+      {
+        "step_order": 2,
+        "step_name": "Hessian Proximal Update (Soft-Thresholding)",
+        "mathematical_description": "z_{ij}^{k+1} = \\text{shrink}(h_{ij} + b_{ij}^k, \\lambda_1 / \\rho_h) = \\text{sign}(h_{ij} + b_{ij}^k) \\cdot \\max(|h_{ij} + b_{ij}^k| - \\lambda_1/\\rho_h, 0)",
+        "required_operators": [
+          "Soft-thresholding (Shrinkage)"
+        ],
+        "inputs": [
+          "h_xx",
+          "h_yy",
+          "h_zz",
+          "h_xy",
+          "h_xz",
+          "h_yz",
+          "b_xx",
+          "b_yy",
+          "b_zz",
+          "b_xy",
+          "b_xz",
+          "b_yz",
+          "lambda_1",
+          "rho_h"
+        ],
+        "outputs": [
+          "z_xx",
+          "z_yy",
+          "z_zz",
+          "z_xy",
+          "z_xz",
+          "z_yz"
+        ]
+      },
+      {
+        "step_order": 3,
+        "step_name": "Sparsity Proximal Update (Soft-Thresholding)",
+        "mathematical_description": "z_s^{k+1} = \\text{shrink}(x^k + b_s^k, \\lambda_2 / \\rho_s) = \\text{sign}(x^k + b_s^k) \\cdot \\max(|x^k + b_s^k| - \\lambda_2/\\rho_s, 0)",
+        "required_operators": [
+          "Soft-thresholding (Shrinkage)"
+        ],
+        "inputs": [
+          "x",
+          "b_s",
+          "lambda_2",
+          "rho_s"
+        ],
+        "outputs": [
+          "z_s"
+        ]
+      },
+      {
+        "step_order": 4,
+        "step_name": "Hessian Bregman/Dual Variable Update",
+        "mathematical_description": "b_{ij}^{k+1} = b_{ij}^k + h_{ij} - z_{ij}^{k+1}",
+        "required_operators": [
+          "Element-wise addition",
+          "Element-wise subtraction"
+        ],
+        "inputs": [
+          "b_xx",
+          "b_yy",
+          "b_zz",
+          "b_xy",
+          "b_xz",
+          "b_yz",
+          "h_xx",
+          "h_yy",
+          "h_zz",
+          "h_xy",
+          "h_xz",
+          "h_yz",
+          "z_xx",
+          "z_yy",
+          "z_zz",
+          "z_xy",
+          "z_xz",
+          "z_yz"
+        ],
+        "outputs": [
+          "b_xx",
+          "b_yy",
+          "b_zz",
+          "b_xy",
+          "b_xz",
+          "b_yz"
+        ]
+      },
+      {
+        "step_order": 5,
+        "step_name": "Sparsity Bregman/Dual Variable Update",
+        "mathematical_description": "b_s^{k+1} = b_s^k + x^k - z_s^{k+1}",
+        "required_operators": [
+          "Element-wise addition",
+          "Element-wise subtraction"
+        ],
+        "inputs": [
+          "b_s",
+          "x",
+          "z_s"
+        ],
+        "outputs": [
+          "b_s"
+        ]
+      },
+      {
+        "step_order": 6,
+        "step_name": "Primal Update (Fourier Domain Linear Solve)",
+        "mathematical_description": "x^{k+1} = \\mathcal{F}^{-1}\\left[ \\frac{\\mu \\mathcal{F}(y) + \\rho_h \\sum_{ij} \\overline{\\mathcal{F}(D_{ij})} \\odot \\mathcal{F}(z_{ij} - b_{ij}) + \\rho_s \\mathcal{F}(z_s - b_s)}{\\mu + \\rho_h \\sum_{ij} |\\mathcal{F}(D_{ij})|^2 + \\rho_s} \\right]",
+        "required_operators": [
+          "FFT",
+          "IFFT",
+          "Complex conjugate",
+          "Element-wise multiplication",
+          "Element-wise division"
+        ],
+        "inputs": [
+          "y",
+          "z_xx",
+          "z_yy",
+          "z_zz",
+          "z_xy",
+          "z_xz",
+          "z_yz",
+          "z_s",
+          "b_xx",
+          "b_yy",
+          "b_zz",
+          "b_xy",
+          "b_xz",
+          "b_yz",
+          "b_s",
+          "Dxx_fft",
+          "Dyy_fft",
+          "Dzz_fft",
+          "Dxy_fft",
+          "Dxz_fft",
+          "Dyz_fft",
+          "denom",
+          "mu",
+          "rho_h",
+          "rho_s"
+        ],
+        "outputs": [
+          "x"
+        ]
+      },
+      {
+        "step_order": 7,
+        "step_name": "Enforce Non-negativity Constraint",
+        "mathematical_description": "x^{k+1} = \\max(x^{k+1}, 0)",
+        "required_operators": [
+          "Element-wise maximum"
+        ],
+        "inputs": [
+          "x"
+        ],
+        "outputs": [
+          "x"
+        ]
+      },
+      {
+        "step_order": 8,
+        "step_name": "Check ADMM Convergence",
+        "mathematical_description": "\\text{converged} = (\\|x^{k+1} - x^k\\|_2 / \\|x^k\\|_2 < \\epsilon) \\text{ or } (k \\geq N_{\\text{admm}})",
+        "required_operators": [
+          "L2 norm",
+          "Comparison"
+        ],
+        "inputs": [
+          "x",
+          "x_prev",
+          "epsilon",
+          "k",
+          "N_admm"
+        ],
+        "outputs": [
+          "converged_flag"
+        ]
+      },
+      {
+        "step_order": 9,
+        "step_name": "Richardson-Lucy Refinement Initialization",
+        "mathematical_description": "x_{RL}^0 = x_{ADMM}, \\quad k_{flip} = \\text{flip}(k)",
+        "required_operators": [
+          "Array flip/reverse"
+        ],
+        "inputs": [
+          "x",
+          "k"
+        ],
+        "outputs": [
+          "x_rl",
+          "k_flip"
+        ]
+      },
+      {
+        "step_order": 10,
+        "step_name": "Richardson-Lucy Forward Projection",
+        "mathematical_description": "\\hat{y} = k * x_{RL}^n = \\mathcal{F}^{-1}(\\mathcal{F}(k) \\odot \\mathcal{F}(x_{RL}^n))",
+        "required_operators": [
+          "FFT",
+          "IFFT",
+          "Element-wise multiplication"
+        ],
+        "inputs": [
+          "x_rl",
+          "K_fft"
+        ],
+        "outputs": [
+          "y_hat"
+        ]
+      },
+      {
+        "step_order": 11,
+        "step_name": "Richardson-Lucy Ratio Computation",
+        "mathematical_description": "r = y / (\\hat{y} + \\epsilon)",
+        "required_operators": [
+          "Element-wise division"
+        ],
+        "inputs": [
+          "y",
+          "y_hat",
+          "epsilon"
+        ],
+        "outputs": [
+          "ratio"
+        ]
+      },
+      {
+        "step_order": 12,
+        "step_name": "Richardson-Lucy Back Projection and Update",
+        "mathematical_description": "x_{RL}^{n+1} = x_{RL}^n \\odot (k_{flip} * r) = x_{RL}^n \\odot \\mathcal{F}^{-1}(\\overline{\\mathcal{F}(k)} \\odot \\mathcal{F}(r))",
+        "required_operators": [
+          "FFT",
+          "IFFT",
+          "Complex conjugate",
+          "Element-wise multiplication"
+        ],
+        "inputs": [
+          "x_rl",
+          "ratio",
+          "K_fft"
+        ],
+        "outputs": [
+          "x_rl"
+        ]
+      },
+      {
+        "step_order": 13,
+        "step_name": "Richardson-Lucy Convergence Check",
+        "mathematical_description": "\\text{converged}_{RL} = (n \\geq N_{RL})",
+        "required_operators": [
+          "Comparison"
+        ],
+        "inputs": [
+          "n",
+          "N_rl"
+        ],
+        "outputs": [
+          "converged_rl_flag"
+        ]
+      },
+      {
+        "step_order": 14,
+        "step_name": "Final Output",
+        "mathematical_description": "x_{\\text{final}} = \\max(x_{RL}, 0)",
+        "required_operators": [
+          "Element-wise maximum"
+        ],
+        "inputs": [
+          "x_rl"
+        ],
+        "outputs": [
+          "x_final"
+        ]
+      }
+    ],
+    "_meta": {
+      "generated_at": "2026-01-11T22:40:53.249167",
+      "model": "claude-opus-4-5-20251101-thinking"
+    }
+  },
+  "evaluation": {
+    "step_by_step_analysis": "### Step-by-Step Analysis\\n\\n**1. Completeness Check:**\\n- The Reference Plan (RP) specifies a Split Bregman/ADMM approach for Sparse Hessian deconvolution. It includes Primal updates (FFT inversion), Hessian Split Bregman updates (shrinkage + dual update), and Sparsity Split Bregman updates.\\n- The Candidate Plan (CP) includes all these components: Initialization, Hessian computation, Proximal updates (shrinkage) for both Hessian and Sparsity, Dual variable updates, and the Primal update via FFT.\\n- **Bonus:** The CP explicitly includes the Richardson-Lucy (RL) refinement steps (Steps 9-14), which were mentioned in the Task Description text but not explicitly detailed in the Reference Plan's JSON structure (though the RP title mentions it). This makes the CP very complete regarding the prompt's requirements.\\n- The CP includes necessary operators: FFT, IFFT, Shrinkage, and basic arithmetic.\\n\\n**2. Mathematical Correctness:**\\n- **Primal Update (Step 6 in CP):** The CP formulates the update as solving $( \\mu I + \\rho_h \\sum D^T D + \\rho_s I ) x = \\mu y + \\dots$. The denominator in the Fourier domain is given as `mu + rho_h * sum(|D_fft|^2) + rho_s`. This is mathematically correct for the LHS matrix inversion. The RHS includes `mu * F(y)` (data term) plus the terms coming from the auxiliary variables `rho * F(z - b)`. This matches standard ADMM for this energy function.\\n- **Proximal Updates (Steps 2 & 3 in CP):** The CP correctly applies soft-thresholding to the auxiliary variables. The threshold values $\\\\lambda / \\rho$ are correct for ADMM.\\n- **Dual Updates (Steps 4 & 5 in CP):** The standard ADMM dual update $b \\leftarrow b + (Ax - z)$ is correctly implemented as `b + h - z`.\\n- **Richardson-Lucy:** The formulation $x^{n+1} = x^n \\cdot (k_{flip} * (y / (k * x^n)))$ is the standard RL update. The CP implements this correctly using FFTs.\\n- **Note on Fidelity:** The Task Description says the fidelity is $\\|y-x\\|_2^2$. In the RP, the fidelity update is handled via `g_update = (fidelity/mu)*f`. In the CP, the fidelity is handled directly in the Primal Update (Step 6) via `mu * F(y)`. These are equivalent approaches to solving the linear system arising from the quadratic terms. The CP's approach is actually more explicit and standard for a general ADMM solver.\\n\\n**3. Logical Dependency / DAG Validity:**\\n- **Initialization:** Variables like `Dxx_fft`, `denom`, `z`, `b` are initialized correctly.\\n- **Loop Order:**\\n    - The CP calculates Hessian components $h$ (Step 1) using $x$.\\n    - Then updates $z$ (Step 2) using $h$ and $b$.\\n    - Then updates $z_s$ (Step 3) using $x$ and $b_s$.\\n    - Then updates duals $b$ (Steps 4, 5).\\n    - *Then* updates $x$ (Step 6) using the new $z$ and $b$.\\n    - This is a valid ADMM sequence (x-update, z-update, u-update order can vary, but the circular dependency is closed). The CP uses $x^k$ to update $z$, then updates $x^{k+1}$. This is valid.\\n- **RL Refinement:** The inputs for RL (Step 9) come from the converged ADMM output. The flow is logical.\\n\\n**Conclusion:** The Candidate Plan is extremely thorough, mathematically precise, and follows the task description perfectly, even adding the RL refinement steps which were requested in the text but less detailed in the Reference Plan JSON.",
+    "completeness_score": 5,
+    "completeness_reason": "The plan contains all necessary operators (FFT, Shrinkage, Dual updates) and explicitly details the Richardson-Lucy refinement steps requested in the prompt.",
+    "correctness_score": 5,
+    "correctness_reason": "The mathematical formulation for the ADMM primal update (linear solve in Fourier domain) and proximal updates is perfect. The derivation of the denominator for the linear system is correct.",
+    "logical_dependency_score": 5,
+    "logical_dependency_reason": "The data flow is valid. Variables are initialized, updated in a consistent order, and passed correctly between the ADMM stage and the Richardson-Lucy stage.",
+    "final_weighted_score": 5.0,
+    "is_pass": true
+  }
+}

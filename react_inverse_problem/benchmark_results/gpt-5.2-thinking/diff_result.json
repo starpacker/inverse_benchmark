@@ -1,0 +1,223 @@
+{
+  "task_name": "diff",
+  "code_path": "/home/yjh/diff_sandbox/diff_code.py",
+  "task_description": "### Task Description\nThe objective is to recover the physical and geometric parameters of an optical lens (specifically the \"LE1234-A\" lens) using **Differentiable Metrology**. Physically, the setup consists of a camera observing a display screen through the lens in question. By displaying sinusoidal patterns on the screen (Phase Measuring Deflectometry), we can determine which pixel on the camera sensor corresponds to which physical point on the display screen.\n\nMathematically, this is an inverse rendering problem. We model the system using a differentiable ray tracer. The forward model traces light rays from the camera, through the lens surfaces, to the screen. The goal is to optimize the lens parameters so that the simulated ray intersection points on the screen match the experimentally measured intersection points.\n\n### Known Information\n1.  **Observations ($\\mathbf{p}_{obs}$):** A set of 2D intersection points on the display screen, derived from captured phase-shifted images. These points represent where rays passing through specific camera pixels hit the screen.\n2.  **System Calibration:** The intrinsic and extrinsic parameters of the camera, and the geometric position/rotation of the display screen relative to the camera.\n3.  **Forward Operator ($F(\\cdot)$):** A differentiable ray tracing function. Given a set of lens parameters $\\mathbf{x}$, it computes the expected intersection points on the screen: $\\mathbf{p}_{est} = F(\\mathbf{x})$.\n4.  **Initial Guess:** A perturbed initialization of the lens parameters (e.g., curvatures set to 0.0, thickness set to 3.0).\n\n### Goal\nRecover the vector of lens parameters $\\mathbf{x}$ that minimizes the discrepancy between the modeled and measured ray intersections.\nThe vector $\\mathbf{x}$ includes:\n*   **Surface Curvatures ($c$):** The curvature of the front and back surfaces of the lens.\n*   **Thickness ($d$):** The distance between the two lens surfaces.\n*   **Pose ($\\mathbf{t}, \\theta$):** The 3D position (origin) and tilt angles ($\\theta_x, \\theta_y$) of the lens group.\n\nMathematically, solve the optimization problem:\n$$ \\hat{\\mathbf{x}} = \\arg\\min_{\\mathbf{x}} \\sum_{i \\in \\Omega} \\| F(\\mathbf{x})_i - (\\mathbf{p}_{obs})_i \\|_2^2 $$\nwhere $\\Omega$ is the set of valid pixels (the mask `valid_cap`).\n\n### Regularization\n**None.**\nThe problem is formulated as a standard Non-Linear Least Squares (NLLS) optimization without explicit sparsity (L1) or smoothness (TV) penalties in the loss function. The constraints are implicit in the parameterization of the lens model.",
+  "golden_plan": {
+    "algorithm_name": "Differentiable Ray Tracing Lens Inversion",
+    "objective_function": "\\min_{\\theta} \\frac{1}{|\\Omega|} \\sum_{u \\in \\Omega} \\| \\mathcal{T}(u; \\theta) - \\mathbf{p}_{cap}(u) \\|_2^2",
+    "variables": {
+      "primal": [
+        "lensgroup.surfaces[0].c (Curvature 1)",
+        "lensgroup.surfaces[1].c (Curvature 2)",
+        "lensgroup.surfaces[1].d (Thickness)",
+        "lensgroup.origin (Position)",
+        "lensgroup.theta_x (Tilt X)",
+        "lensgroup.theta_y (Tilt Y)"
+      ],
+      "dual": [],
+      "constants": [
+        "ps_cap (Measured Intersection Points)",
+        "valid_cap (Valid Pixel Mask)",
+        "angle (Rotation Angle)",
+        "DM (DiffMetrology Scene Geometry)"
+      ]
+    },
+    "initialization": [
+      {
+        "variable": "lensgroup.surfaces[0].c",
+        "value": "0.00",
+        "shape": "Scalar"
+      },
+      {
+        "variable": "lensgroup.surfaces[1].c",
+        "value": "0.00",
+        "shape": "Scalar"
+      },
+      {
+        "variable": "lensgroup.surfaces[1].d",
+        "value": "3.00",
+        "shape": "Scalar"
+      },
+      {
+        "variable": "lensgroup.theta_x",
+        "value": "0.00",
+        "shape": "Scalar"
+      },
+      {
+        "variable": "lensgroup.theta_y",
+        "value": "0.00",
+        "shape": "Scalar"
+      }
+    ],
+    "iteration_loop": [
+      {
+        "step_order": 1,
+        "step_name": "Forward Ray Tracing",
+        "mathematical_formula": "\\mathbf{p}_{model} = \\text{Trace}(\\theta_{current}, \\text{angle})",
+        "operator_requirements": [
+          "Differentiable Ray Tracer"
+        ],
+        "input_variables": [
+          "primal",
+          "angle",
+          "valid_cap"
+        ],
+        "output_variables": [
+          "ps_model"
+        ]
+      },
+      {
+        "step_order": 2,
+        "step_name": "Residual Computation",
+        "mathematical_formula": "\\mathcal{L} = \\frac{1}{N} \\sum_{i \\in \\text{valid}} \\| \\mathbf{p}_{model, i} - \\mathbf{p}_{cap, i} \\|^2",
+        "operator_requirements": [
+          "MSE Loss",
+          "Masking"
+        ],
+        "input_variables": [
+          "ps_model",
+          "ps_cap",
+          "valid_cap"
+        ],
+        "output_variables": [
+          "loss_value"
+        ]
+      },
+      {
+        "step_order": 3,
+        "step_name": "Parameter Update (Adam)",
+        "mathematical_formula": "\\theta_{k+1} = \\theta_k - \\eta \\cdot \\text{Adam}(\\nabla_{\\theta} \\mathcal{L})",
+        "operator_requirements": [
+          "Automatic Differentiation",
+          "Adam Optimizer"
+        ],
+        "input_variables": [
+          "loss_value",
+          "primal"
+        ],
+        "output_variables": [
+          "primal"
+        ]
+      }
+    ],
+    "stopping_criterion": "Fixed iteration count (maxit=5)"
+  },
+  "candidate_plan": {
+    "algorithm_name": "Differentiable Metrology-based Lens Parameter Recovery",
+    "initialization": [
+      "Initialize lens parameters vector $\\mathbf{x}$ (curvatures $c$, thickness $d$, pose $\\mathbf{t}, \\theta$) with an initial guess.",
+      "Initialize the forward operator $F(\\cdot)$ based on the initial guess of the lens parameters.",
+      "Extract the system calibration information, including camera intrinsic and extrinsic parameters, as well as the display screen position relative to the camera."
+    ],
+    "iteration_loop": [
+      {
+        "step_order": 1,
+        "step_name": "Compute Ray Intersection Points",
+        "mathematical_description": "Calculate the expected intersection points on the display screen for the current lens parameters: $\\mathbf{p}_{est} = F(\\mathbf{x})$",
+        "required_operators": [
+          "Ray Tracing",
+          "Differentiable Forward Operator"
+        ],
+        "inputs": [
+          "$\\mathbf{x}$ (current lens parameters)"
+        ],
+        "outputs": [
+          "$\\mathbf{p}_{est}$ (estimated intersection points)"
+        ]
+      },
+      {
+        "step_order": 2,
+        "step_name": "Compute Discrepancy Between Observations and Estimates",
+        "mathematical_description": "Calculate the squared error between the measured intersection points and the estimated points: $E(\\mathbf{x}) = \\sum_{i \\in \\Omega} \\| \\mathbf{p}_{est,i} - \\mathbf{p}_{obs,i} \\|_2^2$",
+        "required_operators": [
+          "Euclidean Distance",
+          "Summation"
+        ],
+        "inputs": [
+          "$\\mathbf{p}_{est}$ (estimated intersection points)",
+          "$\\mathbf{p}_{obs}$ (observed intersection points)"
+        ],
+        "outputs": [
+          "$E(\\mathbf{x})$ (error function)"
+        ]
+      },
+      {
+        "step_order": 3,
+        "step_name": "Compute Gradients of the Error Function",
+        "mathematical_description": "Calculate the gradients of the error function with respect to the lens parameters: $\\nabla_{\\mathbf{x}} E(\\mathbf{x})$ using the chain rule for differentiable operators.",
+        "required_operators": [
+          "Gradient Computation",
+          "Chain Rule",
+          "Differentiable Forward Operator"
+        ],
+        "inputs": [
+          "$E(\\mathbf{x})$ (error function)",
+          "$F(\\cdot)$ (forward operator)"
+        ],
+        "outputs": [
+          "$\\nabla_{\\mathbf{x}} E(\\mathbf{x})$ (gradient of error function)"
+        ]
+      },
+      {
+        "step_order": 4,
+        "step_name": "Update Lens Parameters",
+        "mathematical_description": "Update the lens parameters using a gradient-based optimization method (e.g., gradient descent, Levenberg-Marquardt): $\\mathbf{x}_{new} = \\mathbf{x} - \\alpha \\nabla_{\\mathbf{x}} E(\\mathbf{x})$",
+        "required_operators": [
+          "Gradient Descent",
+          "Optimization"
+        ],
+        "inputs": [
+          "$\\mathbf{x}$ (current lens parameters)",
+          "$\\nabla_{\\mathbf{x}} E(\\mathbf{x})$ (gradient of error function)"
+        ],
+        "outputs": [
+          "$\\mathbf{x}_{new}$ (updated lens parameters)"
+        ]
+      },
+      {
+        "step_order": 5,
+        "step_name": "Convergence Check",
+        "mathematical_description": "Check for convergence by evaluating the norm of the gradient: $ \\|\\nabla_{\\mathbf{x}} E(\\mathbf{x})\\|_2 < \\epsilon$ for a small threshold $\\epsilon$.",
+        "required_operators": [
+          "Norm",
+          "Thresholding"
+        ],
+        "inputs": [
+          "$\\nabla_{\\mathbf{x}} E(\\mathbf{x})$ (gradient of error function)"
+        ],
+        "outputs": [
+          "Convergence Status"
+        ]
+      },
+      {
+        "step_order": 6,
+        "step_name": "End Optimization",
+        "mathematical_description": "Terminate the iteration loop if convergence is reached, otherwise return to step 1.",
+        "required_operators": [
+          "Control Flow"
+        ],
+        "inputs": [
+          "Convergence Status"
+        ],
+        "outputs": [
+          "Final Lens Parameters $\\mathbf{x}$"
+        ]
+      }
+    ],
+    "_meta": {
+      "generated_at": "2026-01-11T21:20:34.121845",
+      "model": "gpt-5.2-thinking"
+    }
+  },
+  "evaluation": {
+    "step_by_step_analysis": "### Step-by-Step Analysis\n\n**1. Completeness Check:**\n- **Reference Plan:** Uses a differentiable ray tracer (`Trace`), MSE Loss, and Adam Optimizer. It explicitly lists the variables to optimize (curvatures, thickness, pose).\n- **Candidate Plan:** Includes `Compute Ray Intersection Points` (Forward Operator), `Compute Discrepancy` (MSE Loss), `Compute Gradients`, and `Update Lens Parameters` (Gradient Descent/LM). \n- **Comparison:** The Candidate Plan covers all essential operators. It correctly identifies the need for a differentiable forward operator, loss calculation, gradient computation, and parameter update. While the Reference Plan specifies 'Adam', the Candidate Plan suggests 'Gradient Descent' or 'Levenberg-Marquardt', which is an acceptable variation for this class of NLLS problems.\n\n**2. Mathematical Correctness:**\n- **Reference Plan:** Minimizes $\\sum ||p_{model} - p_{cap}||^2$ via Adam.\n- **Candidate Plan:** Minimizes $\\sum ||p_{est} - p_{obs}||^2$ via Gradient Descent/LM.\n- **Assessment:** The mathematical formulation in the Candidate Plan is correct. Step 2 correctly defines the L2 loss. Step 3 correctly identifies the need for gradients via the chain rule (AutoDiff). Step 4 provides a standard update rule. The formulation is consistent with the task description.\n\n**3. Logical Dependency / DAG Validity:**\n- **Flow:** \n  - Step 1 (Forward Pass) takes parameters $\\mathbf{x}$ -> produces $\\mathbf{p}_{est}$. (Valid)\n  - Step 2 (Loss) takes $\\mathbf{p}_{est}$ and $\\mathbf{p}_{obs}$ -> produces Error $E$. (Valid)\n  - Step 3 (Backward Pass) takes $E$ -> produces Gradients. (Valid)\n  - Step 4 (Update) takes Gradients and $\\mathbf{x}$ -> produces $\\mathbf{x}_{new}$. (Valid)\n  - Step 5/6 (Loop control). (Valid)\n- **Variables:** The inputs and outputs link up correctly. The Candidate Plan explicitly mentions the inputs required for each step, and they are available from previous steps or initialization.\n\n**Conclusion:** The Candidate Plan is a robust and accurate representation of the inverse rendering loop described in the task. It matches the Reference Plan in all significant aspects.",
+    "completeness_score": 5,
+    "completeness_reason": "The candidate plan includes all necessary operators: differentiable forward model, loss computation, gradient extraction, and optimizer update.",
+    "correctness_score": 5,
+    "correctness_reason": "The mathematical formulation for the Non-Linear Least Squares problem is correct. The loss function and update steps are standard and appropriate for differentiable rendering.",
+    "logical_dependency_score": 5,
+    "logical_dependency_reason": "The data flow is logical and forms a valid closed loop. Inputs for each step are clearly defined and available from previous steps.",
+    "final_weighted_score": 5.0,
+    "is_pass": true
+  }
+}

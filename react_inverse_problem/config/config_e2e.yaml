@@ -1,0 +1,15 @@
+tasks:
+  - name: "bpm"
+    python_path: "/home/yjh/.conda/envs/ragas/bin/python"
+    working_folder: "/home/yjh/bpm_sandbox/"
+    questions_file: "/home/yjh/new_flow/output_bpm_tutorial/coding_questions.json"
+  - name: "insar"
+    python_path: "/home/yjh/.conda/envs/ragas/bin/python"
+    working_folder: "/home/yjh/insar_sandbox/"
+    questions_file: "/home/yjh/new_flow/output_insar_tutorial/coding_questions.json"
+  - name: "spectral_ct"
+    python_path: /home/yjh/.conda/envs/spectral_ct/bin/python
+    working_folder: /data/yjh/spectral_ct_examples-master_sandbox
+  - name: "storm_analysis"
+    python_path: /data/yjh/storm_env/bin/python
+    working_folder: /data/yjh/storm-analysis-master_sandbox

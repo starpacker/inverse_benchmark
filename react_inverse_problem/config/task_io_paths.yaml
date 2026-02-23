@@ -1,0 +1,17 @@
+# config/task_io_paths.yaml
+task_io_paths:
+  spectral_ct:
+    input_path: "/data/yjh/spectral_ct_examples-master_sandbox/io/input_noisy_projections.npy"
+    expected_output_path: "/data/yjh/spectral_ct_examples-master_sandbox/io/output_reconstruction.npy"
+
+  storm_analysis:
+    input_path: "/data/yjh/storm-analysis-master/storm_analysis/test/data/test.dax"
+    expected_output_path: "/data/yjh/storm-analysis-master_sandbox/io/output.npy"
+
+  bpm:
+    input_path: "/home/yjh/bpm_sandbox/io/input.npz"
+    expected_output_path: "/home/yjh/bpm_sandbox/io/output.npy"
+
+  insar:
+    input_path: "/home/yjh/insar_sandbox/20150328_20150409.int"
+    expected_output_path: "/home/yjh/insar_sandbox/result.npy"

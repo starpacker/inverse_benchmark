@@ -1,0 +1,8 @@
+STDOUT:
+Total wall time: 50.6s, output shape: (2, 600, 600)
+Convention: A_raw
+Amplitude range: [0.0000, 1.0000]
+Phase range: [-3.1415, 3.1416]
+
+
+STDERR:

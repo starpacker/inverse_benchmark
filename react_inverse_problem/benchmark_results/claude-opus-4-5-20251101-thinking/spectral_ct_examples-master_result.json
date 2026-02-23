@@ -1,0 +1,249 @@
+{
+  "task_name": "spectral_ct_examples-master",
+  "code_path": "/data/yjh/spectral_ct_examples-master_sandbox/spectral_ct_code.py",
+  "task_description": "### Task Description\nThe task is to reconstruct a multi-channel (2-material) tomographic image from noisy projection data. Unlike standard CT where noise is often assumed to be independent and identically distributed (i.i.d.), this problem involves **correlated Gaussian noise** between the two channels. To handle this, the reconstruction must account for the noise covariance structure (data whitening). Furthermore, since the two material channels (e.g., bone and soft tissue) share similar structural boundaries, the reconstruction must utilize a joint prior that encourages structural similarity between the channels.\n\n### Known Information\n*   **Observations ($y$):** A set of noisy sinograms with shape $(2, N_{angles}, N_{detectors})$, representing projections of two distinct materials.\n*   **Forward Operator ($\\mathcal{A}$):** The Ray Transform (Radon Transform), applied diagonally to both material channels.\n*   **Noise Statistics ($\\Sigma$):** The noise covariance matrix between the channels is estimated from the data, allowing for the computation of a whitening matrix $W = \\Sigma^{-1/2}$.\n\n### Goal\nRecover the clean, multi-channel volume $x$ (shape $2 \\times H \\times W$) that minimizes the data discrepancy while satisfying the regularization constraints.\n\n### Regularization\n1.  **Data Fidelity:** Weighted $L_2$-norm squared (Whitened Least Squares), mathematically $\\| W(\\mathcal{A}x - y) \\|_2^2$, to account for correlated noise.\n2.  **Regularizer:** **Nuclear Norm of the Gradient** (often referred to as Joint Total Variation or Vectorial TV). This penalizes the nuclear norm of the Jacobian matrix of the image, encouraging the gradients of the two channels to be aligned (co-occurring edges).\n3.  **Constraint:** Non-negativity indicator function ($x \\geq 0$).\n\n### Algorithm\n**Douglas-Rachford Primal-Dual** splitting algorithm.",
+  "golden_plan": {
+    "algorithm_name": "Douglas-Rachford Primal-Dual for Multi-Material Tomography with Whitening and Nuclear Norm Regularization",
+    "objective_function": "\\min_{x \\geq 0} \\frac{1}{2} \\| W(Ax - b) \\|_2^2 + \\lambda \\| \\nabla x \\|_*",
+    "variables": {
+      "primal": [
+        "x"
+      ],
+      "dual": [
+        "y_1",
+        "y_2"
+      ],
+      "constants": [
+        "A (Diagonal Ray Transform)",
+        "W (Whitening Operator)",
+        "b (Noisy Data)",
+        "\\lambda (Regularization Parameter)",
+        "\\tau (Primal Step Size)",
+        "\\sigma (Dual Step Sizes)"
+      ]
+    },
+    "initialization": [
+      {
+        "variable": "x",
+        "value": "Filtered Back Projection (FBP) of input data",
+        "shape": "(2, 512, 512)"
+      },
+      {
+        "variable": "W",
+        "value": "Fractional matrix power (-0.5) of estimated covariance matrix",
+        "shape": "(2, 2) acting on sinogram channels"
+      },
+      {
+        "variable": "tau",
+        "value": "1.0",
+        "shape": "scalar"
+      },
+      {
+        "variable": "sigma",
+        "value": "(1.0/||WA||^2, 1.0/||Grad||^2)",
+        "shape": "tuple of scalars"
+      }
+    ],
+    "iteration_loop": [
+      {
+        "step_order": 1,
+        "step_name": "Primal Update (Proximal of Indicator Function)",
+        "mathematical_formula": "x^{k+1} = \\text{prox}_{\\tau f}(x^k - \\tau \\sum_i K_i^* y_i^k) = \\max(0, x^k - \\tau ( (WA)^* y_1^k + (\\nabla)^* y_2^k ))",
+        "operator_requirements": [
+          "Adjoint of Whitened Ray Transform",
+          "Adjoint of Gradient (Divergence)"
+        ],
+        "input_variables": [
+          "x",
+          "y_1",
+          "y_2"
+        ],
+        "output_variables": [
+          "x"
+        ]
+      },
+      {
+        "step_order": 2,
+        "step_name": "Dual Update 1 (Data Fidelity)",
+        "mathematical_formula": "y_1^{k+1} = \\text{prox}_{\\sigma_1 g_1^*}(y_1^k + \\sigma_1 K_1(2x^{k+1} - x^k))",
+        "operator_requirements": [
+          "Whitened Ray Transform",
+          "Proximal of Conjugate L2 Norm Squared"
+        ],
+        "input_variables": [
+          "x",
+          "y_1"
+        ],
+        "output_variables": [
+          "y_1"
+        ]
+      },
+      {
+        "step_order": 3,
+        "step_name": "Dual Update 2 (Regularization)",
+        "mathematical_formula": "y_2^{k+1} = \\text{prox}_{\\sigma_2 g_2^*}(y_2^k + \\sigma_2 K_2(2x^{k+1} - x^k))",
+        "operator_requirements": [
+          "Gradient Operator",
+          "Proximal of Conjugate Nuclear Norm"
+        ],
+        "input_variables": [
+          "x",
+          "y_2"
+        ],
+        "output_variables": [
+          "y_2"
+        ]
+      }
+    ],
+    "stopping_criterion": "Fixed number of iterations (50)"
+  },
+  "candidate_plan": {
+    "algorithm_name": "Douglas-Rachford Primal-Dual Splitting",
+    "initialization": [
+      "Initialize primal variable $x^0$ as zeros or filtered backprojection result, shape $(2, H, W)$",
+      "Initialize dual variable $p^0$ for data fidelity term as zeros, shape $(2, N_{angles}, N_{detectors})$",
+      "Initialize dual variable $q^0$ for gradient regularization as zeros, shape $(2, 2, H, W)$ representing the Jacobian",
+      "Set over-relaxed primal variable $\\bar{x}^0 = x^0$",
+      "Compute whitening matrix $W = \\Sigma^{-1/2}$ from noise covariance",
+      "Compute whitened observations $\\tilde{y} = W y$",
+      "Set primal step size $\\tau > 0$, dual step sizes $\\sigma_1, \\sigma_2 > 0$, relaxation parameter $\\theta \\in [0, 1]$",
+      "Set regularization parameter $\\lambda > 0$ for nuclear norm"
+    ],
+    "iteration_loop": [
+      {
+        "step_order": 1,
+        "step_name": "Dual Update for Whitened Data Fidelity",
+        "mathematical_description": "$p^{k+1} = \\frac{1}{1 + \\sigma_1}\\left( p^k + \\sigma_1 W \\mathcal{A} \\bar{x}^k - \\sigma_1 \\tilde{y} \\right)$",
+        "required_operators": [
+          "Ray Transform (Radon Transform)",
+          "Channel Whitening Operator (matrix-vector product with W)"
+        ],
+        "inputs": [
+          "p^k",
+          "x_bar^k",
+          "tilde_y",
+          "sigma_1",
+          "W"
+        ],
+        "outputs": [
+          "p^{k+1}"
+        ]
+      },
+      {
+        "step_order": 2,
+        "step_name": "Forward Gradient Computation for Dual Update",
+        "mathematical_description": "$v^k = q^k + \\sigma_2 D \\bar{x}^k$ where $D$ is the spatial gradient operator producing $(\\partial_x, \\partial_y)$ for each channel",
+        "required_operators": [
+          "Spatial Gradient Operator (finite differences)"
+        ],
+        "inputs": [
+          "q^k",
+          "x_bar^k",
+          "sigma_2"
+        ],
+        "outputs": [
+          "v^k"
+        ]
+      },
+      {
+        "step_order": 3,
+        "step_name": "Dual Update for Nuclear Norm via Spectral Projection",
+        "mathematical_description": "$q^{k+1}_{i,j} = U \\cdot \\text{diag}(\\min(s, \\lambda)) \\cdot V^T$ where $v^k_{i,j} = U \\cdot \\text{diag}(s) \\cdot V^T$ is the SVD at each spatial location $(i,j)$. This projects onto the spectral norm ball $\\{q : \\|q\\|_{\\text{op}} \\leq \\lambda\\}$",
+        "required_operators": [
+          "Singular Value Decomposition (2x2 SVD per pixel)",
+          "Spectral Norm Projection (clip singular values)"
+        ],
+        "inputs": [
+          "v^k",
+          "lambda"
+        ],
+        "outputs": [
+          "q^{k+1}"
+        ]
+      },
+      {
+        "step_order": 4,
+        "step_name": "Compute Adjoint Operations",
+        "mathematical_description": "$g^{k+1} = \\mathcal{A}^* W^T p^{k+1} + D^* q^{k+1}$ where $\\mathcal{A}^*$ is the backprojection and $D^*$ is the negative divergence",
+        "required_operators": [
+          "Backprojection (Adjoint Ray Transform)",
+          "Adjoint Whitening Operator",
+          "Negative Divergence (Adjoint Gradient)"
+        ],
+        "inputs": [
+          "p^{k+1}",
+          "q^{k+1}",
+          "W"
+        ],
+        "outputs": [
+          "g^{k+1}"
+        ]
+      },
+      {
+        "step_order": 5,
+        "step_name": "Primal Update with Non-Negativity Projection",
+        "mathematical_description": "$x^{k+1} = \\max\\left(0, x^k - \\tau g^{k+1}\\right)$",
+        "required_operators": [
+          "Element-wise Maximum (Non-negativity Projection)"
+        ],
+        "inputs": [
+          "x^k",
+          "g^{k+1}",
+          "tau"
+        ],
+        "outputs": [
+          "x^{k+1}"
+        ]
+      },
+      {
+        "step_order": 6,
+        "step_name": "Over-Relaxation Step",
+        "mathematical_description": "$\\bar{x}^{k+1} = x^{k+1} + \\theta (x^{k+1} - x^k)$",
+        "required_operators": [
+          "Linear Combination"
+        ],
+        "inputs": [
+          "x^{k+1}",
+          "x^k",
+          "theta"
+        ],
+        "outputs": [
+          "x_bar^{k+1}"
+        ]
+      },
+      {
+        "step_order": 7,
+        "step_name": "Convergence Check",
+        "mathematical_description": "Compute primal residual $r_p = \\|x^{k+1} - x^k\\|_2 / \\|x^k\\|_2$ and dual residuals. Stop if $r_p < \\epsilon$ or maximum iterations reached.",
+        "required_operators": [
+          "L2 Norm",
+          "Relative Error Computation"
+        ],
+        "inputs": [
+          "x^{k+1}",
+          "x^k",
+          "epsilon",
+          "max_iterations"
+        ],
+        "outputs": [
+          "convergence_flag"
+        ]
+      }
+    ],
+    "_meta": {
+      "generated_at": "2026-01-11T22:50:10.239381",
+      "model": "claude-opus-4-5-20251101-thinking"
+    }
+  },
+  "evaluation": {
+    "step_by_step_analysis": "### Analysis\n\n1.  **Completeness Check**:\n    *   The Candidate Plan includes all necessary variables: Primal $x$, Duals $p$ (for fidelity) and $q$ (for regularization), and the Whitening matrix $W$.\n    *   It correctly identifies the operators: Ray Transform ($\\mathcal{A}$), Backprojection ($\\mathcal{A}^*$), Gradient ($D$), Divergence ($D^*$), and Whitening ($W, W^T$).\n    *   It explicitly includes the proximal operators: The projection onto the spectral norm ball (via SVD) for the Nuclear Norm term, and the closed-form linear update for the L2 fidelity term.\n    *   It includes the over-relaxation step characteristic of the Douglas-Rachford/Chambolle-Pock algorithm.\n\n2.  **Mathematical Correctness**:\n    *   **Algorithm Structure**: The Candidate uses the standard PDHG form (Update Duals $\\to$ Update Primal $\\to$ Extrapolate). This is a valid variation of the Reference Plan (which updates Primal $\\to$ Update Duals). Both converge to the same saddle point.\n    *   **Fidelity Update**: The derivation for the dual update of the Whitened Least Squares term is checked. The formula $p^{k+1} = \\frac{1}{1+\\sigma}(p^k + \\sigma WA\\bar{x} - \\sigma \\tilde{y})$ matches the proximal operator of the conjugate of the shifted L2 squared function. This is mathematically precise.\n    *   **Regularization Update**: The candidate correctly identifies that the dual of the Nuclear Norm is the Spectral Norm (Operator Norm). It correctly implements the proximal operator of the dual (projection onto the spectral ball) by clipping the singular values of the Jacobian at each pixel using SVD. This is a sophisticated and correct detail.\n    *   **Adjoints**: The candidate correctly applies $W^T$ in the adjoint step (Step 4), ensuring the linear algebra is consistent with the forward model.\n\n3.  **Logical Dependency**:\n    *   The data flow is valid. Variables are initialized, then updated in a sequence where inputs for step $N$ are available from steps $1...N-1$ or the previous iteration.\n    *   Dimensionality checks hold: The whitening matrix $W$ (2x2) is applied to the channel dimension of the sinogram/projection space, which is consistent. The gradient operator produces a tensor compatible with the SVD step.\n\n### Conclusion\nThe Candidate Plan is an excellent, mathematically precise implementation of the requested algorithm. It provides explicit formulas for the proximal operators rather than just naming them, and those formulas are correct.",
+    "completeness_score": 5,
+    "completeness_reason": "All physical operators (Ray transform, Whitening) and mathematical operators (SVD, Gradient, Proximal updates) are present and correctly defined.",
+    "correctness_score": 5,
+    "correctness_reason": "The mathematical formulations for the dual updates (specifically the closed-form L2 update and the SVD-based spectral projection) are exact and correct. The handling of the whitening matrix and its adjoint is also correct.",
+    "logical_dependency_score": 5,
+    "logical_dependency_reason": "The sequence of operations forms a valid closed loop. Input/Output relationships are satisfied, and dimensionality is consistent throughout.",
+    "final_weighted_score": 5.0,
+    "is_pass": true
+  }
+}

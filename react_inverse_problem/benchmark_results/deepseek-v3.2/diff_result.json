@@ -1,0 +1,213 @@
+{
+  "task_name": "diff",
+  "code_path": "/home/yjh/diff_sandbox/diff_code.py",
+  "task_description": "### Task Description\nThe objective is to recover the physical and geometric parameters of an optical lens (specifically the \"LE1234-A\" lens) using **Differentiable Metrology**. Physically, the setup consists of a camera observing a display screen through the lens in question. By displaying sinusoidal patterns on the screen (Phase Measuring Deflectometry), we can determine which pixel on the camera sensor corresponds to which physical point on the display screen.\n\nMathematically, this is an inverse rendering problem. We model the system using a differentiable ray tracer. The forward model traces light rays from the camera, through the lens surfaces, to the screen. The goal is to optimize the lens parameters so that the simulated ray intersection points on the screen match the experimentally measured intersection points.\n\n### Known Information\n1.  **Observations ($\\mathbf{p}_{obs}$):** A set of 2D intersection points on the display screen, derived from captured phase-shifted images. These points represent where rays passing through specific camera pixels hit the screen.\n2.  **System Calibration:** The intrinsic and extrinsic parameters of the camera, and the geometric position/rotation of the display screen relative to the camera.\n3.  **Forward Operator ($F(\\cdot)$):** A differentiable ray tracing function. Given a set of lens parameters $\\mathbf{x}$, it computes the expected intersection points on the screen: $\\mathbf{p}_{est} = F(\\mathbf{x})$.\n4.  **Initial Guess:** A perturbed initialization of the lens parameters (e.g., curvatures set to 0.0, thickness set to 3.0).\n\n### Goal\nRecover the vector of lens parameters $\\mathbf{x}$ that minimizes the discrepancy between the modeled and measured ray intersections.\nThe vector $\\mathbf{x}$ includes:\n*   **Surface Curvatures ($c$):** The curvature of the front and back surfaces of the lens.\n*   **Thickness ($d$):** The distance between the two lens surfaces.\n*   **Pose ($\\mathbf{t}, \\theta$):** The 3D position (origin) and tilt angles ($\\theta_x, \\theta_y$) of the lens group.\n\nMathematically, solve the optimization problem:\n$$ \\hat{\\mathbf{x}} = \\arg\\min_{\\mathbf{x}} \\sum_{i \\in \\Omega} \\| F(\\mathbf{x})_i - (\\mathbf{p}_{obs})_i \\|_2^2 $$\nwhere $\\Omega$ is the set of valid pixels (the mask `valid_cap`).\n\n### Regularization\n**None.**\nThe problem is formulated as a standard Non-Linear Least Squares (NLLS) optimization without explicit sparsity (L1) or smoothness (TV) penalties in the loss function. The constraints are implicit in the parameterization of the lens model.",
+  "golden_plan": {
+    "algorithm_name": "Differentiable Ray Tracing Lens Inversion",
+    "objective_function": "\\min_{\\theta} \\frac{1}{|\\Omega|} \\sum_{u \\in \\Omega} \\| \\mathcal{T}(u; \\theta) - \\mathbf{p}_{cap}(u) \\|_2^2",
+    "variables": {
+      "primal": [
+        "lensgroup.surfaces[0].c (Curvature 1)",
+        "lensgroup.surfaces[1].c (Curvature 2)",
+        "lensgroup.surfaces[1].d (Thickness)",
+        "lensgroup.origin (Position)",
+        "lensgroup.theta_x (Tilt X)",
+        "lensgroup.theta_y (Tilt Y)"
+      ],
+      "dual": [],
+      "constants": [
+        "ps_cap (Measured Intersection Points)",
+        "valid_cap (Valid Pixel Mask)",
+        "angle (Rotation Angle)",
+        "DM (DiffMetrology Scene Geometry)"
+      ]
+    },
+    "initialization": [
+      {
+        "variable": "lensgroup.surfaces[0].c",
+        "value": "0.00",
+        "shape": "Scalar"
+      },
+      {
+        "variable": "lensgroup.surfaces[1].c",
+        "value": "0.00",
+        "shape": "Scalar"
+      },
+      {
+        "variable": "lensgroup.surfaces[1].d",
+        "value": "3.00",
+        "shape": "Scalar"
+      },
+      {
+        "variable": "lensgroup.theta_x",
+        "value": "0.00",
+        "shape": "Scalar"
+      },
+      {
+        "variable": "lensgroup.theta_y",
+        "value": "0.00",
+        "shape": "Scalar"
+      }
+    ],
+    "iteration_loop": [
+      {
+        "step_order": 1,
+        "step_name": "Forward Ray Tracing",
+        "mathematical_formula": "\\mathbf{p}_{model} = \\text{Trace}(\\theta_{current}, \\text{angle})",
+        "operator_requirements": [
+          "Differentiable Ray Tracer"
+        ],
+        "input_variables": [
+          "primal",
+          "angle",
+          "valid_cap"
+        ],
+        "output_variables": [
+          "ps_model"
+        ]
+      },
+      {
+        "step_order": 2,
+        "step_name": "Residual Computation",
+        "mathematical_formula": "\\mathcal{L} = \\frac{1}{N} \\sum_{i \\in \\text{valid}} \\| \\mathbf{p}_{model, i} - \\mathbf{p}_{cap, i} \\|^2",
+        "operator_requirements": [
+          "MSE Loss",
+          "Masking"
+        ],
+        "input_variables": [
+          "ps_model",
+          "ps_cap",
+          "valid_cap"
+        ],
+        "output_variables": [
+          "loss_value"
+        ]
+      },
+      {
+        "step_order": 3,
+        "step_name": "Parameter Update (Adam)",
+        "mathematical_formula": "\\theta_{k+1} = \\theta_k - \\eta \\cdot \\text{Adam}(\\nabla_{\\theta} \\mathcal{L})",
+        "operator_requirements": [
+          "Automatic Differentiation",
+          "Adam Optimizer"
+        ],
+        "input_variables": [
+          "loss_value",
+          "primal"
+        ],
+        "output_variables": [
+          "primal"
+        ]
+      }
+    ],
+    "stopping_criterion": "Fixed iteration count (maxit=5)"
+  },
+  "candidate_plan": {
+    "algorithm_name": "Differentiable Ray Tracing-Based Non-Linear Least Squares Optimization",
+    "initialization": [
+      "Set lens parameter vector x0: curvatures c_front=0.0, c_back=0.0; thickness d=3.0; pose t=[0,0,0], \u03b8=[0,0].",
+      "Load observed screen intersection points p_obs from calibrated Phase Measuring Deflectometry data.",
+      "Define the valid pixel mask \u03a9 (valid_cap) to index the observations.",
+      "Set optimization hyperparameters: learning rate \u03b1, convergence tolerance \u03b5, maximum iterations N_max."
+    ],
+    "iteration_loop": [
+      {
+        "step_order": 1,
+        "step_name": "Forward Ray Tracing",
+        "mathematical_description": "Compute the estimated screen intersection points for all valid pixels using the differentiable ray tracer: p_est = F(x_k).",
+        "required_operators": [
+          "Differentiable Ray Tracer"
+        ],
+        "inputs": [
+          "x_k"
+        ],
+        "outputs": [
+          "p_est"
+        ]
+      },
+      {
+        "step_order": 2,
+        "step_name": "Loss Computation",
+        "mathematical_description": "Calculate the non-linear least squares loss: L(x_k) = \u03a3_{i \u2208 \u03a9} || (p_est)_i - (p_obs)_i ||_2^2.",
+        "required_operators": [
+          "Vector Norm",
+          "Summation"
+        ],
+        "inputs": [
+          "p_est",
+          "p_obs",
+          "\u03a9"
+        ],
+        "outputs": [
+          "L_k"
+        ]
+      },
+      {
+        "step_order": 3,
+        "step_name": "Gradient Computation via Automatic Differentiation",
+        "mathematical_description": "Compute the gradient of the loss with respect to the lens parameters: g_k = \u2207_x L(x_k).",
+        "required_operators": [
+          "Automatic Differentiation (Backpropagation)"
+        ],
+        "inputs": [
+          "L_k",
+          "x_k"
+        ],
+        "outputs": [
+          "g_k"
+        ]
+      },
+      {
+        "step_order": 4,
+        "step_name": "Parameter Update",
+        "mathematical_description": "Update the lens parameters using gradient descent: x_{k+1} = x_k - \u03b1 * g_k.",
+        "required_operators": [
+          "Vector Addition",
+          "Scalar-Vector Multiplication"
+        ],
+        "inputs": [
+          "x_k",
+          "g_k",
+          "\u03b1"
+        ],
+        "outputs": [
+          "x_{k+1}"
+        ]
+      },
+      {
+        "step_order": 5,
+        "step_name": "Convergence Check",
+        "mathematical_description": "Check stopping criteria: if ||g_k||_2 < \u03b5 or k \u2265 N_max, terminate and output x_{k+1} as the solution. Otherwise, increment k and return to Step 1.",
+        "required_operators": [
+          "Vector Norm",
+          "Comparison"
+        ],
+        "inputs": [
+          "g_k",
+          "\u03b5",
+          "k",
+          "N_max"
+        ],
+        "outputs": [
+          "termination_flag",
+          "x_{final}"
+        ]
+      }
+    ],
+    "_meta": {
+      "generated_at": "2026-01-11T20:59:54.574665",
+      "model": "deepseek-v3.2"
+    }
+  },
+  "evaluation": {
+    "step_by_step_analysis": "### Step-by-Step Analysis\n\n1.  **Completeness Check**:\n    *   **Forward Model**: The Candidate Plan correctly identifies the need for a \"Differentiable Ray Tracer\" in Step 1, matching the Reference Plan.\n    *   **Loss Function**: The Candidate Plan defines a Non-Linear Least Squares loss (Sum of Squared Errors) in Step 2. This matches the objective function provided in the Task Description ($\\sum ...$) and the intent of the Reference Plan (which uses MSE).\n    *   **Optimization**: The Candidate Plan explicitly breaks down the optimization into Gradient Computation (Step 3) and Parameter Update (Step 4). While the Reference Plan uses the **Adam** optimizer and the Candidate uses standard **Gradient Descent**, both are valid gradient-based optimization methods for this problem. The necessary operators (AutoDiff, Vector arithmetic) are present.\n\n2.  **Mathematical Correctness**:\n    *   **Objective Function**: The Candidate Plan uses the sum of squared L2 norms: $\\sum_{i \\in \\Omega} \\| (p_{est})_i - (p_{obs})_i \\|_2^2$. This is mathematically consistent with the Task Description. (Note: The Reference Plan uses Mean Squared Error, while the Task Description and Candidate use Sum of Squared Errors; both are valid for minimization, differing only by a scaling factor).\n    *   **Gradient & Update**: The formulation $x_{k+1} = x_k - \\alpha g_k$ is the correct mathematical expression for Gradient Descent. The gradient calculation via Automatic Differentiation is correctly applied to the loss $L_k$.\n\n3.  **Logical Dependency (DAG)**:\n    *   **Flow**: The sequence is logical: Initialize $\\to$ Forward Pass $\\to$ Loss Calculation $\\to$ Backpropagation (Gradient) $\\to$ Update $\\to$ Convergence Check.\n    *   **Variable Availability**: \n        *   Step 1 uses $x_k$ (initialized).\n        *   Step 2 uses $p_{est}$ (from Step 1) and $p_{obs}$ (initialized).\n        *   Step 3 uses $L_k$ (from Step 2) to compute gradients.\n        *   Step 4 uses gradients to update $x$.\n    *   The loop is closed and valid.\n\n**Conclusion**: The Candidate Plan is a high-quality representation of the required algorithm. It is slightly more explicit than the Reference Plan regarding the gradient computation step, which is helpful. The substitution of Gradient Descent for Adam is a minor algorithmic choice that does not invalidate the plan given the general task description.",
+    "completeness_score": 5,
+    "completeness_reason": "All critical physical (Ray Tracer) and mathematical (Loss, AutoDiff, Update) operators are present.",
+    "correctness_score": 5,
+    "correctness_reason": "The mathematical formulation for the loss and the gradient descent update is correct and consistent with the task description.",
+    "logical_dependency_score": 5,
+    "logical_dependency_reason": "The data flow is perfectly valid. Inputs for each step are clearly defined in previous steps or initialization.",
+    "final_weighted_score": 5.0,
+    "is_pass": true
+  }
+}

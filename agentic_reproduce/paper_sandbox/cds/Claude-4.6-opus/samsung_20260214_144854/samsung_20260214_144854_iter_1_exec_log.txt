@@ -1,0 +1,10 @@
+STDOUT:
+Loaded 81 diffraction patterns of shape (256, 256)
+Running rpPIE with 81 scan positions, 300 iterations...
+Final object error: 3.633699e+01
+Final phase error: 1.528197e+00 rad
+Saving result of shape (450, 450), dtype complex128
+Done. Output saved to output.npy
+
+
+STDERR:

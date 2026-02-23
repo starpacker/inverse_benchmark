@@ -1,0 +1,238 @@
+{
+  "task_name": "spectral_ct_examples-master",
+  "code_path": "/data/yjh/spectral_ct_examples-master_sandbox/spectral_ct_code.py",
+  "task_description": "### Task Description\nThe task is to reconstruct a multi-channel (2-material) tomographic image from noisy projection data. Unlike standard CT where noise is often assumed to be independent and identically distributed (i.i.d.), this problem involves **correlated Gaussian noise** between the two channels. To handle this, the reconstruction must account for the noise covariance structure (data whitening). Furthermore, since the two material channels (e.g., bone and soft tissue) share similar structural boundaries, the reconstruction must utilize a joint prior that encourages structural similarity between the channels.\n\n### Known Information\n*   **Observations ($y$):** A set of noisy sinograms with shape $(2, N_{angles}, N_{detectors})$, representing projections of two distinct materials.\n*   **Forward Operator ($\\mathcal{A}$):** The Ray Transform (Radon Transform), applied diagonally to both material channels.\n*   **Noise Statistics ($\\Sigma$):** The noise covariance matrix between the channels is estimated from the data, allowing for the computation of a whitening matrix $W = \\Sigma^{-1/2}$.\n\n### Goal\nRecover the clean, multi-channel volume $x$ (shape $2 \\times H \\times W$) that minimizes the data discrepancy while satisfying the regularization constraints.\n\n### Regularization\n1.  **Data Fidelity:** Weighted $L_2$-norm squared (Whitened Least Squares), mathematically $\\| W(\\mathcal{A}x - y) \\|_2^2$, to account for correlated noise.\n2.  **Regularizer:** **Nuclear Norm of the Gradient** (often referred to as Joint Total Variation or Vectorial TV). This penalizes the nuclear norm of the Jacobian matrix of the image, encouraging the gradients of the two channels to be aligned (co-occurring edges).\n3.  **Constraint:** Non-negativity indicator function ($x \\geq 0$).\n\n### Algorithm\n**Douglas-Rachford Primal-Dual** splitting algorithm.",
+  "golden_plan": {
+    "algorithm_name": "Douglas-Rachford Primal-Dual for Multi-Material Tomography with Whitening and Nuclear Norm Regularization",
+    "objective_function": "\\min_{x \\geq 0} \\frac{1}{2} \\| W(Ax - b) \\|_2^2 + \\lambda \\| \\nabla x \\|_*",
+    "variables": {
+      "primal": [
+        "x"
+      ],
+      "dual": [
+        "y_1",
+        "y_2"
+      ],
+      "constants": [
+        "A (Diagonal Ray Transform)",
+        "W (Whitening Operator)",
+        "b (Noisy Data)",
+        "\\lambda (Regularization Parameter)",
+        "\\tau (Primal Step Size)",
+        "\\sigma (Dual Step Sizes)"
+      ]
+    },
+    "initialization": [
+      {
+        "variable": "x",
+        "value": "Filtered Back Projection (FBP) of input data",
+        "shape": "(2, 512, 512)"
+      },
+      {
+        "variable": "W",
+        "value": "Fractional matrix power (-0.5) of estimated covariance matrix",
+        "shape": "(2, 2) acting on sinogram channels"
+      },
+      {
+        "variable": "tau",
+        "value": "1.0",
+        "shape": "scalar"
+      },
+      {
+        "variable": "sigma",
+        "value": "(1.0/||WA||^2, 1.0/||Grad||^2)",
+        "shape": "tuple of scalars"
+      }
+    ],
+    "iteration_loop": [
+      {
+        "step_order": 1,
+        "step_name": "Primal Update (Proximal of Indicator Function)",
+        "mathematical_formula": "x^{k+1} = \\text{prox}_{\\tau f}(x^k - \\tau \\sum_i K_i^* y_i^k) = \\max(0, x^k - \\tau ( (WA)^* y_1^k + (\\nabla)^* y_2^k ))",
+        "operator_requirements": [
+          "Adjoint of Whitened Ray Transform",
+          "Adjoint of Gradient (Divergence)"
+        ],
+        "input_variables": [
+          "x",
+          "y_1",
+          "y_2"
+        ],
+        "output_variables": [
+          "x"
+        ]
+      },
+      {
+        "step_order": 2,
+        "step_name": "Dual Update 1 (Data Fidelity)",
+        "mathematical_formula": "y_1^{k+1} = \\text{prox}_{\\sigma_1 g_1^*}(y_1^k + \\sigma_1 K_1(2x^{k+1} - x^k))",
+        "operator_requirements": [
+          "Whitened Ray Transform",
+          "Proximal of Conjugate L2 Norm Squared"
+        ],
+        "input_variables": [
+          "x",
+          "y_1"
+        ],
+        "output_variables": [
+          "y_1"
+        ]
+      },
+      {
+        "step_order": 3,
+        "step_name": "Dual Update 2 (Regularization)",
+        "mathematical_formula": "y_2^{k+1} = \\text{prox}_{\\sigma_2 g_2^*}(y_2^k + \\sigma_2 K_2(2x^{k+1} - x^k))",
+        "operator_requirements": [
+          "Gradient Operator",
+          "Proximal of Conjugate Nuclear Norm"
+        ],
+        "input_variables": [
+          "x",
+          "y_2"
+        ],
+        "output_variables": [
+          "y_2"
+        ]
+      }
+    ],
+    "stopping_criterion": "Fixed number of iterations (50)"
+  },
+  "candidate_plan": {
+    "algorithm_name": "Douglas-Rachford Primal-Dual Splitting for Multi-Channel Tomography",
+    "initialization": [
+      "Initialize primal variable $x^{(0)}$ (multi-channel volume) to zero or filtered back-projection of $y$.",
+      "Initialize dual variable $p^{(0)}$ (associated with data fidelity) to zero.",
+      "Initialize dual variable $q^{(0)}$ (associated with joint TV) to zero.",
+      "Set step sizes $\\tau$ (primal step) and $\\sigma_1, \\sigma_2$ (dual steps) satisfying $\\tau \\sigma_1 \\| W \\mathcal{A} \\|^2 + \\tau \\sigma_2 \\| \\nabla \\|^2 < 1$.",
+      "Set relaxation parameter $\\gamma \\in (0, 2)$."
+    ],
+    "iteration_loop": [
+      {
+        "step_order": 1,
+        "step_name": "Dual Update (Data Fidelity)",
+        "mathematical_description": "$\\bar{p}^{(k+1)} = p^{(k)} + \\sigma_1 W (\\mathcal{A} \\bar{x}^{(k)} - y)$",
+        "required_operators": [
+          "Forward Radon Transform (A)",
+          "Matrix Multiplication (W)"
+        ],
+        "inputs": [
+          "$p^{(k)}$",
+          "$\\bar{x}^{(k)}$",
+          "$y$",
+          "$W$"
+        ],
+        "outputs": [
+          "$\\bar{p}^{(k+1)}$"
+        ]
+      },
+      {
+        "step_order": 2,
+        "step_name": "Dual Projection (Data Fidelity)",
+        "mathematical_description": "$p^{(k+1)} = \\bar{p}^{(k+1)}$ (Identity operator, as the proximal of the convex conjugate of the squared L2-norm is a simple shift)",
+        "required_operators": [
+          "Identity"
+        ],
+        "inputs": [
+          "$\\bar{p}^{(k+1)}$"
+        ],
+        "outputs": [
+          "$p^{(k+1)}$"
+        ]
+      },
+      {
+        "step_order": 3,
+        "step_name": "Dual Update (Joint TV)",
+        "mathematical_description": "$\\bar{q}^{(k+1)} = q^{(k)} + \\sigma_2 \\nabla \\bar{x}^{(k)}$",
+        "required_operators": [
+          "Spatial Gradient Operator ($\\nabla$)"
+        ],
+        "inputs": [
+          "$q^{(k)}$",
+          "$\\bar{x}^{(k)}$"
+        ],
+        "outputs": [
+          "$\\bar{q}^{(k+1)}$"
+        ]
+      },
+      {
+        "step_order": 4,
+        "step_name": "Dual Projection (Joint TV)",
+        "mathematical_description": "$q^{(k+1)} = \\text{Proj}_{\\mathcal{B}_1}(\\bar{q}^{(k+1)})$, where $\\mathcal{B}_1$ is the unit ball of the nuclear norm. This is computed via Singular Value Thresholding (SVT) with threshold 1.",
+        "required_operators": [
+          "Singular Value Decomposition (SVD)",
+          "Singular Value Thresholding"
+        ],
+        "inputs": [
+          "$\\bar{q}^{(k+1)}$"
+        ],
+        "outputs": [
+          "$q^{(k+1)}$"
+        ]
+      },
+      {
+        "step_order": 5,
+        "step_name": "Primal Update",
+        "mathematical_description": "$\\tilde{x}^{(k+1)} = x^{(k)} - \\tau ( \\mathcal{A}^T W^T p^{(k+1)} - \\text{div}(q^{(k+1)}) )$",
+        "required_operators": [
+          "Adjoint Radon Transform ($A^T$)",
+          "Matrix Transpose/Multiplication ($W^T$)",
+          "Divergence Operator ($\\text{div}$)"
+        ],
+        "inputs": [
+          "$x^{(k)}$",
+          "$p^{(k+1)}$",
+          "$q^{(k+1)}$",
+          "$W$"
+        ],
+        "outputs": [
+          "$\\tilde{x}^{(k+1)}$"
+        ]
+      },
+      {
+        "step_order": 6,
+        "step_name": "Primal Projection (Non-negativity)",
+        "mathematical_description": "$x^{(k+1)} = \\max(0, \\tilde{x}^{(k+1)})$",
+        "required_operators": [
+          "Element-wise Maximum"
+        ],
+        "inputs": [
+          "$\\tilde{x}^{(k+1)}$"
+        ],
+        "outputs": [
+          "$x^{(k+1)}$"
+        ]
+      },
+      {
+        "step_order": 7,
+        "step_name": "Extrapolation",
+        "mathematical_description": "$\\bar{x}^{(k+1)} = x^{(k+1)} + \\gamma (x^{(k+1)} - x^{(k)})$",
+        "required_operators": [
+          "Linear Combination"
+        ],
+        "inputs": [
+          "$x^{(k+1)}$",
+          "$x^{(k)}$",
+          "$\\gamma$"
+        ],
+        "outputs": [
+          "$\\bar{x}^{(k+1)}$"
+        ]
+      }
+    ],
+    "_meta": {
+      "generated_at": "2026-01-11T21:15:02.860425",
+      "model": "glm-4.7"
+    }
+  },
+  "evaluation": {
+    "step_by_step_analysis": "### Step-by-Step Analysis\n\n1.  **Completeness Check**:\n    *   **Forward Model**: The Candidate Plan correctly identifies the Forward Radon Transform ($\\mathcal{A}$) and the Whitening Matrix ($W$).\n    *   **Regularization**: It identifies the Gradient Operator ($\\nabla$) for the Joint TV term.\n    *   **Adjoints**: It correctly calls for $\\mathcal{A}^T$, $W^T$, and $\\text{div}$ (adjoint of gradient) in the primal update.\n    *   **Proximal Operators**: This is where the plan falters. While it attempts to define updates, it misses the specific *Proximal Operator for the Conjugate L2 Norm* (replacing it with Identity) and misidentifies the *Projection onto the Spectral Norm Ball* (calling it SVT, which is a different operation).\n\n2.  **Mathematical Correctness**:\n    *   **Data Fidelity Update**: The Candidate Plan uses an Identity operator for the dual projection of the data fidelity term ($p^{(k+1)} = \\bar{p}^{(k+1)}$). In the context of the Douglas-Rachford/Primal-Dual algorithm, this implies the dual variable is unconstrained, which corresponds to the primal problem having a hard equality constraint ($Ax = y$). The task specifies *noisy* data minimized via Weighted Least Squares. The correct update involves a scaling/shrinkage factor (proximal of conjugate L2), not Identity. This is a significant error that changes the problem definition.\n    *   **Regularization Update**: The Candidate Plan prescribes \"Singular Value Thresholding (SVT) with threshold 1\" for the dual variable of the Nuclear Norm. The dual of the Nuclear Norm is the Spectral Norm unit ball. The correct operation is *Projection* onto this ball (clipping singular values to 1), whereas SVT (soft thresholding) subtracts 1 from singular values. These are mathematically distinct operations.\n    *   **Primal Update**: The formula $x - \\tau (\\dots)$ is consistent with the standard PDHG update structure.\n\n3.  **Logical Dependency**:\n    *   **Data Flow**: The sequence of operations (Dual Updates -> Primal Update -> Extrapolation) is a valid variation of the Primal-Dual algorithm.\n    *   **Dimensionality**: The application of $W$ and $\\mathcal{A}$ matches the sinogram space, and $\\nabla$ matches the image space. The adjoints correctly map back to the image space for the primal update.\n    *   **Initialization**: The variable $\\bar{x}^{(0)}$ is used in Step 1 but only $x^{(0)}$ is explicitly initialized. While standard convention assumes $\\bar{x}^{(0)} = x^{(0)}$, it is a minor ambiguity.",
+    "completeness_score": 4,
+    "completeness_reason": "The plan includes all major physical operators (Ray transform, Whitening, Gradient) and their adjoints. However, it fails to include the correct proximal operators required for the specific loss functions described in the Reference Plan.",
+    "correctness_score": 2,
+    "correctness_reason": "There are two fundamental mathematical errors: 1) Treating the L2 data fidelity term as a hard constraint (using Identity instead of the resolvent/proximal scaling), which is incorrect for noisy data. 2) Prescribing SVT (Soft Thresholding) instead of Projection (Clipping) for the dual constraint of the Nuclear Norm.",
+    "logical_dependency_score": 5,
+    "logical_dependency_reason": "The data flow forms a valid, closed loop. Dimensionality is consistent across the forward and adjoint operations. The sequence of updates is physically feasible.",
+    "final_weighted_score": 3.5,
+    "is_pass": false
+  }
+}

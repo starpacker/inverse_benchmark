@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Environments
+.env
+.venv/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Database files
+*.db
+
+# Large binary files
+*.npy
+*.pkl
+*.h5
+*.hdf5
+*.pt
+*.pth
+*.onnx
+
+# New flow: exclude history and output folders
+new_flow/history_*/
+new_flow/output_*/
+
+# PDF files (large)
+*.pdf
+
+# Images in paper archives
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.bmp

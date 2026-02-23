@@ -1,0 +1,14 @@
+STDOUT:
+Loading input data...
+Input shape: (81, 256, 256), dtype: float32
+Input min: 0.0, max: 0.3063772916793823, mean: 0.010258392430841923
+Starting reconstruction...
+Output shape: (2, 600, 600), dtype: float32
+Amplitude - min: 0.000204, max: 2.000000, mean: 0.157040
+Phase - min: -3.141545, max: 3.141588, mean: 0.000396
+Error history (first 5): [0.1893208764177404, 0.290705115546526, 0.20982456734698157, 0.20246301584626264, 0.16630437245978996]
+Error history (last 5): [0.13925641721251159, 0.1395701826861442, 0.1428581511058374, 0.12692057835363402, 0.12674516366957725]
+Result saved to output.npy
+
+
+STDERR:

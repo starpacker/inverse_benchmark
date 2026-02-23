@@ -1,0 +1,54 @@
+STDOUT:
+Loading input data...
+Input type: <class 'numpy.ndarray'>
+Input dtype: float32
+Input shape: (81, 256, 256)
+3D stack with 81 patterns, each (256, 256)
+Using algorithm: rppie, num_measurements: 81
+Time so far: 0.1s
+Measurement shape: (256, 256), count: 81
+Object shape: (610, 610)
+Probe shape: (160, 160)
+Scan positions: (100, 2)
+R_substrate: (0.002042642693245243-0.0066046936313017435j)
+R_pad: (0.01642075356122743-0.031479887742269036j)
+Resizing probe from (160, 160) to (256, 256)
+Adjusting scan positions from 100 to 81
+Final scan positions shape: (81, 2)
+Initialized object shape: (610, 610)
+  rpPIE epoch 0: error=1.354334e+02, time=0.6s
+  rpPIE epoch 1: error=7.942203e+00, time=1.1s
+  rpPIE epoch 2: error=5.694209e+00, time=1.6s
+  rpPIE epoch 3: error=5.654691e+00, time=2.1s
+  rpPIE epoch 4: error=5.319629e+00, time=2.6s
+  rpPIE epoch 5: error=5.053802e+00, time=3.1s
+  rpPIE epoch 6: error=5.110448e+00, time=3.6s
+  rpPIE epoch 7: error=5.312401e+00, time=4.1s
+  rpPIE epoch 8: error=4.791787e+00, time=4.6s
+  rpPIE epoch 9: error=5.044929e+00, time=5.1s
+  rpPIE epoch 10: error=4.906684e+00, time=5.6s
+  rpPIE epoch 11: error=5.196756e+00, time=6.1s
+  rpPIE epoch 12: error=5.170190e+00, time=6.5s
+  rpPIE epoch 13: error=5.020206e+00, time=7.0s
+  rpPIE epoch 14: error=5.198442e+00, time=7.5s
+  rpPIE epoch 15: error=4.665141e+00, time=8.0s
+  rpPIE epoch 16: error=4.861705e+00, time=8.5s
+  rpPIE epoch 17: error=5.109655e+00, time=9.0s
+  rpPIE epoch 18: error=4.974635e+00, time=9.5s
+  rpPIE epoch 19: error=4.823586e+00, time=10.0s
+  rpPIE epoch 20: error=5.265972e+00, time=10.5s
+  rpPIE epoch 21: error=5.098002e+00, time=11.0s
+  rpPIE epoch 22: error=4.773923e+00, time=11.5s
+  rpPIE epoch 23: error=5.051934e+00, time=12.0s
+  rpPIE epoch 24: error=4.654300e+00, time=12.5s
+  rpPIE epoch 25: error=5.336880e+00, time=12.9s
+  rpPIE epoch 26: error=4.910785e+00, time=13.4s
+  rpPIE epoch 27: error=5.143323e+00, time=13.9s
+  rpPIE epoch 28: error=4.829141e+00, time=14.4s
+  rpPIE epoch 29: error=5.298332e+00, time=14.9s
+Saving result with shape (610, 610)
+Total execution time: 14.9s
+Done.
+
+
+STDERR:

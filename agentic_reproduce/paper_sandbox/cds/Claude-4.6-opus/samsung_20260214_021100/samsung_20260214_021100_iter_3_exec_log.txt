@@ -1,0 +1,19 @@
+STDOUT:
+Loading input data...
+Input data shape: (81, 256, 256), dtype: float32
+Loaded probe: shape=(2, 256, 256), dtype=float32
+Loaded scan_positions: shape=(81, 2)
+Ptychographic data: 81 patterns of size 256x256
+Using algorithm=rppie, probe_radius=128, grid_size=768
+Probe after preprocessing: shape=(256, 256)
+Scan positions: 81 positions
+Using 50 epochs
+Starting reconstruction...
+Reconstruction complete. Result shape: (768, 768), dtype: complex128
+Error history length: 50
+Final Fourier error: 6.402505e+00
+Initial Fourier error: 9.274348e+01
+Result saved to output.npy
+
+
+STDERR:

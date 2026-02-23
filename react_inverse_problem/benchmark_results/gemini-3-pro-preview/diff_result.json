@@ -1,0 +1,200 @@
+{
+  "task_name": "diff",
+  "code_path": "/home/yjh/diff_sandbox/diff_code.py",
+  "task_description": "### Task Description\nThe objective is to recover the physical and geometric parameters of an optical lens (specifically the \"LE1234-A\" lens) using **Differentiable Metrology**. Physically, the setup consists of a camera observing a display screen through the lens in question. By displaying sinusoidal patterns on the screen (Phase Measuring Deflectometry), we can determine which pixel on the camera sensor corresponds to which physical point on the display screen.\n\nMathematically, this is an inverse rendering problem. We model the system using a differentiable ray tracer. The forward model traces light rays from the camera, through the lens surfaces, to the screen. The goal is to optimize the lens parameters so that the simulated ray intersection points on the screen match the experimentally measured intersection points.\n\n### Known Information\n1.  **Observations ($\\mathbf{p}_{obs}$):** A set of 2D intersection points on the display screen, derived from captured phase-shifted images. These points represent where rays passing through specific camera pixels hit the screen.\n2.  **System Calibration:** The intrinsic and extrinsic parameters of the camera, and the geometric position/rotation of the display screen relative to the camera.\n3.  **Forward Operator ($F(\\cdot)$):** A differentiable ray tracing function. Given a set of lens parameters $\\mathbf{x}$, it computes the expected intersection points on the screen: $\\mathbf{p}_{est} = F(\\mathbf{x})$.\n4.  **Initial Guess:** A perturbed initialization of the lens parameters (e.g., curvatures set to 0.0, thickness set to 3.0).\n\n### Goal\nRecover the vector of lens parameters $\\mathbf{x}$ that minimizes the discrepancy between the modeled and measured ray intersections.\nThe vector $\\mathbf{x}$ includes:\n*   **Surface Curvatures ($c$):** The curvature of the front and back surfaces of the lens.\n*   **Thickness ($d$):** The distance between the two lens surfaces.\n*   **Pose ($\\mathbf{t}, \\theta$):** The 3D position (origin) and tilt angles ($\\theta_x, \\theta_y$) of the lens group.\n\nMathematically, solve the optimization problem:\n$$ \\hat{\\mathbf{x}} = \\arg\\min_{\\mathbf{x}} \\sum_{i \\in \\Omega} \\| F(\\mathbf{x})_i - (\\mathbf{p}_{obs})_i \\|_2^2 $$\nwhere $\\Omega$ is the set of valid pixels (the mask `valid_cap`).\n\n### Regularization\n**None.**\nThe problem is formulated as a standard Non-Linear Least Squares (NLLS) optimization without explicit sparsity (L1) or smoothness (TV) penalties in the loss function. The constraints are implicit in the parameterization of the lens model.",
+  "golden_plan": {
+    "algorithm_name": "Differentiable Ray Tracing Lens Inversion",
+    "objective_function": "\\min_{\\theta} \\frac{1}{|\\Omega|} \\sum_{u \\in \\Omega} \\| \\mathcal{T}(u; \\theta) - \\mathbf{p}_{cap}(u) \\|_2^2",
+    "variables": {
+      "primal": [
+        "lensgroup.surfaces[0].c (Curvature 1)",
+        "lensgroup.surfaces[1].c (Curvature 2)",
+        "lensgroup.surfaces[1].d (Thickness)",
+        "lensgroup.origin (Position)",
+        "lensgroup.theta_x (Tilt X)",
+        "lensgroup.theta_y (Tilt Y)"
+      ],
+      "dual": [],
+      "constants": [
+        "ps_cap (Measured Intersection Points)",
+        "valid_cap (Valid Pixel Mask)",
+        "angle (Rotation Angle)",
+        "DM (DiffMetrology Scene Geometry)"
+      ]
+    },
+    "initialization": [
+      {
+        "variable": "lensgroup.surfaces[0].c",
+        "value": "0.00",
+        "shape": "Scalar"
+      },
+      {
+        "variable": "lensgroup.surfaces[1].c",
+        "value": "0.00",
+        "shape": "Scalar"
+      },
+      {
+        "variable": "lensgroup.surfaces[1].d",
+        "value": "3.00",
+        "shape": "Scalar"
+      },
+      {
+        "variable": "lensgroup.theta_x",
+        "value": "0.00",
+        "shape": "Scalar"
+      },
+      {
+        "variable": "lensgroup.theta_y",
+        "value": "0.00",
+        "shape": "Scalar"
+      }
+    ],
+    "iteration_loop": [
+      {
+        "step_order": 1,
+        "step_name": "Forward Ray Tracing",
+        "mathematical_formula": "\\mathbf{p}_{model} = \\text{Trace}(\\theta_{current}, \\text{angle})",
+        "operator_requirements": [
+          "Differentiable Ray Tracer"
+        ],
+        "input_variables": [
+          "primal",
+          "angle",
+          "valid_cap"
+        ],
+        "output_variables": [
+          "ps_model"
+        ]
+      },
+      {
+        "step_order": 2,
+        "step_name": "Residual Computation",
+        "mathematical_formula": "\\mathcal{L} = \\frac{1}{N} \\sum_{i \\in \\text{valid}} \\| \\mathbf{p}_{model, i} - \\mathbf{p}_{cap, i} \\|^2",
+        "operator_requirements": [
+          "MSE Loss",
+          "Masking"
+        ],
+        "input_variables": [
+          "ps_model",
+          "ps_cap",
+          "valid_cap"
+        ],
+        "output_variables": [
+          "loss_value"
+        ]
+      },
+      {
+        "step_order": 3,
+        "step_name": "Parameter Update (Adam)",
+        "mathematical_formula": "\\theta_{k+1} = \\theta_k - \\eta \\cdot \\text{Adam}(\\nabla_{\\theta} \\mathcal{L})",
+        "operator_requirements": [
+          "Automatic Differentiation",
+          "Adam Optimizer"
+        ],
+        "input_variables": [
+          "loss_value",
+          "primal"
+        ],
+        "output_variables": [
+          "primal"
+        ]
+      }
+    ],
+    "stopping_criterion": "Fixed iteration count (maxit=5)"
+  },
+  "candidate_plan": {
+    "algorithm_name": "Differentiable Ray Tracing Optimization for Lens Metrology",
+    "initialization": [
+      "Define the lens parameter vector x_0 containing initial guesses for curvatures c, thickness d, translation t, and rotation angles theta.",
+      "Load observed screen intersection points p_obs derived from Phase Measuring Deflectometry.",
+      "Load the binary validity mask Omega (valid_cap) indicating reliable measurement pixels.",
+      "Initialize the differentiable ray tracer with fixed system calibration (camera intrinsics/extrinsics, screen pose)."
+    ],
+    "iteration_loop": [
+      {
+        "step_order": 1,
+        "step_name": "Forward Ray Tracing",
+        "mathematical_description": "p_{est} = F(\\mathbf{x}_k)",
+        "required_operators": [
+          "Differentiable Ray Tracer",
+          "Snell's Law Refraction",
+          "Ray-Plane Intersection"
+        ],
+        "inputs": [
+          "Current lens parameters x_k",
+          "Camera ray directions",
+          "Screen geometry"
+        ],
+        "outputs": [
+          "Estimated screen intersection points p_est"
+        ]
+      },
+      {
+        "step_order": 2,
+        "step_name": "Residual Computation",
+        "mathematical_description": "r_i = \\| (p_{est})_i - (p_{obs})_i \\|_2^2 \\quad \\forall i \\in \\Omega",
+        "required_operators": [
+          "L2 Norm",
+          "Masking"
+        ],
+        "inputs": [
+          "Estimated points p_est",
+          "Observed points p_obs",
+          "Validity mask Omega"
+        ],
+        "outputs": [
+          "Residual vector r",
+          "Scalar Loss L"
+        ]
+      },
+      {
+        "step_order": 3,
+        "step_name": "Gradient Computation (Backpropagation)",
+        "mathematical_description": "\\nabla_{\\mathbf{x}} L = \\sum_{i \\in \\Omega} 2 ((p_{est})_i - (p_{obs})_i)^T \\cdot \\frac{\\partial F(\\mathbf{x})_i}{\\partial \\mathbf{x}}",
+        "required_operators": [
+          "Automatic Differentiation (Autograd)",
+          "Jacobian Transpose Vector Product"
+        ],
+        "inputs": [
+          "Scalar Loss L",
+          "Computational Graph of F(x)"
+        ],
+        "outputs": [
+          "Gradient vector g_k = \\nabla_{\\mathbf{x}} L"
+        ]
+      },
+      {
+        "step_order": 4,
+        "step_name": "Parameter Update (Optimizer Step)",
+        "mathematical_description": "\\mathbf{x}_{k+1} = \\mathbf{x}_k - \\alpha \\cdot \\text{Optimizer}(\\mathbf{g}_k, \\text{state})",
+        "required_operators": [
+          "Adam Optimizer or Gradient Descent",
+          "Parameter Clipping (optional for physical constraints)"
+        ],
+        "inputs": [
+          "Current parameters x_k",
+          "Gradient vector g_k",
+          "Learning rate alpha"
+        ],
+        "outputs": [
+          "Updated lens parameters x_{k+1}"
+        ]
+      }
+    ],
+    "_meta": {
+      "generated_at": "2026-01-11T20:52:10.977365",
+      "model": "gemini-3-pro-preview"
+    }
+  },
+  "evaluation": {
+    "step_by_step_analysis": "### Step-by-Step Analysis\n\n**1. Completeness Check:**\n- **Reference Plan:** Includes Forward Ray Tracing, Residual Computation (MSE), and Parameter Update (Adam). It implicitly handles gradients via \"Automatic Differentiation\" in the update step.\n- **Candidate Plan:** Explicitly breaks down the loop into Forward Ray Tracing, Residual Computation, Gradient Computation (Backpropagation), and Parameter Update. \n- **Comparison:** The Candidate Plan includes all necessary operators. It actually provides more detail by explicitly listing the gradient computation step, which is often merged into the optimizer step in high-level descriptions but is physically present in the computation. The core operators (Ray Tracer, Loss, Optimizer) are all present.\n\n**2. Mathematical Correctness:**\n- **Reference Plan:** Uses an MSE loss formulation $\\mathcal{L} = \\frac{1}{N} \\sum \\| p_{model} - p_{cap} \\|^2$ and an Adam update rule.\n- **Candidate Plan:** Uses the same L2 norm squared formulation for the residual. The gradient computation formula $\\nabla_{\\mathbf{x}} L = \\sum 2 (p_{est} - p_{obs})^T \\cdot \\frac{\\partial F}{\\partial \\mathbf{x}}$ is the correct application of the chain rule for least squares. The update step is a standard gradient descent/optimizer update.\n- **Assessment:** The mathematical formulation in the Candidate Plan is correct and consistent with the Reference Plan.\n\n**3. Logical Dependency / DAG Validity:**\n- **Flow:** \n    - Step 1 (Forward) produces `p_est` from `x_k`.\n    - Step 2 (Residual) uses `p_est` and `p_obs` to compute `Loss L`.\n    - Step 3 (Gradient) uses `Loss L` to compute `g_k`.\n    - Step 4 (Update) uses `g_k` and `x_k` to produce `x_{k+1}`.\n- **Variables:** All inputs are properly defined in previous steps or initialization. The flow is a closed loop suitable for iterative optimization.\n\n**Conclusion:** The Candidate Plan is a high-quality representation of the task. It matches the Reference Plan in logic and intent, adding slightly more explicit detail on the backpropagation step which is helpful for implementation.",
+    "completeness_score": 5,
+    "completeness_reason": "The candidate plan includes all necessary physical (Ray Tracer) and mathematical (Loss, Autograd, Optimizer) operators found in the reference plan.",
+    "correctness_score": 5,
+    "correctness_reason": "The mathematical formulation for the forward model, the least-squares loss, the gradient computation via chain rule, and the optimizer update are all correct.",
+    "logical_dependency_score": 5,
+    "logical_dependency_reason": "The data flow is perfectly sequential and logical. Inputs for each step are generated by previous steps or initialization.",
+    "final_weighted_score": 5.0,
+    "is_pass": true
+  }
+}

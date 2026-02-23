@@ -1,0 +1,347 @@
+{
+  "task_name": "storm-analysis-master",
+  "code_path": "/data/yjh/storm-analysis-master_sandbox/storm_code.py",
+  "task_description": "### Task Description\nThe objective is to perform **Single-Molecule Localization** on raw microscopy data (specifically STORM - Stochastic Optical Reconstruction Microscopy). In this imaging modality, individual fluorescent molecules blink on and off. When they are on, they appear as diffraction-limited spots (Point Spread Functions) on the camera detector.\n\nThe physical problem is to identify the precise sub-pixel locations and characteristics of these individual emitters from a noisy, pixelated image frame. The image is modeled as a superposition of multiple 2D Gaussian functions (representing the emitters) on top of a variable background. You must first detect potential emitter locations (peaks) and then refine these estimates to determine the exact parameters for every molecule.\n\n### Known Information\n1.  **Observations ($Y$):** A raw 2D intensity image frame from a DAX movie file.\n2.  **Camera Parameters:** Gain ($g$) and Offset ($o$) values required to convert raw digital counts into photon counts: $I_{photon} = (I_{raw} - o) / g$.\n3.  **Forward Model ($F(x)$):** The intensity at pixel $(u, v)$ is modeled as the sum of a local background and a symmetric 2D Gaussian function for an emitter $k$:\n    $$ F(u, v; \\theta_k) = b_k + h_k \\cdot \\exp\\left( -2 \\frac{(u - x_k)^2 + (v - y_k)^2}{w_k^2} \\right) $$\n    Where $\\theta_k = \\{b_k, h_k, x_k, y_k, w_k\\}$ represents the background, peak height, sub-pixel x-center, sub-pixel y-center, and width for the $k$-th emitter.\n\n### Goal\nRecover the set of parameters $\\mathbf{x} = \\{ \\theta_1, \\theta_2, ..., \\theta_N \\}$ for all $N$ emitters detected in the frame. Specifically, you aim to minimize the residual between the observed ROI and the Gaussian model:\n$$ \\hat{\\theta} = \\arg \\min_{\\theta} \\sum_{u,v \\in ROI} \\left( Y(u,v) - F(u,v; \\theta) \\right)^2 $$\n\n### Algorithm\n**Difference of Gaussians (DoG) Detection followed by Levenberg-Marquardt Optimization.**\n1.  **Detection:** Use a band-pass filter (approximated by the difference of two Gaussian blurs) to isolate high-frequency spots from low-frequency background, followed by local maxima detection to find candidate peaks.\n2.  **Estimation:** For each candidate peak, crop a Region of Interest (ROI) and perform non-linear least squares fitting (Levenberg-Marquardt) to fit the Gaussian model to the data.\n\n### Regularization\n1.  **Sparsity (Implicit):** A threshold is applied to the DoG filtered image, enforcing the assumption that emitters are sparse and distinct from the background noise.\n2.  **Parameter Bounds (Box Constraints):** During the fitting process, physical constraints are enforced on the solution. The fitted width ($w_k$) must fall within a realistic range (e.g., $0.5 < w < 10.0$), and the height ($h_k$) must be positive. Solutions violating these bounds are discarded.",
+  "golden_plan": {
+    "algorithm_name": "STORM Localization via Difference of Gaussians and Levenberg-Marquardt Fitting",
+    "objective_function": "\\min_{p} \\sum_{x,y \\in ROI} \\left( I(x,y) - \\left( b + h \\cdot \\exp\\left(-2 \\frac{(x-c_x)^2 + (y-c_y)^2}{w^2}\\right) \\right) \\right)^2",
+    "variables": {
+      "primal": [
+        "fitted_params (list of [background, height, center_x, center_y, width])"
+      ],
+      "dual": [],
+      "constants": [
+        "image (input data)",
+        "sigma (smoothing kernel size)",
+        "background_sigma (background estimation kernel size)",
+        "threshold_factor",
+        "r (ROI radius, fixed at 5)",
+        "maxfev (max iterations for leastsq, fixed at 100)"
+      ]
+    },
+    "initialization": [
+      {
+        "variable": "smooth_img",
+        "value": "Gaussian filtered image with sigma",
+        "shape": "Same as input image"
+      },
+      {
+        "variable": "bg_img",
+        "value": "Gaussian filtered image with background_sigma",
+        "shape": "Same as input image"
+      },
+      {
+        "variable": "dog_img",
+        "value": "smooth_img - bg_img",
+        "shape": "Same as input image"
+      },
+      {
+        "variable": "peaks_mask",
+        "value": "Boolean mask where (dog_img > threshold) AND (local_maxima)",
+        "shape": "Same as input image"
+      }
+    ],
+    "iteration_loop": [
+      {
+        "step_order": 1,
+        "step_name": "Identify Candidate Peaks",
+        "mathematical_formula": "P = \\{(x,y) \\mid \\text{DoG}(x,y) > \\tau \\land \\text{is\\_local\\_max}(\\text{DoG}, x, y) \\}",
+        "operator_requirements": [
+          "Difference of Gaussians",
+          "Thresholding",
+          "Maximum Filter"
+        ],
+        "input_variables": [
+          "image",
+          "sigma",
+          "background_sigma",
+          "threshold_factor"
+        ],
+        "output_variables": [
+          "x_peaks",
+          "y_peaks"
+        ]
+      },
+      {
+        "step_order": 2,
+        "step_name": "ROI Extraction and Parameter Initialization",
+        "mathematical_formula": "p_0 = [\\min(ROI), \\max(ROI)-\\min(ROI), x_{peak}, y_{peak}, 2.0]",
+        "operator_requirements": [
+          "Slicing",
+          "Min/Max"
+        ],
+        "input_variables": [
+          "image",
+          "x_peaks",
+          "y_peaks",
+          "r"
+        ],
+        "output_variables": [
+          "roi",
+          "p0"
+        ]
+      },
+      {
+        "step_order": 3,
+        "step_name": "Local Gaussian Fitting (Levenberg-Marquardt)",
+        "mathematical_formula": "p_{opt} = \\text{argmin}_p \\| f_{gauss}(p) - I_{ROI} \\|_2^2",
+        "operator_requirements": [
+          "Levenberg-Marquardt (scipy.optimize.leastsq)"
+        ],
+        "input_variables": [
+          "roi",
+          "p0"
+        ],
+        "output_variables": [
+          "p_opt"
+        ]
+      },
+      {
+        "step_order": 4,
+        "step_name": "Parameter Validation",
+        "mathematical_formula": "(h > 0) \\land (0.5 < w < 10.0) \\land (|c_x - x_{peak}| < 2) \\land (|c_y - y_{peak}| < 2)",
+        "operator_requirements": [
+          "Logical Comparison"
+        ],
+        "input_variables": [
+          "p_opt",
+          "x_peaks",
+          "y_peaks"
+        ],
+        "output_variables": [
+          "fitted_params"
+        ]
+      }
+    ],
+    "stopping_criterion": "Completion of iteration over all identified candidate peaks (x_peaks, y_peaks)."
+  },
+  "candidate_plan": {
+    "algorithm_name": "Difference of Gaussians Detection with Levenberg-Marquardt Optimization",
+    "initialization": [
+      "Load raw 2D intensity image Y_raw from DAX movie frame",
+      "Convert raw counts to photon counts: Y = (Y_raw - offset) / gain",
+      "Define small Gaussian kernel sigma_1 (approximately expected PSF width, e.g., 1.0 pixel)",
+      "Define large Gaussian kernel sigma_2 (approximately 2-3x sigma_1 for background estimation)",
+      "Set detection threshold tau based on noise statistics",
+      "Define ROI half-width r for fitting window (e.g., 5-7 pixels)",
+      "Set parameter bounds: w_min=0.5, w_max=10.0, h_min=0"
+    ],
+    "iteration_loop": [
+      {
+        "step_order": 1,
+        "step_name": "Gaussian Blur - Small Scale",
+        "mathematical_description": "G_1 = Y * K_{\\sigma_1}, \\quad K_{\\sigma}(u,v) = \\frac{1}{2\\pi\\sigma^2} \\exp\\left(-\\frac{u^2+v^2}{2\\sigma^2}\\right)",
+        "required_operators": [
+          "2D Gaussian Convolution"
+        ],
+        "inputs": [
+          "Y",
+          "sigma_1"
+        ],
+        "outputs": [
+          "G_1"
+        ]
+      },
+      {
+        "step_order": 2,
+        "step_name": "Gaussian Blur - Large Scale",
+        "mathematical_description": "G_2 = Y * K_{\\sigma_2}",
+        "required_operators": [
+          "2D Gaussian Convolution"
+        ],
+        "inputs": [
+          "Y",
+          "sigma_2"
+        ],
+        "outputs": [
+          "G_2"
+        ]
+      },
+      {
+        "step_order": 3,
+        "step_name": "Difference of Gaussians Band-Pass Filter",
+        "mathematical_description": "D = G_1 - G_2 = Y * (K_{\\sigma_1} - K_{\\sigma_2})",
+        "required_operators": [
+          "Element-wise Subtraction"
+        ],
+        "inputs": [
+          "G_1",
+          "G_2"
+        ],
+        "outputs": [
+          "D"
+        ]
+      },
+      {
+        "step_order": 4,
+        "step_name": "Threshold Application for Sparsity",
+        "mathematical_description": "M_{thresh}(u,v) = \\begin{cases} 1 & \\text{if } D(u,v) > \\tau \\\\ 0 & \\text{otherwise} \\end{cases}",
+        "required_operators": [
+          "Thresholding",
+          "Binary Mask Generation"
+        ],
+        "inputs": [
+          "D",
+          "tau"
+        ],
+        "outputs": [
+          "M_thresh"
+        ]
+      },
+      {
+        "step_order": 5,
+        "step_name": "Local Maxima Detection",
+        "mathematical_description": "\\mathcal{P} = \\{(u_k, v_k) : D(u_k,v_k) \\geq D(u',v') \\; \\forall (u',v') \\in \\mathcal{N}(u_k,v_k) \\land M_{thresh}(u_k,v_k)=1\\}",
+        "required_operators": [
+          "Morphological Dilation",
+          "Local Maximum Filter",
+          "Logical AND"
+        ],
+        "inputs": [
+          "D",
+          "M_thresh"
+        ],
+        "outputs": [
+          "P_candidates"
+        ]
+      },
+      {
+        "step_order": 6,
+        "step_name": "ROI Extraction for Each Candidate",
+        "mathematical_description": "ROI_k = Y[u_k-r:u_k+r+1, v_k-r:v_k+r+1], \\quad \\forall (u_k, v_k) \\in \\mathcal{P}",
+        "required_operators": [
+          "Array Slicing",
+          "Coordinate Grid Generation"
+        ],
+        "inputs": [
+          "Y",
+          "P_candidates",
+          "r"
+        ],
+        "outputs": [
+          "ROI_list",
+          "coord_grids"
+        ]
+      },
+      {
+        "step_order": 7,
+        "step_name": "Parameter Initialization for Fitting",
+        "mathematical_description": "\\theta_k^{(0)} = \\{b_k^{(0)}, h_k^{(0)}, x_k^{(0)}, y_k^{(0)}, w_k^{(0)}\\} \\text{ where } b_k^{(0)} = \\min(ROI_k), h_k^{(0)} = \\max(ROI_k) - b_k^{(0)}, (x_k^{(0)}, y_k^{(0)}) = (u_k, v_k), w_k^{(0)} = \\sigma_1",
+        "required_operators": [
+          "Min/Max Operations",
+          "Parameter Vector Assembly"
+        ],
+        "inputs": [
+          "ROI_list",
+          "P_candidates",
+          "sigma_1"
+        ],
+        "outputs": [
+          "theta_init_list"
+        ]
+      },
+      {
+        "step_order": 8,
+        "step_name": "Levenberg-Marquardt Optimization Loop",
+        "mathematical_description": "\\text{Repeat until convergence: } \\theta^{(n+1)} = \\theta^{(n)} - (J^T J + \\lambda \\text{diag}(J^T J))^{-1} J^T r(\\theta^{(n)}), \\text{ where } r(\\theta) = Y_{ROI} - F(u,v;\\theta), J_{ij} = \\frac{\\partial r_i}{\\partial \\theta_j}",
+        "required_operators": [
+          "Gaussian Model Evaluation",
+          "Jacobian Computation",
+          "Matrix Multiplication",
+          "Matrix Inversion",
+          "Damping Parameter Update"
+        ],
+        "inputs": [
+          "ROI_list",
+          "coord_grids",
+          "theta_init_list"
+        ],
+        "outputs": [
+          "theta_fitted_list",
+          "residuals_list"
+        ]
+      },
+      {
+        "step_order": 9,
+        "step_name": "Jacobian Computation for Gaussian Model",
+        "mathematical_description": "\\frac{\\partial F}{\\partial b} = 1, \\quad \\frac{\\partial F}{\\partial h} = \\exp(-2\\rho^2/w^2), \\quad \\frac{\\partial F}{\\partial x} = h \\cdot \\frac{4(u-x)}{w^2} \\exp(-2\\rho^2/w^2), \\quad \\frac{\\partial F}{\\partial y} = h \\cdot \\frac{4(v-y)}{w^2} \\exp(-2\\rho^2/w^2), \\quad \\frac{\\partial F}{\\partial w} = h \\cdot \\frac{4\\rho^2}{w^3} \\exp(-2\\rho^2/w^2)",
+        "required_operators": [
+          "Partial Derivative Evaluation",
+          "Exponential Function"
+        ],
+        "inputs": [
+          "theta_current",
+          "coord_grids"
+        ],
+        "outputs": [
+          "J"
+        ]
+      },
+      {
+        "step_order": 10,
+        "step_name": "Box Constraint Validation",
+        "mathematical_description": "\\text{Valid}_k = (w_{min} < w_k < w_{max}) \\land (h_k > h_{min}) \\land (|x_k - u_k| < r) \\land (|y_k - v_k| < r)",
+        "required_operators": [
+          "Bound Checking",
+          "Logical AND"
+        ],
+        "inputs": [
+          "theta_fitted_list",
+          "w_min",
+          "w_max",
+          "h_min",
+          "r"
+        ],
+        "outputs": [
+          "validity_mask"
+        ]
+      },
+      {
+        "step_order": 11,
+        "step_name": "Filter Valid Localizations",
+        "mathematical_description": "\\Theta_{valid} = \\{\\theta_k : \\text{Valid}_k = \\text{True}\\}",
+        "required_operators": [
+          "Boolean Indexing",
+          "List Filtering"
+        ],
+        "inputs": [
+          "theta_fitted_list",
+          "validity_mask"
+        ],
+        "outputs": [
+          "Theta_valid"
+        ]
+      },
+      {
+        "step_order": 12,
+        "step_name": "Compile Final Localization Results",
+        "mathematical_description": "\\mathbf{x} = \\{\\theta_1, \\theta_2, ..., \\theta_N\\} = \\{(b_k, h_k, x_k, y_k, w_k)\\}_{k=1}^{N}",
+        "required_operators": [
+          "Array Concatenation",
+          "Result Formatting"
+        ],
+        "inputs": [
+          "Theta_valid"
+        ],
+        "outputs": [
+          "x_final"
+        ]
+      }
+    ],
+    "_meta": {
+      "generated_at": "2026-01-11T22:52:48.637445",
+      "model": "claude-opus-4-5-20251101-thinking"
+    }
+  },
+  "evaluation": {
+    "step_by_step_analysis": "### 1. Analysis of Completeness\nThe Candidate Plan covers all critical phases of the Reference Plan:\n- **Initialization**: It correctly sets up image loading, conversion to photons, and kernel definitions.\n- **Detection**: Steps 1-5 implement the Difference of Gaussians (DoG) filter, thresholding, and local maxima detection, which corresponds exactly to the 'Identify Candidate Peaks' step in the reference.\n- **ROI Extraction**: Step 6 handles the extraction of Regions of Interest.\n- **Fitting**: Step 8 implements the Levenberg-Marquardt (LM) optimization. The candidate goes further than the reference by explicitly defining the mathematical update rule for LM rather than just naming the solver.\n- **Validation**: Steps 10-11 handle the parameter bounds checking (width, height, position).\n\n### 2. Analysis of Mathematical Correctness\n- **DoG**: The subtraction of two Gaussian blurred images is correct.\n- **Levenberg-Marquardt Update**: The candidate defines the residual $r = Y - F$ and the Jacobian $J = \\partial r / \\partial \\theta$. The update rule $\\theta_{new} = \\theta_{old} - (J^T J + \\lambda I)^{-1} J^T r$ is mathematically consistent. Since $J$ is the Jacobian of the residual (which is negative the Jacobian of the model $F$), the signs cancel out correctly to produce a descent direction minimizing the sum of squared residuals.\n- **Jacobian Derivatives (Step 9)**: The partial derivatives for the 2D Gaussian are explicitly listed. \n    - $\\partial F/\\partial x$ is derived correctly using the chain rule: derivative of outer exponential $\\times$ derivative of inner quadratic term. The formula $h \\cdot \\frac{4(u-x)}{w^2} \\exp(...)$ is correct.\n    - $\\partial F/\\partial w$ is also correct ($w^{-2}$ derivative leads to $w^{-3}$ term).\n\n### 3. Analysis of Logical Dependency\n- The data flow is valid. Variables created in earlier steps (e.g., `G_1`, `D`, `P_candidates`) are correctly used as inputs in subsequent steps.\n- **Step 8 vs Step 9**: Step 9 ('Jacobian Computation') is listed after Step 8 ('Optimization Loop'), but Step 8's mathematical description relies on $J$. While strictly sequential execution might flag $J$ as undefined at the start of Step 8, Step 8's description includes the definition of $J$ implicitly, and Step 9 serves as a detailed elaboration of the derivative formulas used *inside* the loop. In the context of an algorithm plan, this is a valid structural breakdown (defining the main loop, then detailing the subroutine).\n- Dimensionality checks (e.g., broadcasting scalar parameters to lists) appear consistent.",
+    "completeness_score": 5,
+    "completeness_reason": "The plan contains every operator required by the reference, including detailed breakdowns of the optimization steps.",
+    "correctness_score": 5,
+    "correctness_reason": "The mathematical formulations for the Difference of Gaussians, the Levenberg-Marquardt update rule, and the specific partial derivatives of the Gaussian function are all correct.",
+    "logical_dependency_score": 5,
+    "logical_dependency_reason": "The data flow forms a valid Directed Acyclic Graph (DAG). Inputs for each step are clearly generated by preceding steps.",
+    "final_weighted_score": 5.0,
+    "is_pass": true
+  }
+}

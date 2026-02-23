@@ -1,0 +1,40 @@
+STDOUT:
+Loaded input data: shape=(81, 256, 256), dtype=float32
+Input data shape: (81, 256, 256), dtype: float32
+Input data range: [0.0000e+00, 3.0638e-01]
+Mean total intensity per pattern: 6.7229e+02
+Detected FFT convention: center
+Number of scan positions: 81
+Scan step: 43 pixels
+First position: (0, 0), Last position: (344, 344)
+Selecting best probe initialization...
+Best probe selected. Probe energy: 6.7229e+02
+Starting rPIE reconstruction...
+rPIE Epoch 0: Fourier error = 5.027814e+04, alpha_O=0.50
+rPIE Epoch 20: Fourier error = 1.248256e+01, alpha_O=0.50
+rPIE Epoch 40: Fourier error = 2.956384e-01, alpha_O=0.50
+rPIE Epoch 60: Fourier error = 2.621655e-01, alpha_O=0.50
+rPIE Epoch 80: Fourier error = 7.899570e-01, alpha_O=0.20
+rPIE Epoch 100: Fourier error = 7.116225e-01, alpha_O=0.20
+rPIE Epoch 120: Fourier error = 6.997905e-01, alpha_O=0.20
+rPIE Epoch 140: Fourier error = 6.315944e-01, alpha_O=0.20
+rPIE Epoch 160: Fourier error = 4.647326e-01, alpha_O=0.20
+rPIE Epoch 180: Fourier error = 5.695244e-01, alpha_O=0.20
+rPIE Epoch 200: Fourier error = 8.981326e-01, alpha_O=0.10
+rPIE Epoch 220: Fourier error = 7.901074e-01, alpha_O=0.10
+rPIE Epoch 240: Fourier error = 6.569608e-01, alpha_O=0.10
+rPIE Epoch 260: Fourier error = 6.619179e-01, alpha_O=0.10
+rPIE Epoch 280: Fourier error = 5.319549e-01, alpha_O=0.10
+Final Fourier error: 5.413066e-01
+Min Fourier error: 2.050674e-01
+TV for real/imag format: 2.8328e+03
+TV for mag/phase format: 3.5349e+05
+Selected output format: real/imag (default or lower TV)
+Output range ch0: [-7.6103e-02, 1.9944e+00]
+Output range ch1: [-9.3040e-02, 7.7183e-02]
+Final output shape: (2, 600, 600), dtype: float64
+Reconstruction completed in 218.2 seconds
+Saved output.npy with shape (2, 600, 600), dtype float64
+
+
+STDERR:

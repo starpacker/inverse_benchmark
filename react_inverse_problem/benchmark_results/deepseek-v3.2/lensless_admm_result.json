@@ -1,0 +1,262 @@
+{
+  "task_name": "lensless_admm",
+  "code_path": "/home/yjh/lensless_admm_sandbox/lensless_admm_code.py",
+  "task_description": "### Task Description\nThe objective is to solve a **Lensless Imaging** inverse problem. In this setup, a scene is captured without a focusing lens, resulting in a raw measurement that looks like a blurry, convolved version of the scene. You are performing **Non-blind Deconvolution**, meaning the specific blur pattern (Point Spread Function) is known.\n\nMathematically, the imaging model is defined as:\n$$y = x * h + n$$\nWhere:\n*   $y$ is the captured sensor measurement.\n*   $x$ is the unknown latent scene (the image we want to recover).\n*   $h$ is the Point Spread Function (PSF).\n*   $*$ denotes 2D convolution.\n*   $n$ is noise.\n\nYou must implement an optimization solver to invert this convolution operation while handling noise and ill-posedness through regularization.\n\n### Known Information\n1.  **Observation ($y$):** The raw, multiplexed image captured by the sensor.\n2.  **Kernel ($h$):** The Point Spread Function (PSF) of the lensless system.\n3.  **Forward Operator:** A 2D Convolution operator implemented in the Fourier domain (using FFTs) to simulate the physical image formation process.\n\n### Goal\nRecover the estimated image $\\hat{x}$ that minimizes the difference between the simulated measurement and the actual observation, subject to regularization constraints.\n\n### Algorithm\n**Alternating Direction Method of Multipliers (ADMM)**\n\n### Regularization\nTo stabilize the reconstruction and enforce prior knowledge about natural images, the following regularizers are used:\n1.  **Total Variation (TV):** Enforces piecewise smoothness (sparsity in the gradient domain) to reduce noise while preserving edges.\n2.  **Non-negativity:** Constrains the pixel values of the reconstructed image to be non-negative ($x \\ge 0$), as light intensity cannot be negative.",
+  "golden_plan": {
+    "algorithm_name": "ADMM for Lensless Imaging with TV Regularization",
+    "objective_function": "\\min_{x} \\frac{1}{2} ||Ax - y||_2^2 + \\tau ||\\Psi x||_1 + I_{\\geq 0}(x)",
+    "variables": {
+      "primal": [
+        "image_est (x)",
+        "X (auxiliary for data fidelity)",
+        "U (auxiliary for TV)",
+        "W (auxiliary for non-negativity)"
+      ],
+      "dual": [
+        "xi (Lagrange multiplier for X)",
+        "eta (Lagrange multiplier for U)",
+        "rho (Lagrange multiplier for W)"
+      ],
+      "constants": [
+        "psf (H)",
+        "measurement (y)",
+        "mu1 (penalty parameter)",
+        "mu2 (penalty parameter)",
+        "mu3 (penalty parameter)",
+        "tau (TV weight)",
+        "PsiTPsi (Gram matrix of finite difference operator)"
+      ]
+    },
+    "initialization": [
+      {
+        "variable": "image_est",
+        "value": "Zeros",
+        "shape": "[1, D, H_pad, W_pad, C]"
+      },
+      {
+        "variable": "X",
+        "value": "Zeros",
+        "shape": "Same as image_est"
+      },
+      {
+        "variable": "U",
+        "value": "Zeros",
+        "shape": "Shape of finite_diff(image_est)"
+      },
+      {
+        "variable": "W",
+        "value": "Zeros",
+        "shape": "Same as image_est"
+      },
+      {
+        "variable": "xi",
+        "value": "Zeros",
+        "shape": "Same as image_est"
+      },
+      {
+        "variable": "eta",
+        "value": "Zeros",
+        "shape": "Shape of U"
+      },
+      {
+        "variable": "rho",
+        "value": "Zeros",
+        "shape": "Same as image_est"
+      }
+    ],
+    "iteration_loop": [
+      {
+        "step_order": 1,
+        "step_name": "U Update (TV Soft Thresholding)",
+        "mathematical_formula": "U^{(k+1)} = \\mathcal{S}_{\\tau/\\mu_2} (\\Psi x^{(k)} + \\eta^{(k)}/\\mu_2)",
+        "operator_requirements": [
+          "Finite Difference (Psi)",
+          "Soft Thresholding"
+        ],
+        "input_variables": [
+          "image_est",
+          "eta",
+          "mu2",
+          "tau"
+        ],
+        "output_variables": [
+          "U"
+        ]
+      },
+      {
+        "step_order": 2,
+        "step_name": "X Update (Data Fidelity Auxiliary)",
+        "mathematical_formula": "X^{(k+1)} = (I + \\mu_1)^{-1} (\\xi^{(k)} + \\mu_1 A x^{(k)} + y_{padded})",
+        "operator_requirements": [
+          "Convolution (A)",
+          "Element-wise division"
+        ],
+        "input_variables": [
+          "image_est",
+          "xi",
+          "mu1",
+          "data_padded",
+          "X_divmat"
+        ],
+        "output_variables": [
+          "X"
+        ]
+      },
+      {
+        "step_order": 3,
+        "step_name": "W Update (Non-negativity Projection)",
+        "mathematical_formula": "W^{(k+1)} = \\max(0, x^{(k)} + \\rho^{(k)}/\\mu_3)",
+        "operator_requirements": [
+          "Element-wise maximum"
+        ],
+        "input_variables": [
+          "image_est",
+          "rho",
+          "mu3"
+        ],
+        "output_variables": [
+          "W"
+        ]
+      },
+      {
+        "step_order": 4,
+        "step_name": "Image Update (Primal x via FFT)",
+        "mathematical_formula": "x^{(k+1)} = \\mathcal{F}^{-1} \\left[ \\frac{\\mathcal{F}[\\mu_3 W - \\rho + \\Psi^T(\\mu_2 U - \\eta) + A^T(\\mu_1 X - \\xi)]}{\\mu_1 |\\hat{H}|^2 + \\mu_2 |\\hat{\\Psi}|^2 + \\mu_3} \\right]",
+        "operator_requirements": [
+          "FFT",
+          "IFFT",
+          "Adjoint Finite Difference (Psi^T)",
+          "Adjoint Convolution (A^T)"
+        ],
+        "input_variables": [
+          "W",
+          "rho",
+          "U",
+          "eta",
+          "X",
+          "xi",
+          "mu1",
+          "mu2",
+          "mu3",
+          "R_divmat"
+        ],
+        "output_variables": [
+          "image_est"
+        ]
+      },
+      {
+        "step_order": 5,
+        "step_name": "Lagrangian Multiplier Updates",
+        "mathematical_formula": "\\begin{aligned} \\xi^{(k+1)} &= \\xi^{(k)} + \\mu_1 (A x^{(k+1)} - X^{(k+1)}) \\\\ \\eta^{(k+1)} &= \\eta^{(k)} + \\mu_2 (\\Psi x^{(k+1)} - U^{(k+1)}) \\\\ \\rho^{(k+1)} &= \\rho^{(k)} + \\mu_3 (x^{(k+1)} - W^{(k+1)}) \\end{aligned}",
+        "operator_requirements": [
+          "Convolution (A)",
+          "Finite Difference (Psi)"
+        ],
+        "input_variables": [
+          "xi",
+          "eta",
+          "rho",
+          "image_est",
+          "X",
+          "U",
+          "W",
+          "mu1",
+          "mu2",
+          "mu3"
+        ],
+        "output_variables": [
+          "xi",
+          "eta",
+          "rho"
+        ]
+      }
+    ],
+    "stopping_criterion": "Fixed number of iterations (n_iter)"
+  },
+  "candidate_plan": {
+    "algorithm_name": "ADMM for Non-blind Deconvolution with TV and Non-negativity",
+    "initialization": [
+      "Initialize estimate x_0 as the observed image y (or zero image).",
+      "Initialize dual variable u_0 for the TV subproblem as zero vector.",
+      "Initialize auxiliary variable z_0 for the non-negativity constraint as x_0.",
+      "Initialize penalty parameter rho > 0.",
+      "Set regularization parameter lambda for TV term."
+    ],
+    "iteration_loop": [
+      {
+        "step_order": 1,
+        "step_name": "Update x: Solve Deconvolution with Quadratic Data Fidelity",
+        "mathematical_description": "Solve for x^{k+1} by minimizing the data fidelity term and the quadratic penalty from the ADMM splitting: $\\arg\\min_x \\frac{1}{2} \\| h * x - y \\|_2^2 + \\frac{\\rho}{2} \\| x - z^k + u^k \\|_2^2$. This is a linear least-squares problem. Using convolution theorem: $x^{k+1} = \\mathcal{F}^{-1} \\left( \\frac{ \\overline{\\mathcal{F}(h)} \\cdot \\mathcal{F}(y) + \\rho \\mathcal{F}(z^k - u^k) }{ |\\mathcal{F}(h)|^2 + \\rho } \\right)$.",
+        "required_operators": [
+          "2D FFT",
+          "2D IFFT",
+          "Complex Multiplication",
+          "Complex Division",
+          "Element-wise Absolute Square"
+        ],
+        "inputs": [
+          "y",
+          "h",
+          "z^k",
+          "u^k",
+          "rho"
+        ],
+        "outputs": [
+          "x^{k+1}"
+        ]
+      },
+      {
+        "step_order": 2,
+        "step_name": "Update z: Apply TV Denoising and Non-negativity via Proximal Operator",
+        "mathematical_description": "Solve for z^{k+1} by applying the proximal operator for the TV regularizer plus the non-negativity constraint, with quadratic penalty from ADMM: $z^{k+1} = \\arg\\min_{z \\ge 0} \\lambda \\|z\\|_{TV} + \\frac{\\rho}{2} \\| x^{k+1} - z + u^k \\|_2^2$. This is a TV-denoising problem on the input $v = x^{k+1} + u^k$, subject to $z \\ge 0$. Typically solved via iterative method (e.g., Chambolle-Pock) or gradient descent with projection.",
+        "required_operators": [
+          "Total Variation Norm (Isotropic or Anisotropic)",
+          "Gradient Operator",
+          "Divergence Operator",
+          "Projection onto Non-negative Orthant (max(0, .))",
+          "Iterative Solver (e.g., for Chambolle-Pock)"
+        ],
+        "inputs": [
+          "x^{k+1}",
+          "u^k",
+          "lambda",
+          "rho"
+        ],
+        "outputs": [
+          "z^{k+1}"
+        ]
+      },
+      {
+        "step_order": 3,
+        "step_name": "Update u: Dual Variable Update",
+        "mathematical_description": "Update the dual variable: $u^{k+1} = u^k + x^{k+1} - z^{k+1}$.",
+        "required_operators": [
+          "Vector Addition"
+        ],
+        "inputs": [
+          "u^k",
+          "x^{k+1}",
+          "z^{k+1}"
+        ],
+        "outputs": [
+          "u^{k+1}"
+        ]
+      }
+    ],
+    "_meta": {
+      "generated_at": "2026-01-11T21:01:12.039150",
+      "model": "deepseek-v3.2"
+    }
+  },
+  "evaluation": {
+    "step_by_step_analysis": "### Step-by-Step Analysis\n\n1.  **Algorithm Strategy Comparison**:\n    *   **Reference Plan**: Uses a multi-variable splitting ADMM (Consensus ADMM). It introduces auxiliary variables for *every* term: $X$ for data fidelity ($Ax$), $U$ for TV gradient ($\\Psi x$), and $W$ for non-negativity ($x$). This results in an $x$-update that fuses all constraints via FFT inversion, and simple proximal updates for auxiliaries (Soft Thresholding for $U$, Projection for $W$, Linear solve for $X$).\n    *   **Candidate Plan**: Uses a 2-block ADMM (Plug-and-Play style). It splits the problem into Inversion ($x$) and Denoising ($z$). The $x$-update handles the convolution data fidelity, and the $z$-update handles the regularization (TV + Non-negativity).\n\n2.  **Completeness Check**:\n    *   The Candidate Plan includes the necessary FFT/IFFT operators for the convolution inversion.\n    *   **Missing Explicit Operator**: The Reference Plan explicitly schedules `SoftThresholding` for the TV update. The Candidate Plan encapsulates the TV and non-negativity constraints into a sub-problem (Step 2) to be solved by an \"Iterative Solver\" or \"Proximal Operator\". While mathematically valid, it abstracts away the specific implementation of the TV proximal operator (which relies on Soft Thresholding), making it less explicit than the Reference.\n    *   The Candidate correctly identifies the need for Gradient and Divergence operators in the requirements for Step 2.\n\n3.  **Mathematical Correctness**:\n    *   **x-update**: The Candidate's closed-form solution via FFT is derived correctly for the objective $\\frac{1}{2} ||h*x - y||^2 + \\frac{\\rho}{2} ||x - (z-u)||^2$. The formula $\\frac{ \\overline{\\mathcal{F}(h)} \\cdot \\mathcal{F}(y) + \\rho \\mathcal{F}(z^k - u^k) }{ |\\mathcal{F}(h)|^2 + \\rho }$ is correct.\n    *   **z-update**: The formulation of the sub-problem (TV denoising with non-negativity) is correct. Acknowledging that this requires an inner iterative solver is accurate for this specific splitting strategy.\n    *   **u-update**: Standard dual update is correct.\n\n4.  **Logical Dependency**:\n    *   The data flow is valid. Inputs for Step 1 ($z, u$) are initialized. Output of Step 1 ($x$) feeds into Step 2. Output of Step 2 ($z$) feeds into Step 3. The loop is closed and consistent.\n    *   Dimensionality is consistent (all variables are image-sized).\n\n5.  **Summary**: The Candidate Plan is a high-quality, mathematically correct alternative implementation of ADMM. It differs from the Reference by grouping the regularizers into one block, which necessitates an inner solver, whereas the Reference splits them to avoid inner loops. This is a valid design choice.",
+    "completeness_score": 4,
+    "completeness_reason": "The plan is comprehensive, but it abstracts the Total Variation proximal step into a generic 'Iterative Solver' or 'Proximal Operator' call, whereas the Reference Plan explicitly details the Soft Thresholding operation. The specific implementation of the TV solver is left as an exercise, which is a slight omission compared to the Reference.",
+    "correctness_score": 5,
+    "correctness_reason": "The mathematical derivations for the chosen 2-block ADMM splitting are perfect. The FFT-based inversion formula for the x-update is correct, and the dual updates follow standard ADMM theory.",
+    "logical_dependency_score": 5,
+    "logical_dependency_reason": "The variable flow is perfectly valid. All inputs are defined before use, and the cyclic dependencies of the ADMM loop are handled correctly.",
+    "final_weighted_score": 4.7,
+    "is_pass": true
+  }
+}

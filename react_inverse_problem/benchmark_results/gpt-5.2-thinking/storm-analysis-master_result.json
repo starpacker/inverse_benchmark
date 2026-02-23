@@ -1,0 +1,224 @@
+{
+  "task_name": "storm-analysis-master",
+  "code_path": "/data/yjh/storm-analysis-master_sandbox/storm_code.py",
+  "task_description": "### Task Description\nThe objective is to perform **Single-Molecule Localization** on raw microscopy data (specifically STORM - Stochastic Optical Reconstruction Microscopy). In this imaging modality, individual fluorescent molecules blink on and off. When they are on, they appear as diffraction-limited spots (Point Spread Functions) on the camera detector.\n\nThe physical problem is to identify the precise sub-pixel locations and characteristics of these individual emitters from a noisy, pixelated image frame. The image is modeled as a superposition of multiple 2D Gaussian functions (representing the emitters) on top of a variable background. You must first detect potential emitter locations (peaks) and then refine these estimates to determine the exact parameters for every molecule.\n\n### Known Information\n1.  **Observations ($Y$):** A raw 2D intensity image frame from a DAX movie file.\n2.  **Camera Parameters:** Gain ($g$) and Offset ($o$) values required to convert raw digital counts into photon counts: $I_{photon} = (I_{raw} - o) / g$.\n3.  **Forward Model ($F(x)$):** The intensity at pixel $(u, v)$ is modeled as the sum of a local background and a symmetric 2D Gaussian function for an emitter $k$:\n    $$ F(u, v; \\theta_k) = b_k + h_k \\cdot \\exp\\left( -2 \\frac{(u - x_k)^2 + (v - y_k)^2}{w_k^2} \\right) $$\n    Where $\\theta_k = \\{b_k, h_k, x_k, y_k, w_k\\}$ represents the background, peak height, sub-pixel x-center, sub-pixel y-center, and width for the $k$-th emitter.\n\n### Goal\nRecover the set of parameters $\\mathbf{x} = \\{ \\theta_1, \\theta_2, ..., \\theta_N \\}$ for all $N$ emitters detected in the frame. Specifically, you aim to minimize the residual between the observed ROI and the Gaussian model:\n$$ \\hat{\\theta} = \\arg \\min_{\\theta} \\sum_{u,v \\in ROI} \\left( Y(u,v) - F(u,v; \\theta) \\right)^2 $$\n\n### Algorithm\n**Difference of Gaussians (DoG) Detection followed by Levenberg-Marquardt Optimization.**\n1.  **Detection:** Use a band-pass filter (approximated by the difference of two Gaussian blurs) to isolate high-frequency spots from low-frequency background, followed by local maxima detection to find candidate peaks.\n2.  **Estimation:** For each candidate peak, crop a Region of Interest (ROI) and perform non-linear least squares fitting (Levenberg-Marquardt) to fit the Gaussian model to the data.\n\n### Regularization\n1.  **Sparsity (Implicit):** A threshold is applied to the DoG filtered image, enforcing the assumption that emitters are sparse and distinct from the background noise.\n2.  **Parameter Bounds (Box Constraints):** During the fitting process, physical constraints are enforced on the solution. The fitted width ($w_k$) must fall within a realistic range (e.g., $0.5 < w < 10.0$), and the height ($h_k$) must be positive. Solutions violating these bounds are discarded.",
+  "golden_plan": {
+    "algorithm_name": "STORM Localization via Difference of Gaussians and Levenberg-Marquardt Fitting",
+    "objective_function": "\\min_{p} \\sum_{x,y \\in ROI} \\left( I(x,y) - \\left( b + h \\cdot \\exp\\left(-2 \\frac{(x-c_x)^2 + (y-c_y)^2}{w^2}\\right) \\right) \\right)^2",
+    "variables": {
+      "primal": [
+        "fitted_params (list of [background, height, center_x, center_y, width])"
+      ],
+      "dual": [],
+      "constants": [
+        "image (input data)",
+        "sigma (smoothing kernel size)",
+        "background_sigma (background estimation kernel size)",
+        "threshold_factor",
+        "r (ROI radius, fixed at 5)",
+        "maxfev (max iterations for leastsq, fixed at 100)"
+      ]
+    },
+    "initialization": [
+      {
+        "variable": "smooth_img",
+        "value": "Gaussian filtered image with sigma",
+        "shape": "Same as input image"
+      },
+      {
+        "variable": "bg_img",
+        "value": "Gaussian filtered image with background_sigma",
+        "shape": "Same as input image"
+      },
+      {
+        "variable": "dog_img",
+        "value": "smooth_img - bg_img",
+        "shape": "Same as input image"
+      },
+      {
+        "variable": "peaks_mask",
+        "value": "Boolean mask where (dog_img > threshold) AND (local_maxima)",
+        "shape": "Same as input image"
+      }
+    ],
+    "iteration_loop": [
+      {
+        "step_order": 1,
+        "step_name": "Identify Candidate Peaks",
+        "mathematical_formula": "P = \\{(x,y) \\mid \\text{DoG}(x,y) > \\tau \\land \\text{is\\_local\\_max}(\\text{DoG}, x, y) \\}",
+        "operator_requirements": [
+          "Difference of Gaussians",
+          "Thresholding",
+          "Maximum Filter"
+        ],
+        "input_variables": [
+          "image",
+          "sigma",
+          "background_sigma",
+          "threshold_factor"
+        ],
+        "output_variables": [
+          "x_peaks",
+          "y_peaks"
+        ]
+      },
+      {
+        "step_order": 2,
+        "step_name": "ROI Extraction and Parameter Initialization",
+        "mathematical_formula": "p_0 = [\\min(ROI), \\max(ROI)-\\min(ROI), x_{peak}, y_{peak}, 2.0]",
+        "operator_requirements": [
+          "Slicing",
+          "Min/Max"
+        ],
+        "input_variables": [
+          "image",
+          "x_peaks",
+          "y_peaks",
+          "r"
+        ],
+        "output_variables": [
+          "roi",
+          "p0"
+        ]
+      },
+      {
+        "step_order": 3,
+        "step_name": "Local Gaussian Fitting (Levenberg-Marquardt)",
+        "mathematical_formula": "p_{opt} = \\text{argmin}_p \\| f_{gauss}(p) - I_{ROI} \\|_2^2",
+        "operator_requirements": [
+          "Levenberg-Marquardt (scipy.optimize.leastsq)"
+        ],
+        "input_variables": [
+          "roi",
+          "p0"
+        ],
+        "output_variables": [
+          "p_opt"
+        ]
+      },
+      {
+        "step_order": 4,
+        "step_name": "Parameter Validation",
+        "mathematical_formula": "(h > 0) \\land (0.5 < w < 10.0) \\land (|c_x - x_{peak}| < 2) \\land (|c_y - y_{peak}| < 2)",
+        "operator_requirements": [
+          "Logical Comparison"
+        ],
+        "input_variables": [
+          "p_opt",
+          "x_peaks",
+          "y_peaks"
+        ],
+        "output_variables": [
+          "fitted_params"
+        ]
+      }
+    ],
+    "stopping_criterion": "Completion of iteration over all identified candidate peaks (x_peaks, y_peaks)."
+  },
+  "candidate_plan": {
+    "algorithm_name": "Single-Molecule Localization using DoG Detection and Levenberg-Marquardt Optimization",
+    "initialization": [
+      "Input image Y(u,v) from the camera",
+      "Camera parameters: gain (g) and offset (o)",
+      "Region of Interest (ROI) for peak localization"
+    ],
+    "iteration_loop": [
+      {
+        "step_order": 1,
+        "step_name": "DoG Detection for Candidate Peaks",
+        "mathematical_description": "Apply a Difference of Gaussians (DoG) filter to the image Y(u,v) to isolate high-frequency components: $$ DoG(u, v) = G_{\\sigma_1}(u, v) - G_{\\sigma_2}(u, v) $$, where $G_{\\sigma}(u, v)$ is a Gaussian kernel with standard deviation $\\sigma$.",
+        "required_operators": [
+          "Gaussian Filter",
+          "Subtraction",
+          "High-pass Filtering"
+        ],
+        "inputs": [
+          "Y(u,v)",
+          "\u03c31",
+          "\u03c32"
+        ],
+        "outputs": [
+          "DoG(u,v)"
+        ]
+      },
+      {
+        "step_order": 2,
+        "step_name": "Local Maxima Detection for Peak Localization",
+        "mathematical_description": "Find local maxima in the DoG filtered image: $$ \\text{peaks} = \\{(u,v) : DoG(u,v) > DoG(u',v') \\text{ for all neighboring } (u', v')\\} $$.",
+        "required_operators": [
+          "Local Maxima Detection",
+          "Thresholding"
+        ],
+        "inputs": [
+          "DoG(u,v)"
+        ],
+        "outputs": [
+          "peaks"
+        ]
+      },
+      {
+        "step_order": 3,
+        "step_name": "Initial Parameter Estimation for Each Peak",
+        "mathematical_description": "For each detected peak $(u_0, v_0)$, estimate initial parameters: $$ \\theta_k^{(0)} = \\{b_k^{(0)}, h_k^{(0)}, x_k^{(0)}, y_k^{(0)}, w_k^{(0)}\\} $$. Initialize $x_k^{(0)} = u_0$, $y_k^{(0)} = v_0$, $b_k^{(0)} = \\text{background estimate}$, $h_k^{(0)} = \\text{height estimate}$, and $w_k^{(0)} = \\text{width estimate}$.",
+        "required_operators": [
+          "Background Estimation",
+          "Peak Localization"
+        ],
+        "inputs": [
+          "peaks",
+          "Y(u,v)"
+        ],
+        "outputs": [
+          "theta_k^{(0)}"
+        ]
+      },
+      {
+        "step_order": 4,
+        "step_name": "Levenberg-Marquardt Optimization",
+        "mathematical_description": "Minimize the residual between observed image $Y(u,v)$ and model $F(u,v; \\theta_k)$ for each emitter using non-linear least squares fitting: $$ \\hat{\\theta}_k = \\arg \\min_{\\theta_k} \\sum_{u,v \\in ROI} \\left( Y(u,v) - F(u,v; \\theta_k) \\right)^2 $$.",
+        "required_operators": [
+          "Levenberg-Marquardt Optimization",
+          "Non-linear Least Squares"
+        ],
+        "inputs": [
+          "Y(u,v)",
+          "theta_k^{(0)}",
+          "F(u,v; \\theta_k)"
+        ],
+        "outputs": [
+          "optimized theta_k"
+        ]
+      },
+      {
+        "step_order": 5,
+        "step_name": "Parameter Bounds Enforcement",
+        "mathematical_description": "Enforce parameter constraints: $$ 0.5 < w_k < 10.0 \\text{ and } h_k > 0 $$ during optimization.",
+        "required_operators": [
+          "Box Constraints",
+          "Thresholding"
+        ],
+        "inputs": [
+          "optimized theta_k"
+        ],
+        "outputs": [
+          "theta_k (bounded)"
+        ]
+      }
+    ],
+    "_meta": {
+      "generated_at": "2026-01-11T21:34:02.082856",
+      "model": "gpt-5.2-thinking"
+    }
+  },
+  "evaluation": {
+    "step_by_step_analysis": "### Step-by-Step Analysis\n\n1.  **Completeness Check**:\n    *   **Detection**: The Candidate Plan correctly includes the Difference of Gaussians (DoG) filter and Local Maxima detection, matching the Reference Plan's detection phase.\n    *   **Estimation**: The Candidate correctly identifies the need for Levenberg-Marquardt (Non-linear Least Squares) optimization.\n    *   **Constraints**: The Candidate explicitly includes a step for \"Parameter Bounds Enforcement\" ($0.5 < w < 10$, $h > 0$), which is a critical part of the Reference Plan.\n    *   **Initialization**: The Candidate mentions estimating initial parameters ($b, h, w$) before fitting, which corresponds to the Reference's Step 2.\n\n2.  **Mathematical Correctness**:\n    *   **DoG**: The formula $G_{\\sigma_1} - G_{\\sigma_2}$ is correct.\n    *   **Optimization**: The objective function minimizes the sum of squared residuals $\\sum (Y - F)^2$, which is the correct formulation for Least Squares/Levenberg-Marquardt.\n    *   **Bounds**: The inequalities provided ($0.5 < w < 10$) match the task description exactly.\n    *   **Variables**: The notation used ($Y, \\theta, u, v$) is consistent and mathematically valid.\n\n3.  **Logical Dependency / DAG Validity**:\n    *   The flow of data is logical: Raw Image $\\rightarrow$ DoG Map $\\rightarrow$ Peak Coordinates $\\rightarrow$ Initial Guesses $\\rightarrow$ Optimized Parameters $\\rightarrow$ Validated Parameters.\n    *   The inputs for the Levenberg-Marquardt step (Step 4) correctly require the initial estimates from Step 3 and the image data.\n    *   The structure follows the Reference Plan's convention effectively.\n\n**Conclusion**: The Candidate Plan is a near-perfect match to the Reference Plan, covering all algorithmic steps, mathematical formulations, and constraints accurately.",
+    "completeness_score": 5,
+    "completeness_reason": "The plan contains all necessary operators: DoG filter, local maxima detection, parameter initialization, Levenberg-Marquardt optimization, and boundary checks.",
+    "correctness_score": 5,
+    "correctness_reason": "The mathematical formulations for the DoG filter, the least-squares objective function, and the parameter constraints are all correct and align with the task description.",
+    "logical_dependency_score": 5,
+    "logical_dependency_reason": "The sequence of operations is physically consistent. Detection precedes estimation, and initialization precedes optimization. The data flow is valid.",
+    "final_weighted_score": 5.0,
+    "is_pass": true
+  }
+}

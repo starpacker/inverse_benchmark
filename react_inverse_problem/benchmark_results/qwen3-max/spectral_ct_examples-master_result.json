@@ -1,0 +1,241 @@
+{
+  "task_name": "spectral_ct_examples-master",
+  "code_path": "/data/yjh/spectral_ct_examples-master_sandbox/spectral_ct_code.py",
+  "task_description": "### Task Description\nThe task is to reconstruct a multi-channel (2-material) tomographic image from noisy projection data. Unlike standard CT where noise is often assumed to be independent and identically distributed (i.i.d.), this problem involves **correlated Gaussian noise** between the two channels. To handle this, the reconstruction must account for the noise covariance structure (data whitening). Furthermore, since the two material channels (e.g., bone and soft tissue) share similar structural boundaries, the reconstruction must utilize a joint prior that encourages structural similarity between the channels.\n\n### Known Information\n*   **Observations ($y$):** A set of noisy sinograms with shape $(2, N_{angles}, N_{detectors})$, representing projections of two distinct materials.\n*   **Forward Operator ($\\mathcal{A}$):** The Ray Transform (Radon Transform), applied diagonally to both material channels.\n*   **Noise Statistics ($\\Sigma$):** The noise covariance matrix between the channels is estimated from the data, allowing for the computation of a whitening matrix $W = \\Sigma^{-1/2}$.\n\n### Goal\nRecover the clean, multi-channel volume $x$ (shape $2 \\times H \\times W$) that minimizes the data discrepancy while satisfying the regularization constraints.\n\n### Regularization\n1.  **Data Fidelity:** Weighted $L_2$-norm squared (Whitened Least Squares), mathematically $\\| W(\\mathcal{A}x - y) \\|_2^2$, to account for correlated noise.\n2.  **Regularizer:** **Nuclear Norm of the Gradient** (often referred to as Joint Total Variation or Vectorial TV). This penalizes the nuclear norm of the Jacobian matrix of the image, encouraging the gradients of the two channels to be aligned (co-occurring edges).\n3.  **Constraint:** Non-negativity indicator function ($x \\geq 0$).\n\n### Algorithm\n**Douglas-Rachford Primal-Dual** splitting algorithm.",
+  "golden_plan": {
+    "algorithm_name": "Douglas-Rachford Primal-Dual for Multi-Material Tomography with Whitening and Nuclear Norm Regularization",
+    "objective_function": "\\min_{x \\geq 0} \\frac{1}{2} \\| W(Ax - b) \\|_2^2 + \\lambda \\| \\nabla x \\|_*",
+    "variables": {
+      "primal": [
+        "x"
+      ],
+      "dual": [
+        "y_1",
+        "y_2"
+      ],
+      "constants": [
+        "A (Diagonal Ray Transform)",
+        "W (Whitening Operator)",
+        "b (Noisy Data)",
+        "\\lambda (Regularization Parameter)",
+        "\\tau (Primal Step Size)",
+        "\\sigma (Dual Step Sizes)"
+      ]
+    },
+    "initialization": [
+      {
+        "variable": "x",
+        "value": "Filtered Back Projection (FBP) of input data",
+        "shape": "(2, 512, 512)"
+      },
+      {
+        "variable": "W",
+        "value": "Fractional matrix power (-0.5) of estimated covariance matrix",
+        "shape": "(2, 2) acting on sinogram channels"
+      },
+      {
+        "variable": "tau",
+        "value": "1.0",
+        "shape": "scalar"
+      },
+      {
+        "variable": "sigma",
+        "value": "(1.0/||WA||^2, 1.0/||Grad||^2)",
+        "shape": "tuple of scalars"
+      }
+    ],
+    "iteration_loop": [
+      {
+        "step_order": 1,
+        "step_name": "Primal Update (Proximal of Indicator Function)",
+        "mathematical_formula": "x^{k+1} = \\text{prox}_{\\tau f}(x^k - \\tau \\sum_i K_i^* y_i^k) = \\max(0, x^k - \\tau ( (WA)^* y_1^k + (\\nabla)^* y_2^k ))",
+        "operator_requirements": [
+          "Adjoint of Whitened Ray Transform",
+          "Adjoint of Gradient (Divergence)"
+        ],
+        "input_variables": [
+          "x",
+          "y_1",
+          "y_2"
+        ],
+        "output_variables": [
+          "x"
+        ]
+      },
+      {
+        "step_order": 2,
+        "step_name": "Dual Update 1 (Data Fidelity)",
+        "mathematical_formula": "y_1^{k+1} = \\text{prox}_{\\sigma_1 g_1^*}(y_1^k + \\sigma_1 K_1(2x^{k+1} - x^k))",
+        "operator_requirements": [
+          "Whitened Ray Transform",
+          "Proximal of Conjugate L2 Norm Squared"
+        ],
+        "input_variables": [
+          "x",
+          "y_1"
+        ],
+        "output_variables": [
+          "y_1"
+        ]
+      },
+      {
+        "step_order": 3,
+        "step_name": "Dual Update 2 (Regularization)",
+        "mathematical_formula": "y_2^{k+1} = \\text{prox}_{\\sigma_2 g_2^*}(y_2^k + \\sigma_2 K_2(2x^{k+1} - x^k))",
+        "operator_requirements": [
+          "Gradient Operator",
+          "Proximal of Conjugate Nuclear Norm"
+        ],
+        "input_variables": [
+          "x",
+          "y_2"
+        ],
+        "output_variables": [
+          "y_2"
+        ]
+      }
+    ],
+    "stopping_criterion": "Fixed number of iterations (50)"
+  },
+  "candidate_plan": {
+    "algorithm_name": "Douglas-Rachford Primal-Dual",
+    "initialization": [
+      "Initialize primal variable $x^0 \\in \\mathbb{R}^{2 \\times H \\times W}$ to zero or filtered backprojection estimate.",
+      "Initialize dual variables: $u^0 = 0$ (for data fidelity term, same shape as $y$), and $v^0 = 0$ (for gradient domain, shape $2 \\times 2 \\times H \\times W$, representing horizontal and vertical gradients for each channel).",
+      "Set algorithm parameters: step sizes $\\tau > 0$, $\\sigma > 0$ satisfying $\\tau\\sigma \\|\\mathcal{A}\\|^2 < 1$, and relaxation parameter $\\theta \\in (0, 2)$ (typically $\\theta = 1$)."
+    ],
+    "iteration_loop": [
+      {
+        "step_order": 1,
+        "step_name": "Primal Gradient Descent Step (Data Fidelity)",
+        "mathematical_description": "\\tilde{x}^{k+1} = x^k - \\tau \\mathcal{A}^* W^* W (\\mathcal{A} x^k - y)",
+        "required_operators": [
+          "RayTransformAdjoint",
+          "MatrixMultiplication",
+          "WhiteningMatrix"
+        ],
+        "inputs": [
+          "x^k",
+          "y",
+          "W",
+          "A"
+        ],
+        "outputs": [
+          "tilde_x"
+        ]
+      },
+      {
+        "step_order": 2,
+        "step_name": "Primal Proximal Step (Non-negativity Constraint)",
+        "mathematical_description": "x^{k+1} = \\max(\\tilde{x}^{k+1}, 0)",
+        "required_operators": [
+          "PointwiseMax"
+        ],
+        "inputs": [
+          "tilde_x"
+        ],
+        "outputs": [
+          "x^{k+1}"
+        ]
+      },
+      {
+        "step_order": 3,
+        "step_name": "Dual Ascent Step (Data Fidelity Dual Variable)",
+        "mathematical_description": "u^{k+1} = u^k + \\sigma W (\\mathcal{A} (2x^{k+1} - x^k) - y)",
+        "required_operators": [
+          "RayTransform",
+          "MatrixMultiplication",
+          "WhiteningMatrix"
+        ],
+        "inputs": [
+          "u^k",
+          "x^{k+1}",
+          "x^k",
+          "y",
+          "W",
+          "A"
+        ],
+        "outputs": [
+          "u^{k+1}"
+        ]
+      },
+      {
+        "step_order": 4,
+        "step_name": "Gradient Computation",
+        "mathematical_description": "g^{k+1} = \\nabla (2x^{k+1} - x^k), \\quad \\text{where } \\nabla: \\mathbb{R}^{2 \\times H \\times W} \\to \\mathbb{R}^{2 \\times 2 \\times H \\times W}",
+        "required_operators": [
+          "GradientOperator"
+        ],
+        "inputs": [
+          "x^{k+1}",
+          "x^k"
+        ],
+        "outputs": [
+          "g^{k+1}"
+        ]
+      },
+      {
+        "step_order": 5,
+        "step_name": "Dual Ascent Step (Regularization Dual Variable)",
+        "mathematical_description": "v^{k+1} = v^k + \\sigma g^{k+1}",
+        "required_operators": [
+          "Addition"
+        ],
+        "inputs": [
+          "v^k",
+          "g^{k+1}"
+        ],
+        "outputs": [
+          "v^{k+1}"
+        ]
+      },
+      {
+        "step_order": 6,
+        "step_name": "Proximal Operator of Nuclear Norm (Joint TV Denoising in Dual)",
+        "mathematical_description": "v^{k+1} = \\text{prox}_{\\sigma \\|\\cdot\\|_*}(v^{k+1}) = U \\text{diag}(\\text{soft-threshold}(\\Sigma, \\sigma)) V^\\top, \\text{ applied pixel-wise to the } 2\\times2 \\text{ Jacobian slices}",
+        "required_operators": [
+          "SVD",
+          "SoftThresholding"
+        ],
+        "inputs": [
+          "v^{k+1}",
+          "sigma"
+        ],
+        "outputs": [
+          "v^{k+1}"
+        ]
+      },
+      {
+        "step_order": 7,
+        "step_name": "Relaxation Update",
+        "mathematical_description": "x^{k+1} = x^{k+1} + \\theta (x^{k+1} - x^k)",
+        "required_operators": [
+          "LinearCombination"
+        ],
+        "inputs": [
+          "x^{k+1}",
+          "x^k",
+          "theta"
+        ],
+        "outputs": [
+          "x^{k+1}"
+        ]
+      }
+    ],
+    "_meta": {
+      "generated_at": "2026-01-11T21:09:34.117980",
+      "model": "qwen3-max"
+    }
+  },
+  "evaluation": {
+    "step_by_step_analysis": "### Analysis of Candidate Plan\n\n**1. Algorithm Identification:**\nThe Candidate Plan claims to implement the \"Douglas-Rachford Primal-Dual\" algorithm (equivalent to Chambolle-Pock/PDHG). The Reference Plan correctly identifies the structure: a Primal update involving the adjoints of the dual variables, and Dual updates involving the proximal operators of the conjugate functions.\n\n**2. Primal Update Analysis (Steps 1 & 2):**\n- The Candidate performs a Gradient Descent step on the Data Fidelity term (`A* W* W (Ax - y)`) followed by a projection (`max(x, 0)`).\n- **Critical Error:** In PDHG, the primal update must subtract the adjoint of the linear operators applied to the *dual* variables (i.e., $x^{k+1} = \\text{prox}(x^k - \\tau K^* y^k)$). The Candidate's Step 1 **completely ignores the dual variables** ($u$ and $v$).\n- Consequently, the regularization term (captured in $v$) has **zero influence** on the reconstructed image $x$. The algorithm effectively solves a non-negative least squares problem, ignoring the nuclear norm entirely.\n\n**3. Dual Update Analysis (Steps 3, 5, 6):**\n- **Data Fidelity:** The Candidate includes a dual update for data fidelity ($u$) in Step 3, despite already handling data fidelity via gradient descent in Step 1. This is redundant and mathematically inconsistent for standard PDHG.\n- **Regularization:** Step 6 applies `SoftThresholding` to the dual variable $v$. For a Nuclear Norm regularizer $\\lambda \\|x\\|_*$, the dual update requires the proximal operator of the *conjugate* function, which is a **Projection onto the Spectral Norm Unit Ball**. Soft Thresholding is the proximal operator of the primal function, not the dual. This is a mathematical error.\n\n**4. Logical Flow & Relaxation:**\n- **Broken Feedback Loop:** As noted, $v$ is updated based on $x$, but $x$ is never updated based on $v$. The regularization branch is a \"write-only\" dead end.\n- **Relaxation Order:** Step 7 applies relaxation to $x^{k+1}$ at the end of the loop. In PDHG, the relaxed variable $\\bar{x} = x^{k+1} + \\theta(x^{k+1}-x^k)$ must be computed **before** the dual updates, as $\\bar{x}$ is the input to the dual steps. The Candidate's order is incorrect.\n\n**5. Completeness:**\n- The plan is missing the **Adjoint of the Gradient (Divergence)** operator in the Primal Update step. This is the mechanism by which the regularization affects the image.",
+    "completeness_score": 2,
+    "completeness_reason": "While the candidate lists basic operators like Gradient and RayTransform, it fails to include the 'Adjoint of Gradient' (Divergence) in the Primal Update step. This is a critical omission that disconnects the regularization from the reconstruction.",
+    "correctness_score": 1,
+    "correctness_reason": "The algorithm is fundamentally broken. 1) The regularization dual variable is never used to update the primal variable, rendering the regularization useless. 2) The dual update uses Soft Thresholding (primal prox) instead of Projection (dual prox). 3) The relaxation step is performed in the wrong order (after dual updates instead of before).",
+    "logical_dependency_score": 2,
+    "logical_dependency_reason": "The dependency graph contains a 'dead end'. The regularization variables ($v$) are computed but never feed back into the primal variable ($x$). While the inputs for each step exist, the lack of a closed feedback loop makes the logic invalid for an iterative optimization algorithm.",
+    "final_weighted_score": 1.6,
+    "is_pass": false
+  }
+}

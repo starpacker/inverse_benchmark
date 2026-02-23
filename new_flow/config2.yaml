@@ -1,0 +1,459 @@
+llm:
+  # code:
+  #   provider: openai
+  #   api_key: YOUR_API_KEY_HERE
+  #   base_url: https://api.whatai.cc/v1
+  #   # model: claude-opus-4-5-20251101
+  #   model: gemini-3-pro-preview
+  # code:
+    # provider: openai
+    # api_key: YOUR_API_KEY_HERE
+    # base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+    # model: deepseek-v3.2
+
+  # YOUR_API_KEY_HERE  yjh
+  # YOUR_API_KEY_HERE  csy
+  code:
+    provider: openai
+    api_key: YOUR_API_KEY_HERE
+    base_url: https://api.whatai.cc/v1
+    model: gemini-3-pro-preview
+  writer:
+    provider: openai
+    api_key: YOUR_API_KEY_HERE
+    base_url: https://api.whatai.cc/v1
+    # model: claude-opus-4-5-20251101
+    model: gemini-3-pro-preview
+    temperature: 0.0  # For deterministic JSON outputs
+  verified_coder:
+    provider: openai
+    api_key: YOUR_API_KEY_HERE
+    base_url: https://api.whatai.cc/v1
+    # model: gpt-4o
+    model: gpt-5.2-codex
+  tool_writer:
+    provider: openai
+    api_key: YOUR_API_KEY_HERE
+    base_url: https://api.whatai.cc/v1
+    model: gemini-3-pro-preview
+  embedding_model:
+    provider: openai
+    api_key: YOUR_API_KEY_HERE
+    model: text-embedding-3-small
+    temperature: 0.0  # For deterministic JSON outputs
+    base_url: https://api.whatai.cc/v1
+   
+
+prompts:
+  clean_up_code: |
+    You are an expert computational scientist. Your task is to refactor legacy scientific code.
+
+    # Context
+    The provided code implements a computational imaging/inversion algorithm.
+    
+    # Goal
+    Refactor the code into exactly these 4 functional components.
+
+    # Required Structure
+    1. `def load_and_preprocess_data(...) -> ...`
+    2. `def forward_operator(x) -> y_pred`
+    3. `def run_inversion(...) -> result`
+    4. `def evaluate_results(...)`
+
+    # Constraints
+    - **NO GLOBAL VARIABLES**: All data must be passed as arguments.
+    - **Generate COMPLETE CODE**: Every function MUST be implemented. Do not leave any logic blank.
+    - **NO LOGIC OVERLAP**.
+    - **RETURN VALUES**: Ensure that functions return data (numpy arrays, floats) and NOT function objects or classes, unless it is a factory function. If a function returns a wrapper, unwrap it to get the numerical result.
+    - **NO DUMMY FUNCTIONS**: Every Function MUST implement the actual physical model/mathematical transform derived from the input code.
+      - **FORBIDDEN**: `return `pass`, or trivial pass-throughs.
+      - If the original code performs a convolution, FFT, or matrix multiplication, the functions MUST contain that logic.
+    - **EXECUTION**: The `if __name__ == '__main__':` block must sequentially call the functions and print "OPTIMIZATION_FINISHED_SUCCESSFULLY" at the very end.
+
+    # STRICT IMPLEMENTATION RULES (AVOID COMMON ERRORS)
+    1. **NO Relative Imports**: Do NOT use `from .utils import...`. All helper functions must be defined IN THIS FILE.
+    2. **Define Helpers First**: Ensure any helper function (e.g., `background_estimation`, `fourier_upsample`) is defined BEFORE it is called, or ensure the scope is correct.
+    3. **Missing Imports**: Check if you use `gc`, `pywt`, `numpy`, `scipy`, etc. Import them at the top.
+    4. **Undefined Variables**: Do NOT assume constants like `PSF_FACTOR` or `kernel_size` are pre-defined. Define them explicitly inside the `if __name__ == '__main__':` block.
+    5. **Array Shapes**: When performing array operations (especially with `pywt` or manual FFTs), STRICTLY check shape compatibility to avoid `ValueError`. Ensure indices are integers.
+    
+    # CRITICAL FORMATTING INSTRUCTIONS
+    - Return **ONLY** the Python code.
+    - **MUST** wrap the code in a single ```python ... ``` block.
+    - Do **NOT** include any conversational text, explanations, or "Here is the code".
+    - **STRICTLY FORBIDDEN**: Using placeholders like `# Placeholder implementation`, `# ...`, `pass`, or `# To be implemented`.
+    - **MANDATORY**: You MUST implement every function fully. Do not skip any logic. Do not summarize.
+    - If a function is complex, write it out completely.
+    - Do **NOT** use `pass` or placeholders like `# ... implementation ...`. Write the FULL working code.
+
+    # Input Code
+    {full_code}
+
+    # Execution Command
+    Test command: `{command}`
+
+    Start your response immediately with ```python
+
+  gen_test_script: |
+    You are a Senior QA Automation Engineer. Write a robust Unit Test script `test_{func_name}.py`.
+
+    ### 1. DATA FILE ANALYSIS (CRITICAL)
+    You are provided with a list of paths `data_paths`. You must analyze them to determine the test strategy.
+    
+    **Scenario A: Simple Function**
+    - Only `standard_data_{func_name}.pkl` exists.
+    - **Action**: Load args -> Run function -> Compare result.
+
+    **Scenario B: Factory/Closure Pattern (YOUR PRIORITY)**
+    - You see TWO types of files:
+      1. **Outer Data**: `standard_data_{func_name}.pkl` (Inputs to create the operator/closure).
+      2. **Inner Data**: `standard_data_parent_function_{func_name}_*.pkl` (Inputs to EXECUTE the created operator).
+    
+    - **Logic to Implement**:
+      1. Load **Outer Data**. Run `{func_name}(*args, **kwargs)` to get the `actual_operator`.
+      2. Load **Inner Data**. Extract its `args` and `kwargs`.
+      3. Execute `actual_results = actual_operator(*inner_args, **inner_kwargs)`.
+      4. Compare `actual_results` against the **Inner Data's** `output`.
+
+    ### 2. CONTEXT
+    - **Target**: `{func_name}` (in `agent_{func_name}.py`).
+    - **Data Paths**: `{data_paths}` (List of strings).
+    - **Environment**: GPU available. `dill` is used for serialization.
+    - **Verification**: `from verification_utils import recursive_check`.
+
+    ### 3. REFERENCE CODE
+    **Target Function Signature**:
+    ```python
+    {standard_code}
+    ```
+    
+    ### 4. IMPLEMENTATION STEPS
+    Write the code following this structure strictly:
+
+    1. **Imports**: 
+       - `sys`, `os`, `dill`, `torch`, `numpy`, `traceback`.
+       - `from agent_{func_name} import {func_name}`.
+       - `from verification_utils import recursive_check`.
+       - **Helper Injection**: If `gen_data_code` (not provided here but implied) or the function requires specific global helpers (like custom complex multiplication), define them or ensure they are available so `dill.load` doesn't fail.
+    the gen_data_code is:
+    ```python
+    {gen_data_code}
+    ```
+
+    2. **File Logic Setup**:
+       - Filter `data_paths` to find the `outer_path` (exact match `..._{func_name}.pkl`) and `inner_path` (contains `parent_function`).
+    
+    3. **Phase 1: Reconstruct Operator (The Agent)**:
+       - Load `outer_path`.
+       - Run `agent_operator = {func_name}(*outer_args, **outer_kwargs)`.
+       - Verify `agent_operator` is callable.
+
+    4. **Phase 2: Execution & Verification**:
+       - **If `inner_path` exists (Scenario B)**:
+         - Load `inner_path`.
+         - Run `result = agent_operator(*inner_args, **inner_kwargs)`.
+         - `expected = inner_data['output']`.
+       - **If NO `inner_path` (Scenario A)**:
+         - The result from Phase 1 IS the result.
+         - `result = agent_operator`
+         - `expected = outer_data['output']`
+
+    5. **Comparison**:
+       - `passed, msg = recursive_check(expected, result)`
+       - If failed, print `msg` and `sys.exit(1)`.
+       - If passed, print `"TEST PASSED"` and `sys.exit(0)`.
+
+    ### 5. OUTPUT FORMAT
+    Return ONLY the Python code block. Ensure strict error handling (try/except) around execution steps to print clear failures.
+
+  gen_inverse_test_script: |
+    You are a QA Automation Engineer validating an Optimization/Inversion Algorithm `{func_name}`.
+
+    ### 1. OBJECTIVE
+    Your goal is to verify the **performance integrity** of `{func_name}`.
+    Unlike standard unit tests, we do NOT require bit-wise equality. Instead, we use a **Standard Evaluation Function** (`evaluate_results`) to compare the Agent's quality against the Ground Truth.
+
+    ### 2. DATA ANALYSIS (CRITICAL)
+    You are provided with `data_paths` (a list of file paths). You must implement logic to handle two execution patterns:
+    
+    **Pattern 1: Direct Execution (Standard)**
+    - You find only `standard_data_{func_name}.pkl`.
+    - **Logic**: Load inputs -> Run `{func_name}` -> Get Result -> Evaluate.
+
+    **Pattern 2: Chained Execution (Closure/Factory)**
+    - You find **Outer Data** (`standard_data_{func_name}.pkl`) AND **Inner Data** (`standard_data_parent_function_{func_name}_*.pkl`).
+    - **Logic**: 
+      1. Run `{func_name}` using **Outer Data** to get an `operator` (function).
+      2. Run `operator` using **Inner Data** to get the final `result`.
+      3. Evaluate `result`.
+
+    ### 3. CONTEXT
+    - **Target**: `{func_name}` (in `agent_{func_name}.py`).
+    - **Inputs**: `{data_paths}` (List of `.pkl` paths).
+    - **Environment**: GPU available.
+
+    ### 4. REFERENCE MATERIALS
+    **A. Target Function**:
+    ```python
+    {standard_code}
+    ```
+    **B. The Referee (Evaluation Logic)**:
+    *You MUST inject this function into your script.*
+    ```python
+    {eval_code}
+    ```
+
+    **C. Helper Injection**: If `gen_data_code` (not provided here but implied) or the function requires specific global helpers (like custom complex multiplication), define them or ensure they are available so `dill.load` doesn't fail.
+    the gen_data_code is:
+    ```python
+    {gen_data_code}
+    ```
+
+    ### 5. IMPLEMENTATION INSTRUCTIONS
+    Write `test_{func_name}.py` strictly following these steps:
+
+    1. **Imports & Setup**:
+       - Standard: `sys`, `os`, `dill`, `numpy as np`, `traceback`.
+       - Target: `from agent_{func_name} import {func_name}`.
+       - **Dependencies**: Analyze **Reference B**. Import ALL libraries used by `evaluate_results` (e.g., `skimage.metrics`, `torch`, `matplotlib.pyplot`, `cv2`).
+       - **Inject Referee**: Copy the code from **Reference B** verbatim into the script.
+
+    2. **File Logic**:
+       - Parse `data_paths`. Identify if we have a "Outer/Inner" pair or just single files.
+       - *Hint*: `Inner` files usually contain `parent_function` in the name.
+
+    3. **Execution Phase (Reconstruct the Call)**:
+       - **Step 1**: Load the primary (Outer) data. Run `agent_output = {func_name}(*args, **kwargs)`.
+       - **Step 2 (If Inner Data exists)**: 
+         - Load Inner data. 
+         - Execute: `final_result = agent_output(*inner_args, **inner_kwargs)`.
+         - Load expected output from Inner data: `std_result = inner_data['output']`.
+       - **Step 2 (If Direct Execution)**:
+         - `final_result = agent_output`.
+         - `std_result = outer_data['output']`.
+
+    4. **Evaluation Phase**:
+       - Calculate: `score_agent = evaluate_results(final_result)`
+       - Calculate: `score_std = evaluate_results(std_result)`
+       
+       *Handling Return Values*:
+       - If `evaluate_results` returns a tuple/dict, extract the primary scalar metric (e.g., PSNR, Loss).
+
+    5. **Verification & Reporting**:
+       - Print: `print(f"Scores -> Agent: {{score_agent}}, Standard: {{score_std}}")`
+       - **Determine Success**:
+         - Analyze if the metric is "Loss" (Lower is better) or "Score/PSNR" (Higher is better).
+         - If unsure, assume "Higher is better".
+         - Allow a margin of error (e.g., 5-10%).
+         - Example: `if score_agent < score_std * 0.9: fail`.
+       - **Exit Code**:
+         - `sys.exit(0)` if performance is acceptable.
+         - `sys.exit(1)` if performance degraded significantly.
+
+    ### 6. OUTPUT FORMAT
+    Return ONLY the complete Python code inside ```python ... ``` blocks.
+  
+  validator:
+    reconstruct_code: |
+      System / Role: You are a rigorous Technical Editor and QA Auditor for a high-stakes scientific computing benchmark. Your goal is to stress-test the clarity and completeness of a tutorial. You must act as a "Smart Novice"—you have high logical reasoning capabilities, but zero prior knowledge of the specific physical constants, variable names, or formula derivations unless they are explicitly stated in the provided text. 
+       
+      The Rules (Strict Adherence Required): 
+       
+      Source of Truth: You may ONLY use the information found in the [TUTORIAL_TEXT] section below. 
+       
+      No Hallucinated Assumptions: Do not assume standard variable names (e.g., do not assume the speed of light is c or 3e8 unless the text defines it). Do not assume specific library imports (e.g., numpy or scipy) unless the text suggests them. 
+       
+      The "Missing Link" Protocol: If the code requires a logical step or a parameter that is NOT explained in the text, you must not fix it. Instead, in your generated code, insert a comment: # ERROR: MISSING_IN_TEXT [Explanation]. 
+       
+      Variable Consistency: Check if the mathematical symbols in the text (e.g., σ_x) match the variable names implied by the logic. 
+       
+      Input Data: 
+       
+      [TUTORIAL_TEXT START]
+      {explanation_text}
+      [TUTORIAL_TEXT END]
+       
+      Your Task: Based strictly on the text above, attempt to reconstruct the Python solution code. 
+       
+      Step 1: List the key variables and formulas defined in the text. 
+       
+      Step 2: Generate the Python code. If you hit a gap where you cannot proceed without guessing, insert the # ERROR: MISSING_IN_TEXT comment.
+
+  writer:
+    structure_strategies:
+      main_multi: |
+        The code contains several functions.
+        You Must explain EVERY FUNCTION!
+      main_single: |
+        The code only contain one function.
+      helper_multi: |
+        The code contains several functions.
+        You Must LIST OUT EVERY FUNCTION!
+        Structure Part A (Engineer's View) with two specific subsections:
+        1. **Subsection 1: Architecture Diagram:** Explain the data flow between different functions. Explicitly distinguish between "Static Pre-computation" (Factory) and "Dynamic Runtime" (Forward Pass).
+        2. **Subsection 2: Function-by-Function Logic:** Explain inputs/outputs for every function individually.
+        - Write a step-by-step numbered list mapping the inputs to the outputs.
+        - Explain the logic within the functions clearly.
+        
+        STRICT RULE: Be specific about how functions pass data to each other (e.g., "Function A returns indices used by Function B").
+      helper_single: |
+        The code only contain one function.
+        Structure Part A(Engineer's View) as a linear **Implementation Blueprint**:
+        - Write a step-by-step numbered list mapping the inputs to the outputs.
+        - Explain the logic within the single function clearly.
+        
+        STRICT RULE: Be specific about variable names logic so a coder could reconstruct it.
+
+    instructions:
+      theory: |
+        Write a detailed scientific explanation based on the provided paper.
+        Focus on the theoretical contribution and physical background.
+        Use LaTeX for math.
+      code_main: |
+        write a detailed explanation on how to reproduce the code 
+
+        {structure_instructions}
+        ...
+        [CRITICAL HINT: REQUIRED IMPORTS]
+        The following imports are known to be correct and necessary for the environment. 
+        Please ensure your code includes relevant imports from this list if missing:
+
+        {import_hints_str}
+        ...
+      code_helper: |
+        You are writing a subsection for explaining the function {function_name}.
+        Structure this subsection with exactly three parts:
+        1. **Part A: The Engineer's View** (Step-by-step implementation blueprint, easy to reproduce the code based on this content)
+        2. **Part B: The Implementation** (Full code block)
+
+        {structure_instructions}
+        
+        STRICT RULE: In Part A, be specific about variable names logic so a coder could reconstruct it.
+        ...
+        [CRITICAL HINT: REQUIRED IMPORTS]
+        The following imports are known to be correct and necessary for the environment. 
+        Please ensure your code includes relevant imports from this list if missing:
+
+        {import_hints_str}
+        ...
+
+    templates:
+      theory_section: |
+        You are writing Section {n}: "{title}" of a scientific tutorial.
+        
+        CONTEXT FROM PREVIOUS SECTION:
+        "{previous_context}"
+        
+        Start immediately with Section {n}. Connect it to the previous context.
+        
+        {instructions}
+        
+        {code_context}
+
+        The paper is {paper_text}
+
+      code_initial: |
+        You are writing Section {n}: "{title}" of a scientific tutorial.
+
+        System Role: You are the Lead Scientific Documentation Engineer for a high-performance computing framework. Your task is to write a rigorous "Implementation Guide" for a specific scientific algorithm. 
+        The Audience: Your reader is a Senior Research Software Engineer who is an expert in Python but knows nothing about this specific physical problem. They need to implement the solution from scratch based solely on your document. 
+        The Golden Rule (STRICT): You must NOT include the final solution code. 
+        🚫 No Python code blocks (e.g., no def function():... ). 
+        🚫 No copy-pasteable snippets. 
+        ✅ DO use Mathematical Notation (LaTeX). 
+        ✅ DO use Pseudo-code or Logic Steps (e.g., "Step 1: Compute the Euclidean distance..."). 
+        ✅ DO specify library requirements (e.g., "Use numpy.fft.rfft , not standard fft "). 
+        Input Data: You will be provided with: 
+        The Ground Truth Code: (For your reference ONLY—do not leak this). First understand this code!
+        Output Structure: Write a structured Markdown document with these four sections: 
+        Theoretical Foundation: 
+        Explain the physics/math concepts. 
+        Define every variable symbol (e.g., "Let I(u,v) be the intensity..."). 
+        Crucial: If the Reference Code uses specific constants or units (e.g., "speed of light in km/s"), you MUST explicitly state them here. 
+        Algorithmic Workflow: 
+        Break the implementation down into logical steps (Step 1, Step 2, Step 3). 
+        Explain the transformation of data at each step (e.g., "The input array of shape (N, 3) must be flattened..."). 
+        The Trap Warning: If the Reference Code handles a specific edge case (e.g., division by zero, complex conjugation), explicitly warn the reader to handle it. 
+        API Specification: 
+        Function Name: (Use the exact name from Reference Code). 
+        Input Arguments: Name, Type, Shape, and physical meaning. 
+        Return Values: Name, Type, Shape, and structure (e.g., dict keys). 
+        Implementation Hints: 
+        Suggest specific numpy/scipy functions to use (e.g., "We recommend scipy.optimize.minimize with method='L-BFGS-B'").
+        
+        {instructions}
+        
+        The Ground Truth Code:
+        {code_context}
+
+      code_retry: |
+        You are writing Section {n}: "{title}" of a scientific tutorial.
+        System Role: You are the Lead Scientific Documentation Engineer for a high-performance computing framework. Your task is to write a rigorous "Implementation Guide" for a specific scientific algorithm. 
+        The Audience: Your reader is a Senior Research Software Engineer who is an expert in Python but knows nothing about this specific physical problem. They need to implement the solution from scratch based solely on your document. 
+        The Golden Rule (STRICT): You must NOT include the final solution code. 
+        🚫 No Python code blocks (e.g., no def function():... ). 
+        🚫 No copy-pasteable snippets. 
+        ✅ DO use Mathematical Notation (LaTeX). 
+        ✅ DO use Pseudo-code or Logic Steps (e.g., "Step 1: Compute the Euclidean distance..."). 
+        ✅ DO specify library requirements (e.g., "Use numpy.fft.rfft , not standard fft "). 
+        Input Data: You will be provided with: 
+        The Ground Truth Code: (For your reference ONLY—do not leak this). First understand this code!
+        Output Structure: Write a structured Markdown document with these four sections: 
+        Theoretical Foundation: 
+        Explain the physics/math concepts. 
+        Define every variable symbol (e.g., "Let I(u,v) be the intensity..."). 
+        Crucial: If the Reference Code uses specific constants or units (e.g., "speed of light in km/s"), you MUST explicitly state them here. 
+        Algorithmic Workflow: 
+        Break the implementation down into logical steps (Step 1, Step 2, Step 3). 
+        Explain the transformation of data at each step (e.g., "The input array of shape (N, 3) must be flattened..."). 
+        The Trap Warning: If the Reference Code handles a specific edge case (e.g., division by zero, complex conjugation), explicitly warn the reader to handle it. 
+        API Specification: 
+        Function Name: (Use the exact name from Reference Code). 
+        Input Arguments: Name, Type, Shape, and physical meaning. 
+        Return Values: Name, Type, Shape, and structure (e.g., dict keys). 
+        Implementation Hints: 
+        Suggest specific numpy/scipy functions to use (e.g., "We recommend scipy.optimize.minimize with method='L-BFGS-B'").
+        
+        {instructions}
+        
+
+        The Ground Truth Code:
+        {code_context}
+
+        And by following your previous answer, 
+        {part_b_text}
+
+        the coder reproduce the code:
+        {recon_code}
+
+        And the reason for not passing the test is {hint_for_tutorial}
+
+        And the coder used to make this mistakes:
+        {formatted_error_history}
+        Please be careful not to make the coder have the same error again!!
+
+        Analyse the difference between the reference code and the reproduced code, adding more information to your answer!
+      
+      helper_retry: |
+        You are writing Section {n}: "{title}" of a scientific tutorial.
+        
+        CONTEXT FROM PREVIOUS SECTION:
+        "{previous_context}"
+        
+        Start immediately with Section {n}. Connect it to the previous context.
+        
+        {instructions}
+        
+        {code_context}
+
+        And by following your previous Part B: The Engineer's View, 
+        {part_b_text}
+
+        the coder reproduce the code:
+        {recon_code}
+
+        Analyse the difference between the reference code and the reproduced code, adding more information to your previous Part B or revising it to make its content be more clear to make the coder understand.
+
+output_dir: output/
+
+uni_test_output_dir: run_code/

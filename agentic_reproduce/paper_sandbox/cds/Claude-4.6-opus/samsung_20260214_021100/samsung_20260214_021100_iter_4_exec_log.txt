@@ -1,0 +1,19 @@
+STDOUT:
+Input data shape: (81, 256, 256)
+Probe data shape: (2, 256, 256)
+Scan positions shape: (81, 2)
+Scan positions range: rows [0.0, 320.0], cols [0.0, 320.0]
+Detected probe shape: (256, 256)
+Phase 1: Running ePIE for 50 epochs...
+Phase 1 complete. Fourier error: 74.228589
+Estimating adaptive support mask...
+Estimated R_p: 0.999975+0.000000j
+Phase 2: Running rpPIE for 150 epochs...
+Phase 2 complete. Fourier error: 45.390185
+Result shape: (2, 600, 600)
+Result channel 0 range: [-0.076463, 1.000000]
+Result channel 1 range: [-0.062499, 0.058965]
+Output saved to output.npy
+
+
+STDERR:

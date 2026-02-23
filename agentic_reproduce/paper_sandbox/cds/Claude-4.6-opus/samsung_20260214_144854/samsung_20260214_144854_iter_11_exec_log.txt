@@ -1,0 +1,11 @@
+STDOUT:
+Best sigma: 10, error: 0.017200
+Back-projection init: best error=0.025607 at epoch 6
+All-ones init: best error=0.011309 at epoch 162
+All-ones init was better: 0.011309 vs 0.025607
+Output shape: (2, 600, 600)
+Magnitude range: [0.0000, 1.8366]
+Phase range: [-3.1415, 3.1415]
+
+
+STDERR:

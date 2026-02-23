@@ -1,0 +1,53 @@
+inputs,prediction,score,cost
+"## Question description
+
+### Problem settings
+
+* Structured illumination microscopy (SIM) is more photon efficient than other SR methods in increasing the spatial resolution, and can operate at temporal resolutions up to 100 Hz. However, because SIM reconstruction is essentially an ill-posed inverse problem that is prone to reconstruction artifacts21, the fidelity and the quantitative nature of conventional Wiener reconstruction have been challenged.
+
+* For this SIM deconvolution problem, we propose to use an algorithm that incorporates both sparsity and continuity as the a priori knowledge to constrain the iterative deconvolution, which is known as the Sparse deconvolution method for SIM.
+
+* The input is the collected SIM image
+
+* The objective of this task is to deconvolute the collected SIM image with both **sparsity** and **continuity prior**.
+
+### Dataset Description
+
+* 2colorActin.tif: a tif file containing colected SIM data with shape of (5, 1152, 1152), 5 is the time axis and 1152 is the height and width. For this sequence of data, perform a step-by-step deconvolution.The path to the file is /fs-computility/pdz02_sunhe/shared/AFlow/inversedata/2colorActin.tif","import numpy as np
+import tifffile
+from scipy import ndimage
+from skimage.restoration import richardson_lucy
+def load_sim_data(file_path):
+    return tifffile.imread(file_path)
+def preprocess_data(data):
+    data = data.astype(np.float32)
+    data_min = np.min(data)
+    data_max = np.max(data)
+    return (data - data_min) / (data_max - data_min + 1e-10)
+def get_psf(sigma=1.5, size=15):
+    psf = np.zeros((size, size))
+    center = size // 2
+    psf[center, center] = 1
+    psf = ndimage.gaussian_filter(psf, sigma=sigma)
+    return psf / np.sum(psf)
+def sparse_deconvolution(image, psf, iterations=30, lambda_sparse=0.1, lambda_cont=0.1):
+    """"""
+    Perform sparse deconvolution with continuity prior using Richardson-Lucy with regularization.
+    """"""
+    deconv = richardson_lucy(image, psf, num_iter=iterations)
+    deconv = np.maximum(deconv - lambda_sparse, 0)
+    deconv = ndimage.gaussian_filter(deconv, sigma=lambda_cont)
+    return deconv
+def process_sim_sequence(data):
+    psf = get_psf()
+    deconvolved = np.zeros_like(data)
+    for t in range(data.shape[0]):
+        deconvolved[t] = sparse_deconvolution(data[t], psf)
+    return deconvolved
+def main():
+    file_path = '/fs-computility/pdz02_sunhe/shared/AFlow/inversedata/2colorActin.tif'
+    data = load_sim_data(file_path)
+    data = preprocess_data(data)
+    deconvolved_data = process_sim_sequence(data)
+    output_path = '2colorActin_deconvolved.tif'
+    tifffile.imwrite(output_path, deconvolved_data.astype(np.float32))",0.0,0.0

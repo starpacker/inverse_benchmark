@@ -1,0 +1,254 @@
+{
+  "task_name": "diff",
+  "code_path": "/home/yjh/diff_sandbox/diff_code.py",
+  "task_description": "### Task Description\nThe objective is to recover the physical and geometric parameters of an optical lens (specifically the \"LE1234-A\" lens) using **Differentiable Metrology**. Physically, the setup consists of a camera observing a display screen through the lens in question. By displaying sinusoidal patterns on the screen (Phase Measuring Deflectometry), we can determine which pixel on the camera sensor corresponds to which physical point on the display screen.\n\nMathematically, this is an inverse rendering problem. We model the system using a differentiable ray tracer. The forward model traces light rays from the camera, through the lens surfaces, to the screen. The goal is to optimize the lens parameters so that the simulated ray intersection points on the screen match the experimentally measured intersection points.\n\n### Known Information\n1.  **Observations ($\\mathbf{p}_{obs}$):** A set of 2D intersection points on the display screen, derived from captured phase-shifted images. These points represent where rays passing through specific camera pixels hit the screen.\n2.  **System Calibration:** The intrinsic and extrinsic parameters of the camera, and the geometric position/rotation of the display screen relative to the camera.\n3.  **Forward Operator ($F(\\cdot)$):** A differentiable ray tracing function. Given a set of lens parameters $\\mathbf{x}$, it computes the expected intersection points on the screen: $\\mathbf{p}_{est} = F(\\mathbf{x})$.\n4.  **Initial Guess:** A perturbed initialization of the lens parameters (e.g., curvatures set to 0.0, thickness set to 3.0).\n\n### Goal\nRecover the vector of lens parameters $\\mathbf{x}$ that minimizes the discrepancy between the modeled and measured ray intersections.\nThe vector $\\mathbf{x}$ includes:\n*   **Surface Curvatures ($c$):** The curvature of the front and back surfaces of the lens.\n*   **Thickness ($d$):** The distance between the two lens surfaces.\n*   **Pose ($\\mathbf{t}, \\theta$):** The 3D position (origin) and tilt angles ($\\theta_x, \\theta_y$) of the lens group.\n\nMathematically, solve the optimization problem:\n$$ \\hat{\\mathbf{x}} = \\arg\\min_{\\mathbf{x}} \\sum_{i \\in \\Omega} \\| F(\\mathbf{x})_i - (\\mathbf{p}_{obs})_i \\|_2^2 $$\nwhere $\\Omega$ is the set of valid pixels (the mask `valid_cap`).\n\n### Regularization\n**None.**\nThe problem is formulated as a standard Non-Linear Least Squares (NLLS) optimization without explicit sparsity (L1) or smoothness (TV) penalties in the loss function. The constraints are implicit in the parameterization of the lens model.",
+  "golden_plan": {
+    "algorithm_name": "Differentiable Ray Tracing Lens Inversion",
+    "objective_function": "\\min_{\\theta} \\frac{1}{|\\Omega|} \\sum_{u \\in \\Omega} \\| \\mathcal{T}(u; \\theta) - \\mathbf{p}_{cap}(u) \\|_2^2",
+    "variables": {
+      "primal": [
+        "lensgroup.surfaces[0].c (Curvature 1)",
+        "lensgroup.surfaces[1].c (Curvature 2)",
+        "lensgroup.surfaces[1].d (Thickness)",
+        "lensgroup.origin (Position)",
+        "lensgroup.theta_x (Tilt X)",
+        "lensgroup.theta_y (Tilt Y)"
+      ],
+      "dual": [],
+      "constants": [
+        "ps_cap (Measured Intersection Points)",
+        "valid_cap (Valid Pixel Mask)",
+        "angle (Rotation Angle)",
+        "DM (DiffMetrology Scene Geometry)"
+      ]
+    },
+    "initialization": [
+      {
+        "variable": "lensgroup.surfaces[0].c",
+        "value": "0.00",
+        "shape": "Scalar"
+      },
+      {
+        "variable": "lensgroup.surfaces[1].c",
+        "value": "0.00",
+        "shape": "Scalar"
+      },
+      {
+        "variable": "lensgroup.surfaces[1].d",
+        "value": "3.00",
+        "shape": "Scalar"
+      },
+      {
+        "variable": "lensgroup.theta_x",
+        "value": "0.00",
+        "shape": "Scalar"
+      },
+      {
+        "variable": "lensgroup.theta_y",
+        "value": "0.00",
+        "shape": "Scalar"
+      }
+    ],
+    "iteration_loop": [
+      {
+        "step_order": 1,
+        "step_name": "Forward Ray Tracing",
+        "mathematical_formula": "\\mathbf{p}_{model} = \\text{Trace}(\\theta_{current}, \\text{angle})",
+        "operator_requirements": [
+          "Differentiable Ray Tracer"
+        ],
+        "input_variables": [
+          "primal",
+          "angle",
+          "valid_cap"
+        ],
+        "output_variables": [
+          "ps_model"
+        ]
+      },
+      {
+        "step_order": 2,
+        "step_name": "Residual Computation",
+        "mathematical_formula": "\\mathcal{L} = \\frac{1}{N} \\sum_{i \\in \\text{valid}} \\| \\mathbf{p}_{model, i} - \\mathbf{p}_{cap, i} \\|^2",
+        "operator_requirements": [
+          "MSE Loss",
+          "Masking"
+        ],
+        "input_variables": [
+          "ps_model",
+          "ps_cap",
+          "valid_cap"
+        ],
+        "output_variables": [
+          "loss_value"
+        ]
+      },
+      {
+        "step_order": 3,
+        "step_name": "Parameter Update (Adam)",
+        "mathematical_formula": "\\theta_{k+1} = \\theta_k - \\eta \\cdot \\text{Adam}(\\nabla_{\\theta} \\mathcal{L})",
+        "operator_requirements": [
+          "Automatic Differentiation",
+          "Adam Optimizer"
+        ],
+        "input_variables": [
+          "loss_value",
+          "primal"
+        ],
+        "output_variables": [
+          "primal"
+        ]
+      }
+    ],
+    "stopping_criterion": "Fixed iteration count (maxit=5)"
+  },
+  "candidate_plan": {
+    "algorithm_name": "Differentiable Non-Linear Least Squares Optimization (Levenberg-Marquardt)",
+    "initialization": [
+      "Load observed screen intersection points $\\mathbf{p}_{obs}$ and valid pixel mask $\\Omega$.",
+      "Load calibrated camera intrinsics and screen extrinsics.",
+      "Initialize lens parameter vector $\\mathbf{x}$ with perturbed values (curvatures $c=0.0$, thickness $d=3.0$, pose $\\mathbf{t}, \\theta$).",
+      "Set optimization hyperparameters: damping factor $\\lambda$, tolerance $\\epsilon$, and max iterations."
+    ],
+    "iteration_loop": [
+      {
+        "step_order": 1,
+        "step_name": "Forward Ray Tracing",
+        "mathematical_description": "Compute estimated screen intersection points for all valid pixels: $\\mathbf{p}_{est} = F(\\mathbf{x})$.",
+        "required_operators": [
+          "Differentiable Ray Tracing Operator",
+          "Snell's Law Refraction",
+          "Ray-Surface Intersection"
+        ],
+        "inputs": [
+          "lens_parameters $\\mathbf{x}$",
+          "camera_intrinsics",
+          "screen_geometry",
+          "valid_mask $\\Omega$"
+        ],
+        "outputs": [
+          "estimated_points $\\mathbf{p}_{est}$"
+        ]
+      },
+      {
+        "step_order": 2,
+        "step_name": "Residual Computation",
+        "mathematical_description": "Calculate the residual vector $\\mathbf{r}$ representing the Euclidean distance between estimated and observed points: $\\mathbf{r}_i = (\\mathbf{p}_{est})_i - (\\mathbf{p}_{obs})_i$ for all $i \\in \\Omega$.",
+        "required_operators": [
+          "Vector Subtraction",
+          "Euclidean Norm"
+        ],
+        "inputs": [
+          "estimated_points $\\mathbf{p}_{est}$",
+          "observed_points $\\mathbf{p}_{obs}$",
+          "valid_mask $\\Omega$"
+        ],
+        "outputs": [
+          "residuals $\\mathbf{r}$"
+        ]
+      },
+      {
+        "step_order": 3,
+        "step_name": "Jacobian Evaluation",
+        "mathematical_description": "Compute the Jacobian matrix $\\mathbf{J}$ of the forward model with respect to the parameters $\\mathbf{x}$, where $J_{ij} = \\frac{\\partial r_i}{\\partial x_j}$.",
+        "required_operators": [
+          "Automatic Differentiation (Backpropagation)",
+          "Partial Derivative"
+        ],
+        "inputs": [
+          "residuals $\\mathbf{r}$",
+          "lens_parameters $\\mathbf{x}$"
+        ],
+        "outputs": [
+          "jacobian_matrix $\\mathbf{J}$"
+        ]
+      },
+      {
+        "step_order": 4,
+        "step_name": "Gradient and Hessian Approximation",
+        "mathematical_description": "Calculate the gradient vector $\\mathbf{g} = \\mathbf{J}^T \\mathbf{r}$ and the approximate Hessian matrix $\\mathbf{H} \\approx \\mathbf{J}^T \\mathbf{J}$.",
+        "required_operators": [
+          "Matrix Transpose",
+          "Matrix-Vector Multiplication",
+          "Matrix-Matrix Multiplication"
+        ],
+        "inputs": [
+          "jacobian_matrix $\\mathbf{J}$",
+          "residuals $\\mathbf{r}$"
+        ],
+        "outputs": [
+          "gradient $\\mathbf{g}$",
+          "hessian_approx $\\mathbf{H}$"
+        ]
+      },
+      {
+        "step_order": 5,
+        "step_name": "Levenberg-Marquardt Step Calculation",
+        "mathematical_description": "Solve the linear system for the update step $\\delta$: $(\\mathbf{H} + \\lambda \\text{diag}(\\mathbf{H})) \\delta = -\\mathbf{g}$.",
+        "required_operators": [
+          "Diagonal Extraction",
+          "Scalar Multiplication",
+          "Matrix Addition",
+          "Linear System Solver (Cholesky or LU)"
+        ],
+        "inputs": [
+          "hessian_approx $\\mathbf{H}$",
+          "gradient $\\mathbf{g}$",
+          "damping_factor $\\lambda$"
+        ],
+        "outputs": [
+          "parameter_update $\\delta$"
+        ]
+      },
+      {
+        "step_order": 6,
+        "step_name": "Parameter Update",
+        "mathematical_description": "Update the lens parameters: $\\mathbf{x}_{new} = \\mathbf{x} + \\delta$.",
+        "required_operators": [
+          "Vector Addition"
+        ],
+        "inputs": [
+          "lens_parameters $\\mathbf{x}$",
+          "parameter_update $\\delta$"
+        ],
+        "outputs": [
+          "updated_parameters $\\mathbf{x}_{new}$"
+        ]
+      },
+      {
+        "step_order": 7,
+        "step_name": "Loss Evaluation & Damping Adjustment",
+        "mathematical_description": "Compute new loss $L_{new} = \\| \\mathbf{r}(\\mathbf{x}_{new}) \\|^2$. If $L_{new} < L_{current}$, accept $\\mathbf{x}_{new}$ and decrease $\\lambda$; otherwise, reject and increase $\\lambda$.",
+        "required_operators": [
+          "L2-Norm Squared",
+          "Comparison",
+          "Conditional Update"
+        ],
+        "inputs": [
+          "updated_parameters $\\mathbf{x}_{new}$",
+          "current_loss $L_{current}$",
+          "damping_factor $\\lambda$"
+        ],
+        "outputs": [
+          "final_parameters $\\mathbf{x}$",
+          "updated_damping $\\lambda$"
+        ]
+      }
+    ],
+    "_meta": {
+      "generated_at": "2026-01-11T21:13:01.028847",
+      "model": "glm-4.7"
+    }
+  },
+  "evaluation": {
+    "step_by_step_analysis": "### Analysis\n\n1.  **Task Alignment**: The Candidate Plan correctly identifies the task as recovering lens parameters using Differentiable Metrology. It recognizes the problem structure as Non-Linear Least Squares (NLLS).\n\n2.  **Completeness Check**:\n    *   **Forward Model**: The Candidate correctly includes the 'Differentiable Ray Tracing Operator' (Step 1), which matches the 'Forward Ray Tracing' in the Reference Plan.\n    *   **Loss/Residuals**: The Candidate computes residuals (Step 2), which is the vector equivalent of the MSE loss in the Reference Plan.\n    *   **Optimization**: The Reference Plan uses the **Adam** optimizer. The Candidate Plan uses the **Levenberg-Marquardt (LM)** algorithm. While different, LM is the standard, mathematically robust solver for NLLS problems defined in the Task Description. The Candidate includes all necessary sub-operators for LM (Jacobian, Hessian approximation, Linear Solver). It does not miss any *physical* operators (like the ray tracer).\n\n3.  **Mathematical Correctness**:\n    *   The Candidate's formulation of Levenberg-Marquardt is mathematically precise.\n    *   Jacobian computation ($J_{ij} = \\partial r_i / \\partial x_j$), Gradient ($J^T r$), and approximate Hessian ($J^T J$) are correct for NLLS.\n    *   The damped update step $(\\mathbf{H} + \\lambda \\text{diag}(\\mathbf{H})) \\delta = -\\mathbf{g}$ is the correct standard formula for LM.\n    *   The logic for updating the damping factor $\\lambda$ based on loss reduction is also correct.\n\n4.  **Logical Dependency**:\n    *   The data flow is valid. Step 1 produces `estimated_points`, which Step 2 uses to make `residuals`. Step 3 uses `residuals` to compute `Jacobian`. Step 4 uses `Jacobian` and `residuals` to get `gradient` and `hessian`. Step 5 solves for `delta`. Step 6 updates `x`. Step 7 evaluates.\n    *   There are no missing inputs or dimensionality mismatches.\n\n5.  **Comparison**: The Candidate Plan is actually more detailed and arguably more suitable for the specific 'NLLS' nature of the task than the generic Adam approach in the Reference Plan. It is a valid, high-quality substitution.",
+    "completeness_score": 5,
+    "completeness_reason": "The plan includes the critical physical operator (Differentiable Ray Tracer) and a robust optimization scheme. While it substitutes Adam (Reference) with Levenberg-Marquardt (Candidate), this is a valid and complete algorithmic approach for the stated NLLS task.",
+    "correctness_score": 5,
+    "correctness_reason": "The mathematical formulation of the Levenberg-Marquardt algorithm (Jacobian, approximate Hessian, damped normal equations) is textbook correct and internally consistent.",
+    "logical_dependency_score": 5,
+    "logical_dependency_reason": "The sequence of operations forms a valid closed loop. All inputs for the Jacobian, Hessian, and update steps are correctly derived from previous outputs.",
+    "final_weighted_score": 5.0,
+    "is_pass": true
+  }
+}

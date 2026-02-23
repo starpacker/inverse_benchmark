@@ -1,0 +1,192 @@
+```json
+{
+  "algorithm_name": "FPM-INR (Fourier Ptychographic Microscopy with Implicit Neural Representations)",
+  "initialization": [
+    "Initialize XY feature tensors: D_real^xy, D_imag^xy ~ 2e-4 * N(0,1) with shape (x_mode, y_mode, n_f)",
+    "Initialize Z feature vectors: D_real^z, D_imag^z ~ N(0,1) with shape (z_dim, n_f)",
+    "Initialize MLP renderers for real and imaginary channels: Linear(n_f, 32) -> ReLU -> Linear(32, 32) -> ReLU -> Linear(32, 1)",
+    "Initialize Adam optimizer with lr=1e-3, beta1=0.9, beta2=0.999, epsilon=1e-8",
+    "Set defocus parameter dz = 0.0",
+    "Precompute XY coordinate grid and bilinear interpolation indices (x0, x1, y0, y1) and weights (w_lerp)",
+    "Precompute pupil support mask P0 and angular spectrum propagation kernel k_zz"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Zero Gradients",
+      "mathematical_description": "\\nabla_\\Theta \\mathcal{L} = \\mathbf{0}",
+      "required_operators": ["ZeroGrad"],
+      "inputs": ["optimizer_state"],
+      "outputs": ["cleared_gradients"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Compute Defocus Mask",
+      "mathematical_description": "H_{\\text{df}} = \\exp(i \\cdot k_{zz} \\cdot dz)",
+      "required_operators": ["ComplexExponential", "ScalarMultiply"],
+      "inputs": ["k_zz", "dz"],
+      "outputs": ["H_df"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Compute Spectrum Mask",
+      "mathematical_description": "\\mathbf{S} = \\mathbf{P}_0 \\odot H_{\\text{df}}",
+      "required_operators": ["HadamardProduct"],
+      "inputs": ["P0", "H_df"],
+      "outputs": ["S"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Bilinear XY Feature Sampling (Real)",
+      "mathematical_description": "\\mathbf{F}_{xy}^{\\text{real}}[i] = \\sum_{j \\in \\{00,01,10,11\\}} w_j \\cdot \\mathbf{D}^{xy}_{\\text{real}}[y_j, x_j]",
+      "required_operators": ["BilinearInterpolation", "IndexSelect"],
+      "inputs": ["D_real_xy", "x0", "x1", "y0", "y1", "w_lerp"],
+      "outputs": ["F_xy_real"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "Linear Z Feature Interpolation (Real)",
+      "mathematical_description": "\\mathbf{F}_z^{\\text{real}} = \\mathbf{D}_{\\text{real}}^z[z_0](1-w_z) + \\mathbf{D}_{\\text{real}}^z[z_1] w_z",
+      "required_operators": ["LinearInterpolation", "IndexSelect"],
+      "inputs": ["D_real_z", "z0", "z1", "w_z"],
+      "outputs": ["F_z_real"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Feature Multiplication (Real)",
+      "mathematical_description": "\\mathbf{F}^{\\text{real}} = \\mathbf{F}_{xy}^{\\text{real}} \\odot \\mathbf{F}_z^{\\text{real}}",
+      "required_operators": ["HadamardProduct", "Broadcast"],
+      "inputs": ["F_xy_real", "F_z_real"],
+      "outputs": ["F_real"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "MLP Forward Pass (Real/Amplitude)",
+      "mathematical_description": "\\mathbf{a} = W^{(3)} \\cdot \\text{ReLU}(W^{(2)} \\cdot \\text{ReLU}(W^{(1)} \\mathbf{F}^{\\text{real}} + b^{(1)}) + b^{(2)}) + b^{(3)}",
+      "required_operators": ["LinearLayer", "ReLU", "Reshape"],
+      "inputs": ["F_real", "W_real_1", "b_real_1", "W_real_2", "b_real_2", "W_real_3", "b_real_3"],
+      "outputs": ["amplitude"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "Bilinear XY Feature Sampling (Imaginary)",
+      "mathematical_description": "\\mathbf{F}_{xy}^{\\text{imag}}[i] = \\sum_{j \\in \\{00,01,10,11\\}} w_j \\cdot \\mathbf{D}^{xy}_{\\text{imag}}[y_j, x_j]",
+      "required_operators": ["BilinearInterpolation", "IndexSelect"],
+      "inputs": ["D_imag_xy", "x0", "x1", "y0", "y1", "w_lerp"],
+      "outputs": ["F_xy_imag"]
+    },
+    {
+      "step_order": 9,
+      "step_name": "Linear Z Feature Interpolation (Imaginary)",
+      "mathematical_description": "\\mathbf{F}_z^{\\text{imag}} = \\mathbf{D}_{\\text{imag}}^z[z_0](1-w_z) + \\mathbf{D}_{\\text{imag}}^z[z_1] w_z",
+      "required_operators": ["LinearInterpolation", "IndexSelect"],
+      "inputs": ["D_imag_z", "z0", "z1", "w_z"],
+      "outputs": ["F_z_imag"]
+    },
+    {
+      "step_order": 10,
+      "step_name": "Feature Multiplication (Imaginary)",
+      "mathematical_description": "\\mathbf{F}^{\\text{imag}} = \\mathbf{F}_{xy}^{\\text{imag}} \\odot \\mathbf{F}_z^{\\text{imag}}",
+      "required_operators": ["HadamardProduct", "Broadcast"],
+      "inputs": ["F_xy_imag", "F_z_imag"],
+      "outputs": ["F_imag"]
+    },
+    {
+      "step_order": 11,
+      "step_name": "MLP Forward Pass (Imaginary/Phase)",
+      "mathematical_description": "\\boldsymbol{\\phi} = W^{(3)} \\cdot \\text{ReLU}(W^{(2)} \\cdot \\text{ReLU}(W^{(1)} \\mathbf{F}^{\\text{imag}} + b^{(1)}) + b^{(2)}) + b^{(3)}",
+      "required_operators": ["LinearLayer", "ReLU", "Reshape"],
+      "inputs": ["F_imag", "W_imag_1", "b_imag_1", "W_imag_2", "b_imag_2", "W_imag_3", "b_imag_3"],
+      "outputs": ["phase"]
+    },
+    {
+      "step_order": 12,
+      "step_name": "Form Complex Image",
+      "mathematical_description": "\\mathbf{O}_{\\text{img}} = \\mathbf{a} \\odot \\exp(i \\boldsymbol{\\phi})",
+      "required_operators": ["ComplexExponential", "HadamardProduct"],
+      "inputs": ["amplitude", "phase"],
+      "outputs": ["O_img"]
+    },
+    {
+      "step_order": 13,
+      "step_name": "Compute High-Resolution Spectrum",
+      "mathematical_description": "\\mathbf{O} = \\text{fftshift}(\\text{FFT2}(\\mathbf{O}_{\\text{img}}))",
+      "required_operators": ["FFT2", "FFTShift"],
+      "inputs": ["O_img"],
+      "outputs": ["O_spectrum"]
+    },
+    {
+      "step_order": 14,
+      "step_name": "Zero-Pad Spectrum",
+      "mathematical_description": "\\mathbf{O}_{\\text{pad}} = \\text{Pad}(\\mathbf{O}, p_x, p_y)",
+      "required_operators": ["ZeroPad2D"],
+      "inputs": ["O_spectrum", "pad_size"],
+      "outputs": ["O_padded"]
+    },
+    {
+      "step_order": 15,
+      "step_name": "Extract Sub-Aperture",
+      "mathematical_description": "\\mathbf{O}_{\\text{sub}} = \\mathbf{O}_{\\text{pad}}[:, v_\\ell - M/2 : v_\\ell + M/2, u_\\ell - N/2 : u_\\ell + N/2]",
+      "required_operators": ["Crop2D"],
+      "inputs": ["O_padded", "ledpos_ell", "M", "N"],
+      "outputs": ["O_sub"]
+    },
+    {
+      "step_order": 16,
+      "step_name": "Apply Spectrum Mask",
+      "mathematical_description": "\\mathbf{O}_{\\text{masked}} = \\mathbf{O}_{\\text{sub}} \\odot \\mathbf{S}",
+      "required_operators": ["HadamardProduct"],
+      "inputs": ["O_sub", "S"],
+      "outputs": ["O_masked"]
+    },
+    {
+      "step_order": 17,
+      "step_name": "Inverse FFT to Image Space",
+      "mathematical_description": "\\mathbf{o}_{\\text{sub}} = \\text{IFFT2}(\\text{ifftshift}(\\mathbf{O}_{\\text{masked}}))",
+      "required_operators": ["IFFTShift", "IFFT2"],
+      "inputs": ["O_masked"],
+      "outputs": ["o_sub"]
+    },
+    {
+      "step_order": 18,
+      "step_name": "Compute Predicted Amplitude",
+      "mathematical_description": "\\hat{\\mathbf{I}}_\\ell = |\\mathbf{o}_{\\text{sub}}|",
+      "required_operators": ["ComplexMagnitude"],
+      "inputs": ["o_sub"],
+      "outputs": ["I_predicted"]
+    },
+    {
+      "step_order": 19,
+      "step_name": "Extract Measured Amplitude",
+      "mathematical_description": "\\mathbf{I}_\\ell^{\\text{cap}} = \\sqrt{\\mathbf{I}_{\\text{sum}}[:,:,\\ell]}",
+      "required_operators": ["IndexSelect", "SquareRoot"],
+      "inputs": ["I_sum", "led_index"],
+      "outputs": ["I_measured"]
+    },
+    {
+      "step_order": 20,
+      "step_name": "Compute Smooth L1 Loss",
+      "mathematical_description": "\\mathcal{L} = \\frac{1}{MN}\\sum_{m,n} \\text{SmoothL1}(\\mathbf{I}_\\ell^{\\text{cap}}[m,n], \\hat{\\mathbf{I}}_\\ell[m,n])",
+      "required_operators": ["SmoothL1Loss", "Mean"],
+      "inputs": ["I_measured", "I_predicted"],
+      "outputs": ["loss"]
+    },
+    {
+      "step_order": 21,
+      "step_name": "Backpropagation",
+      "mathematical_description": "\\nabla_\\Theta \\mathcal{L} = \\text{autograd}(\\mathcal{L}, \\Theta)",
+      "required_operators": ["Backward", "AutoGrad"],
+      "inputs": ["loss", "Theta"],
+      "outputs": ["gradients"]
+    },
+    {
+      "step_order": 22,
+      "step_name": "Adam Parameter Update",
+      "mathematical_description": "\\Theta \\gets \\Theta - \\eta \\frac{\\hat{m}_t}{\\sqrt{\\hat{v}_t} + \\epsilon}, \\text{ where } \\hat{m}_t = \\frac{m_t}{1-\\beta_1^t}, \\hat{v}_t = \\frac{v_t}{1-\\beta_2^t}",
+      "required_operators": ["AdamOptimizer"],
+      "inputs": ["gradients", "Theta", "m_t", "v_t", "eta", "beta1", "beta2", "epsilon", "t"],
+      "outputs": ["Theta_updated", "m_t_updated", "v_t_updated"]
+    }
+  ]
+}
+```

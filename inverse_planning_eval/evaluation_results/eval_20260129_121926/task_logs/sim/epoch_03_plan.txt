@@ -1,0 +1,188 @@
+```json
+{
+  "algorithm_name": "Sparse Hessian Deconvolution with Richardson-Lucy Refinement",
+  "initialization": [
+    "Load raw image: y_raw = imread(path), convert to float32",
+    "Compute scaler: s = max(y), normalize: y = y / s",
+    "Estimate background via wavelet decomposition: bg = BackgroundEstimate(y/2.5) using db6 wavelet with 7 levels and 3 iterative refinements",
+    "Background subtract and renormalize: y = (y - bg), y = max(y, 0), y = y / max(y)",
+    "Handle dimensions: if 2D, stack to 3 slices; if T<3, pad to Z>=3 slices to get f of shape (Z, H, W)",
+    "Compute continuity factor: γ = sqrt(t_continuity) = sqrt(0.5) ≈ 0.7071",
+    "Build Fourier derivative operators: Δ̂_xx = |F{[1,-2,1]}|², Δ̂_yy = |F{[1;-2;1]}|², Δ̂_zz = |F{δ_zz}|², Δ̂_xy = |F{[[1,-1];[-1,1]]}|², Δ̂_xz = |F{δ_xz}|², Δ̂_yz = |F{δ_yz}|²",
+    "Build normalizer: N̂ = λ_f + λ_s² + Δ̂_xx + Δ̂_yy + γ²Δ̂_zz + 2Δ̂_xy + 2γΔ̂_xz + 2γΔ̂_yz with λ_f=150, λ_s=10",
+    "Initialize Bregman variables: b_xx = b_yy = b_zz = b_xy = b_xz = b_yz = b_ℓ1 = 0",
+    "Initialize update: u⁽⁰⁾ = λ_f · f",
+    "Initialize residual: r_prev = +∞"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Fourier Transform Update",
+      "mathematical_description": "\\hat{u}^{(k)} = \\mathcal{F}\\{u^{(k)}\\}",
+      "required_operators": ["fft3d"],
+      "inputs": ["u"],
+      "outputs": ["u_hat"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Primal Update via Fourier Division",
+      "mathematical_description": "g^{(k)} = \\text{Re}\\left(\\mathcal{F}^{-1}\\left\\{\\frac{\\hat{u}^{(k)}}{\\hat{N}}\\right\\}\\right), \\text{ where } \\hat{N} = \\lambda_f + \\lambda_s^2 + \\sum \\text{weighted derivative operators}",
+      "required_operators": ["ifft3d", "elementwise_division"],
+      "inputs": ["u_hat", "N_hat", "lambda_f"],
+      "outputs": ["g"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Reset Update Accumulator",
+      "mathematical_description": "u^{(k+1)} = \\lambda_f \\cdot f",
+      "required_operators": ["scalar_multiply"],
+      "inputs": ["f", "lambda_f"],
+      "outputs": ["u"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Compute Second Derivatives",
+      "mathematical_description": "g_{pq} = D_p^{\\pm} D_q^{\\pm} g^{(k)} \\text{ for } (p,q) \\in \\{(x,x),(y,y),(z,z),(x,y),(x,z),(y,z)\\}",
+      "required_operators": ["finite_difference_forward", "finite_difference_backward"],
+      "inputs": ["g"],
+      "outputs": ["g_xx", "g_yy", "g_zz", "g_xy", "g_xz", "g_yz"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "Shrinkage Operations",
+      "mathematical_description": "d_{pq} = \\text{shrink}(g_{pq} + b_{pq}, \\mu) = \\text{sign}(g_{pq}+b_{pq})\\max(|g_{pq}+b_{pq}|-1/\\mu, 0)",
+      "required_operators": ["soft_thresholding"],
+      "inputs": ["g_xx", "g_yy", "g_zz", "g_xy", "g_xz", "g_yz", "b_xx", "b_yy", "b_zz", "b_xy", "b_xz", "b_yz", "mu"],
+      "outputs": ["d_xx", "d_yy", "d_zz", "d_xy", "d_xz", "d_yz"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Bregman Variable Updates",
+      "mathematical_description": "b_{pq} \\leftarrow b_{pq} + g_{pq} - d_{pq} \\text{ for all } (p,q)",
+      "required_operators": ["elementwise_add", "elementwise_subtract"],
+      "inputs": ["b_xx", "b_yy", "b_zz", "b_xy", "b_xz", "b_yz", "g_xx", "g_yy", "g_zz", "g_xy", "g_xz", "g_yz", "d_xx", "d_yy", "d_zz", "d_xy", "d_xz", "d_yz"],
+      "outputs": ["b_xx", "b_yy", "b_zz", "b_xy", "b_xz", "b_yz"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "Accumulate Weighted Laplacian Terms",
+      "mathematical_description": "u^{(k+1)} \\leftarrow u^{(k+1)} + D_p^- D_q^-(d_{pq}-b_{pq}) \\cdot w_{pq}, \\text{ where } w_{xx}=w_{yy}=1, w_{zz}=\\gamma^2, w_{xy}=2, w_{xz}=w_{yz}=2\\gamma",
+      "required_operators": ["finite_difference_backward", "scalar_multiply", "elementwise_add"],
+      "inputs": ["u", "d_xx", "d_yy", "d_zz", "d_xy", "d_xz", "d_yz", "b_xx", "b_yy", "b_zz", "b_xy", "b_xz", "b_yz", "gamma"],
+      "outputs": ["u"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "Sparsity Shrinkage and Update",
+      "mathematical_description": "d_{\\ell_1} = \\text{shrink}(g^{(k)} + b_{\\ell_1}, \\mu); \\quad b_{\\ell_1} \\leftarrow b_{\\ell_1} + g^{(k)} - d_{\\ell_1}; \\quad u^{(k+1)} \\leftarrow u^{(k+1)} + \\lambda_s(d_{\\ell_1}-b_{\\ell_1})",
+      "required_operators": ["soft_thresholding", "elementwise_add", "elementwise_subtract", "scalar_multiply"],
+      "inputs": ["g", "b_l1", "mu", "lambda_s", "u"],
+      "outputs": ["d_l1", "b_l1", "u"]
+    },
+    {
+      "step_order": 9,
+      "step_name": "Convergence Check (Stage 1)",
+      "mathematical_description": "\\text{Every 20 iterations: } r^{(k)} = \\|f - g^{(k)}\\|_2; \\quad \\text{if } \\frac{|r^{(k)}-r_{\\text{prev}}|}{r_{\\text{prev}}+10^{-12}} < \\tau \\text{ then BREAK}",
+      "required_operators": ["l2_norm", "elementwise_subtract"],
+      "inputs": ["f", "g", "r_prev", "tau"],
+      "outputs": ["r_current", "convergence_flag"]
+    },
+    {
+      "step_order": 10,
+      "step_name": "Non-negativity Projection and Normalization (Post Stage 1)",
+      "mathematical_description": "g \\leftarrow \\max(g, 0); \\quad g_{\\text{sparse}} = g / \\max(g)",
+      "required_operators": ["clip", "scalar_divide"],
+      "inputs": ["g"],
+      "outputs": ["g_sparse"]
+    },
+    {
+      "step_order": 11,
+      "step_name": "Build Gaussian PSF and OTF",
+      "mathematical_description": "h[i,j] = \\exp\\left(-\\frac{i^2+j^2}{2\\tilde{\\sigma}^2}\\right), \\quad h \\leftarrow h/\\sum h, \\quad \\hat{H} = \\text{psf2otf}(h)",
+      "required_operators": ["gaussian_kernel", "fft2d", "psf2otf"],
+      "inputs": ["sigma"],
+      "outputs": ["h", "H_hat"]
+    },
+    {
+      "step_order": 12,
+      "step_name": "Pad Input for Deconvolution",
+      "mathematical_description": "y_{\\text{pad}} = \\text{pad}(g_{\\text{sparse}}, B, \\text{mode='edge'}), \\quad B = \\lfloor \\min(H,W)/6 \\rfloor",
+      "required_operators": ["edge_padding"],
+      "inputs": ["g_sparse", "B"],
+      "outputs": ["y_pad"]
+    },
+    {
+      "step_order": 13,
+      "step_name": "Initialize Richardson-Lucy Variables",
+      "mathematical_description": "y_0 = y_{\\text{pad}}, \\quad x_0 = \\mathbf{0}, \\quad v_0 = \\mathbf{0}",
+      "required_operators": ["copy", "zeros_like"],
+      "inputs": ["y_pad"],
+      "outputs": ["y_rl", "x_rl", "v_rl"]
+    },
+    {
+      "step_order": 14,
+      "step_name": "Compute Blurred Ratio",
+      "mathematical_description": "r_k = \\frac{y_{\\text{pad}}}{\\max\\left(\\mathcal{F}^{-1}\\{\\hat{H} \\cdot \\mathcal{F}\\{y_k\\}\\}, 10^{-6}\\right)}",
+      "required_operators": ["fft2d", "ifft2d", "elementwise_multiply", "elementwise_division", "clip"],
+      "inputs": ["y_pad", "y_rl", "H_hat"],
+      "outputs": ["r_k"]
+    },
+    {
+      "step_order": 15,
+      "step_name": "Richardson-Lucy Update Step",
+      "mathematical_description": "x_{k+1} = \\frac{y_k \\cdot \\text{Re}\\left(\\mathcal{F}^{-1}\\{\\hat{H}^* \\cdot \\mathcal{F}\\{r_k\\}\\}\\right)}{\\text{Re}\\left(\\mathcal{F}^{-1}\\{\\hat{H} \\cdot \\mathcal{F}\\{\\mathbf{1}\\}\\}\\right)}",
+      "required_operators": ["fft2d", "ifft2d", "complex_conjugate", "elementwise_multiply", "elementwise_division"],
+      "inputs": ["y_rl", "r_k", "H_hat"],
+      "outputs": ["x_rl"]
+    },
+    {
+      "step_order": 16,
+      "step_name": "Clip Primal Variable",
+      "mathematical_description": "x_{k+1} \\leftarrow \\max(x_{k+1}, 10^{-6})",
+      "required_operators": ["clip"],
+      "inputs": ["x_rl"],
+      "outputs": ["x_rl"]
+    },
+    {
+      "step_order": 17,
+      "step_name": "Update Momentum Variable",
+      "mathematical_description": "v_{k+1} = \\max(x_{k+1} - y_k, 10^{-6})",
+      "required_operators": ["elementwise_subtract", "clip"],
+      "inputs": ["x_rl", "y_rl"],
+      "outputs": ["v_rl"]
+    },
+    {
+      "step_order": 18,
+      "step_name": "Compute Adaptive Acceleration Parameter",
+      "mathematical_description": "\\alpha_k = \\text{clip}\\left(\\frac{\\langle v_{k-1}, v_k \\rangle}{\\|v_{k-1}\\|_2^2 + 10^{-10}}, 10^{-6}, 1\\right)",
+      "required_operators": ["inner_product", "l2_norm_squared", "clip"],
+      "inputs": ["v_rl", "v_rl_prev"],
+      "outputs": ["alpha"]
+    },
+    {
+      "step_order": 19,
+      "step_name": "Accelerated Extrapolation Step",
+      "mathematical_description": "y_{k+1} = \\max(x_{k+1} + \\alpha_k(x_{k+1} - x_k), 10^{-6})",
+      "required_operators": ["elementwise_subtract", "scalar_multiply", "elementwise_add", "clip"],
+      "inputs": ["x_rl", "x_rl_prev", "alpha"],
+      "outputs": ["y_rl"]
+    },
+    {
+      "step_order": 20,
+      "step_name": "NaN Handling",
+      "mathematical_description": "y_{k+1}[\\text{isnan}(y_{k+1})] \\leftarrow 10^{-6}",
+      "required_operators": ["nan_to_num"],
+      "inputs": ["y_rl"],
+      "outputs": ["y_rl"]
+    },
+    {
+      "step_order": 21,
+      "step_name": "Finalization: Remove Padding and Rescale",
+      "mathematical_description": "y_{\\text{final}} = \\max(y_K, 0); \\quad x_{\\text{out}} = y_{\\text{final}}[B:H+B, B:W+B]; \\quad x_{\\text{result}} = s \\cdot x_{\\text{out}}",
+      "required_operators": ["clip", "crop", "scalar_multiply"],
+      "inputs": ["y_rl", "B", "scaler"],
+      "outputs": ["x_result"]
+    }
+  ]
+}
+```

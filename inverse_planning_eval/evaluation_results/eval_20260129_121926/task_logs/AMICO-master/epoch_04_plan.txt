@@ -1,0 +1,119 @@
+```json
+{
+  "algorithm_name": "AMICO-NODDI (Accelerated Microstructure Imaging via Convex Optimization for NODDI)",
+  "initialization": [
+    "Extract masked voxels: mask_indices = {(x,y,z) : mask[x,y,z] = True}, y_data = Y[mask_indices] ∈ ℝ^(n_voxels × n_S), d_dirs = dirs[mask_indices] ∈ ℝ^(n_voxels × 3)",
+    "Initialize KD-Tree for direction lookup over GRAD_500 (500 unit vectors on sphere)",
+    "Initialize results array: results ← 0_(n_voxels × 3) for [NDI, ODI, FWF]",
+    "Precompute spherical harmonic basis: Y_high ∈ ℝ^(500 × 91), Y_inv = (Y^T Y)^(-1) Y^T ∈ ℝ^(91 × 500)",
+    "Precompute rotation matrices and auxiliary structures for l_max = 12",
+    "Compute kappa values: κ_i = 1/tan(OD_i · π/2) for each orientation dispersion value"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Extract Voxel Data",
+      "mathematical_description": "$\\mathbf{y} = \\texttt{y\\_data}[i, :] \\in \\mathbb{R}^{n_S}, \\quad \\mathbf{d} = \\texttt{d\\_dirs}[i, :] \\in \\mathbb{R}^3$",
+      "required_operators": ["indexing"],
+      "inputs": ["y_data", "d_dirs", "i"],
+      "outputs": ["y", "d"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Normalize Direction",
+      "mathematical_description": "$\\hat{\\mathbf{d}} = \\frac{\\mathbf{d}}{\\|\\mathbf{d}\\|_2 + 10^{-16}}$",
+      "required_operators": ["L2_norm", "scalar_division"],
+      "inputs": ["d"],
+      "outputs": ["d_hat"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Find Nearest Dictionary Direction",
+      "mathematical_description": "$\\text{idx\\_dir} = \\arg\\min_{k \\in \\{1,...,500\\}} \\min\\left(\\|\\hat{\\mathbf{d}} - \\mathbf{g}_k\\|_2, \\|\\hat{\\mathbf{d}} + \\mathbf{g}_k\\|_2\\right)$",
+      "required_operators": ["KDTree_query", "comparison"],
+      "inputs": ["d_hat", "tree", "GRAD_500"],
+      "outputs": ["idx_dir"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Extract Direction-Specific Kernels",
+      "mathematical_description": "$\\mathbf{A}_{\\text{wm}} = \\texttt{kernels['wm']}[:, \\text{idx\\_dir}, :]^T \\in \\mathbb{R}^{n_S \\times (N_{\\text{atoms}}-1)}, \\quad \\mathbf{a}_{\\text{iso}} = \\texttt{kernels['iso']} \\in \\mathbb{R}^{n_S}$",
+      "required_operators": ["indexing", "transpose"],
+      "inputs": ["kernels", "idx_dir"],
+      "outputs": ["A_wm", "a_iso"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "Isotropic Coefficient Estimation (NNLS)",
+      "mathematical_description": "$\\hat{x}_{\\text{iso}} = \\arg\\min_{x \\geq 0} \\|\\mathbf{y} - x \\cdot \\mathbf{a}_{\\text{iso}}\\|_2^2$",
+      "required_operators": ["NNLS_solver"],
+      "inputs": ["y", "a_iso"],
+      "outputs": ["x_iso_hat"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Compute Residual Signal",
+      "mathematical_description": "$\\tilde{\\mathbf{y}} = \\max(0, \\mathbf{y} - \\hat{x}_{\\text{iso}} \\cdot \\mathbf{a}_{\\text{iso}})$",
+      "required_operators": ["scalar_multiplication", "vector_subtraction", "elementwise_max"],
+      "inputs": ["y", "x_iso_hat", "a_iso"],
+      "outputs": ["y_tilde"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "Scale Dictionary by Precomputed Norms",
+      "mathematical_description": "$\\tilde{\\mathbf{A}}_{\\text{wm}} = \\mathbf{A}_{\\text{wm}} \\odot \\mathbf{N}$ where $N_j = 1/\\|\\mathbf{a}_j[\\text{dwi\\_idx}]\\|_2$",
+      "required_operators": ["elementwise_multiplication", "broadcasting"],
+      "inputs": ["A_wm", "kernels['norms']"],
+      "outputs": ["A_wm_tilde"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "LASSO Sparse Regression",
+      "mathematical_description": "$\\hat{\\mathbf{x}}_{\\text{wm,scaled}} = \\arg\\min_{\\mathbf{x} \\geq 0} \\frac{1}{2n_S}\\|\\tilde{\\mathbf{y}} - \\tilde{\\mathbf{A}}_{\\text{wm}}\\mathbf{x}\\|_2^2 + \\frac{\\lambda_1}{n_S} \\|\\mathbf{x}\\|_1$ with $\\lambda_1 = 0.5$",
+      "required_operators": ["LASSO_solver", "L1_regularization", "non_negativity_constraint"],
+      "inputs": ["A_wm_tilde", "y_tilde", "lambda_1", "n_S"],
+      "outputs": ["x_wm_scaled_hat"]
+    },
+    {
+      "step_order": 9,
+      "step_name": "Rescale Coefficients",
+      "mathematical_description": "$\\hat{\\mathbf{x}}_{\\text{wm}} = \\hat{\\mathbf{x}}_{\\text{wm,scaled}} \\odot \\mathbf{N}$",
+      "required_operators": ["elementwise_multiplication"],
+      "inputs": ["x_wm_scaled_hat", "kernels['norms']"],
+      "outputs": ["x_wm_hat"]
+    },
+    {
+      "step_order": 10,
+      "step_name": "Compute NDI (Neurite Density Index)",
+      "mathematical_description": "$S_{\\text{wm}} = \\sum_{j=1}^{N_{\\text{atoms}}-1} \\hat{x}_{\\text{wm},j} + 10^{-16}, \\quad \\text{NDI} = \\frac{\\sum_{j=1}^{N_{\\text{atoms}}-1} \\hat{x}_{\\text{wm},j} \\cdot \\text{ICVF}_j}{S_{\\text{wm}}}$",
+      "required_operators": ["summation", "elementwise_multiplication", "scalar_division"],
+      "inputs": ["x_wm_hat", "kernels['icvf']"],
+      "outputs": ["NDI", "S_wm"]
+    },
+    {
+      "step_order": 11,
+      "step_name": "Compute ODI (Orientation Dispersion Index)",
+      "mathematical_description": "$\\bar{\\kappa} = \\frac{\\sum_{j=1}^{N_{\\text{atoms}}-1} \\hat{x}_{\\text{wm},j} \\cdot \\kappa_j}{S_{\\text{wm}}}, \\quad \\text{ODI} = \\frac{2}{\\pi} \\arctan\\left(\\frac{1}{\\bar{\\kappa}}\\right)$",
+      "required_operators": ["summation", "elementwise_multiplication", "scalar_division", "arctan"],
+      "inputs": ["x_wm_hat", "kernels['kappa']", "S_wm"],
+      "outputs": ["ODI"]
+    },
+    {
+      "step_order": 12,
+      "step_name": "Compute FWF (Free Water Fraction)",
+      "mathematical_description": "$S_{\\text{total}} = S_{\\text{wm}} + \\hat{x}_{\\text{iso}}, \\quad \\text{FWF} = \\frac{\\hat{x}_{\\text{iso}}}{S_{\\text{total}}}$",
+      "required_operators": ["addition", "scalar_division"],
+      "inputs": ["x_iso_hat", "S_wm"],
+      "outputs": ["FWF"]
+    },
+    {
+      "step_order": 13,
+      "step_name": "Store Results",
+      "mathematical_description": "$\\texttt{results}[i, :] = [\\text{NDI}, \\text{ODI}, \\text{FWF}]$",
+      "required_operators": ["indexing", "assignment"],
+      "inputs": ["NDI", "ODI", "FWF", "i"],
+      "outputs": ["results"]
+    }
+  ]
+}
+```

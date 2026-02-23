@@ -1,0 +1,53 @@
+{
+  "task_name": "lenstronomy_double_quasar",
+  "golden_rating": 1085.692249845601,
+  "epoch_ratings": {
+    "epoch_01": 1019.5783615546491,
+    "epoch_02": 978.9506639665403,
+    "epoch_03": 977.1948943483136,
+    "epoch_04": 920.5729570609624,
+    "epoch_05": 1036.3141595132586,
+    "epoch_06": 981.696713710675
+  },
+  "similarity_scores": {
+    "epoch_01": {
+      "embedding_similarity": 0.6556515693664551,
+      "structural_similarity": 0.0,
+      "combined_score": 0.32782578468322754
+    },
+    "epoch_02": {
+      "embedding_similarity": 0.557939887046814,
+      "structural_similarity": 0.0,
+      "combined_score": 0.278969943523407
+    },
+    "epoch_03": {
+      "embedding_similarity": 0.7847121953964233,
+      "structural_similarity": 0.0,
+      "combined_score": 0.39235609769821167
+    },
+    "epoch_04": {
+      "embedding_similarity": 0.636698842048645,
+      "structural_similarity": 0.0,
+      "combined_score": 0.3183494210243225
+    },
+    "epoch_05": {
+      "embedding_similarity": 0.4990957975387573,
+      "structural_similarity": 0.0,
+      "combined_score": 0.24954789876937866
+    },
+    "epoch_06": {
+      "embedding_similarity": 0.7498120069503784,
+      "structural_similarity": 0.0,
+      "combined_score": 0.3749060034751892
+    }
+  },
+  "plans_summary": {
+    "epoch_01": "```json\n{\n  \"algorithm_name\": \"PSO-MCMC Strong Gravitational Lens Modeling Inference\",\n  \"initializa...",
+    "epoch_02": "```json\n{\n  \"algorithm_name\": \"Gravitational Lens Modeling Inversion (PSO-MCMC Hybrid)\",\n  \"initiali...",
+    "epoch_03": "```json\n{\n  \"algorithm_name\": \"Gravitational Lens Modeling via PSO-MCMC Hybrid Optimization\",\n  \"ini...",
+    "epoch_04": "```json\n{\n  \"algorithm_name\": \"Gravitational Lens Modeling with PSO-MCMC Hybrid Optimization\",\n  \"in...",
+    "epoch_05": "```json\n{\n  \"algorithm_name\": \"Gravitational Lens Modeling via PSO-MCMC Hybrid Optimization\",\n  \"ini...",
+    "epoch_06": "```json\n{\n  \"algorithm_name\": \"Gravitational Lens Modeling via PSO-MCMC\",\n  \"initialization\": [\n    ..."
+  },
+  "timestamp": "2026-01-30T02:48:49.704460"
+}

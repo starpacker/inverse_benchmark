@@ -1,0 +1,297 @@
+```json
+{
+  "algorithm_name": "Gravitational Lens Modeling via PSO-MCMC Hybrid Optimization",
+  "initialization": [
+    "Set random seed: np.random.seed(42) for reproducibility",
+    "Define coordinate transform matrix: T = [[-Δ_pix, 0], [0, Δ_pix]] with Δ_pix = 0.05 arcsec/pixel",
+    "Compute image center: c_x = c_y = (N_pix - 1)/2 = 29.5 pixels",
+    "Compute reference coordinates: RA_0 = 1.475, Dec_0 = -1.475 arcsec",
+    "Initialize empty image array: I_0 ∈ ℝ^{60×60} with zeros",
+    "Create ImageData class with background noise σ_bkg = 0.005, exposure time t_exp = 500s",
+    "Create Gaussian PSF with FWHM = 0.05 arcsec, truncation = 3 FWHM",
+    "Create LensModel with profiles ['SIE', 'SHEAR']",
+    "Create source LightModel with profile ['SERSIC_ELLIPSE']",
+    "Create lens light LightModel with profile ['SERSIC_ELLIPSE']",
+    "Instantiate ImageModel combining data, PSF, and all model classes",
+    "Compute noise-free model image m_true = F(θ_true) using forward operator",
+    "Convert flux to counts: C = m_true × t_exp, clip negative values",
+    "Add Poisson noise: C̃_ij ~ Poisson(C_ij), I_Poisson = C̃/t_exp",
+    "Add Gaussian noise: n ~ N(0, σ_bkg²I)",
+    "Generate observed image: d = I_Poisson + n",
+    "Update data class with simulated observed image d",
+    "Setup parameter bounds θ_min, θ_max for all 21 free parameters",
+    "Setup initial guess θ^(0) from prior specifications",
+    "Setup step sizes σ for each parameter dimension",
+    "Create FittingSequence object with all configuration dictionaries",
+    "Initialize N_particles = 50 particle positions p_i^(0) sampled within bounds",
+    "Initialize particle velocities v_i^(0) = 0 or small random values",
+    "Set personal best p_i^best = p_i^(0) for each particle",
+    "Set global best g^best = argmin_i f(p_i^(0)) from initial evaluations"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Evaluate Particle Fitness (PSO)",
+      "mathematical_description": "$f_i^{(k)} = -\\log\\mathcal{L}(\\mathbf{d} | \\mathbf{p}_i^{(k)}) = \\frac{1}{2}\\sum_{i,j}\\left(\\frac{d_{ij} - m_{ij}(\\mathbf{p}_i^{(k)})}{\\sigma_{\\text{bkg}}}\\right)^2$",
+      "required_operators": [
+        "forward_model",
+        "chi_squared_evaluation"
+      ],
+      "inputs": [
+        "p_i^(k)",
+        "d",
+        "sigma_bkg",
+        "imageModel"
+      ],
+      "outputs": [
+        "f_i^(k)"
+      ]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Update Personal Best (PSO)",
+      "mathematical_description": "$\\mathbf{p}_i^{\\text{best}} \\leftarrow \\mathbf{p}_i^{(k)} \\quad \\text{if} \\quad f_i^{(k)} < f(\\mathbf{p}_i^{\\text{best}})$",
+      "required_operators": [
+        "comparison",
+        "conditional_assignment"
+      ],
+      "inputs": [
+        "f_i^(k)",
+        "p_i^(k)",
+        "p_i^best",
+        "f(p_i^best)"
+      ],
+      "outputs": [
+        "p_i^best"
+      ]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Update Global Best (PSO)",
+      "mathematical_description": "$\\mathbf{g}^{\\text{best}} \\leftarrow \\arg\\min_i f(\\mathbf{p}_i^{\\text{best}})$",
+      "required_operators": [
+        "argmin",
+        "global_best_selection"
+      ],
+      "inputs": [
+        "p_i^best (all particles)",
+        "f(p_i^best) (all particles)"
+      ],
+      "outputs": [
+        "g^best"
+      ]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Update Velocities (PSO)",
+      "mathematical_description": "$\\mathbf{v}_i^{(k+1)} = \\omega \\mathbf{v}_i^{(k)} + c_1 r_1 (\\mathbf{p}_i^{\\text{best}} - \\mathbf{p}_i^{(k)}) + c_2 r_2 (\\mathbf{g}^{\\text{best}} - \\mathbf{p}_i^{(k)})$",
+      "required_operators": [
+        "vector_addition",
+        "scalar_multiplication",
+        "random_number_generation"
+      ],
+      "inputs": [
+        "v_i^(k)",
+        "p_i^(k)",
+        "p_i^best",
+        "g^best",
+        "omega (inertia weight)",
+        "c_1 (cognitive coefficient)",
+        "c_2 (social coefficient)"
+      ],
+      "outputs": [
+        "v_i^(k+1)"
+      ]
+    },
+    {
+      "step_order": 5,
+      "step_name": "Update Positions (PSO)",
+      "mathematical_description": "$\\mathbf{p}_i^{(k+1)} = \\mathbf{p}_i^{(k)} + \\mathbf{v}_i^{(k+1)}$",
+      "required_operators": [
+        "vector_addition"
+      ],
+      "inputs": [
+        "p_i^(k)",
+        "v_i^(k+1)"
+      ],
+      "outputs": [
+        "p_i^(k+1)"
+      ]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Enforce Bounds (PSO)",
+      "mathematical_description": "$p_{i,j}^{(k+1)} \\leftarrow \\text{clip}(p_{i,j}^{(k+1)}, \\theta_{\\min,j}, \\theta_{\\max,j})$",
+      "required_operators": [
+        "clip",
+        "bound_enforcement"
+      ],
+      "inputs": [
+        "p_i^(k+1)",
+        "theta_min",
+        "theta_max"
+      ],
+      "outputs": [
+        "p_i^(k+1) (bounded)"
+      ]
+    },
+    {
+      "step_order": 7,
+      "step_name": "Check PSO Convergence",
+      "mathematical_description": "$k < N_{\\text{iter}}^{\\text{PSO}}$ then continue PSO loop; else proceed to MCMC initialization",
+      "required_operators": [
+        "comparison",
+        "loop_control"
+      ],
+      "inputs": [
+        "k",
+        "N_iter_PSO"
+      ],
+      "outputs": [
+        "loop_continue_flag"
+      ]
+    },
+    {
+      "step_order": 8,
+      "step_name": "Initialize MCMC Walkers",
+      "mathematical_description": "$\\mathbf{w}_j^{(0)} = \\mathbf{g}^{\\text{best}} + \\sigma_{\\text{scale}}^{\\text{MCMC}} \\cdot \\boldsymbol{\\sigma} \\cdot \\mathbf{z}_j, \\quad \\mathbf{z}_j \\sim \\mathcal{N}(\\mathbf{0}, \\mathbf{I})$",
+      "required_operators": [
+        "gaussian_random_sampling",
+        "vector_addition",
+        "elementwise_multiplication"
+      ],
+      "inputs": [
+        "g^best",
+        "sigma_scale_MCMC",
+        "sigma (step sizes)",
+        "N_walkers"
+      ],
+      "outputs": [
+        "w_j^(0) (all walkers)",
+        "S^(0) (ensemble state)"
+      ]
+    },
+    {
+      "step_order": 9,
+      "step_name": "Compute Log-Posterior for Walkers (MCMC)",
+      "mathematical_description": "$\\log\\pi(\\mathbf{w}_j^{(k)}) = -\\frac{1}{2}\\sum_{i,j}\\left(\\frac{d_{ij} - m_{ij}(\\mathbf{w}_j^{(k)})}{\\sigma_{\\text{bkg}}}\\right)^2$ (flat prior within bounds)",
+      "required_operators": [
+        "forward_model",
+        "log_likelihood_evaluation"
+      ],
+      "inputs": [
+        "w_j^(k)",
+        "d",
+        "sigma_bkg",
+        "imageModel"
+      ],
+      "outputs": [
+        "log_pi_j^(k)"
+      ]
+    },
+    {
+      "step_order": 10,
+      "step_name": "Generate Stretch Move Proposals (MCMC)",
+      "mathematical_description": "$\\mathbf{w}_j^{\\text{prop}} = \\mathbf{w}_{r(j)}^{(k)} + Z_j (\\mathbf{w}_j^{(k)} - \\mathbf{w}_{r(j)}^{(k)}), \\quad Z_j \\sim g(z) \\propto \\frac{1}{\\sqrt{z}} \\text{ for } z \\in [1/a, a]$",
+      "required_operators": [
+        "stretch_move_sampling",
+        "complementary_walker_selection",
+        "vector_linear_combination"
+      ],
+      "inputs": [
+        "w_j^(k)",
+        "S^(k) (complementary ensemble)",
+        "a (stretch parameter, default 2.0)"
+      ],
+      "outputs": [
+        "w_j^prop",
+        "Z_j"
+      ]
+    },
+    {
+      "step_order": 11,
+      "step_name": "Compute Acceptance Probability (MCMC)",
+      "mathematical_description": "$\\alpha_j = \\min\\left(1, Z_j^{N_{\\text{dim}}-1} \\frac{\\pi(\\mathbf{w}_j^{\\text{prop}})}{\\pi(\\mathbf{w}_j^{(k)})}\\right)$",
+      "required_operators": [
+        "log_likelihood_evaluation",
+        "acceptance_ratio_computation"
+      ],
+      "inputs": [
+        "log_pi(w_j^prop)",
+        "log_pi_j^(k)",
+        "Z_j",
+        "N_dim"
+      ],
+      "outputs": [
+        "alpha_j"
+      ]
+    },
+    {
+      "step_order": 12,
+      "step_name": "Accept/Reject Proposals (MCMC)",
+      "mathematical_description": "$\\mathbf{w}_j^{(k+1)} = \\begin{cases} \\mathbf{w}_j^{\\text{prop}} & \\text{if } u_j < \\alpha_j \\\\ \\mathbf{w}_j^{(k)} & \\text{otherwise} \\end{cases}, \\quad u_j \\sim \\text{Uniform}(0,1)$",
+      "required_operators": [
+        "uniform_random_sampling",
+        "conditional_assignment"
+      ],
+      "inputs": [
+        "w_j^prop",
+        "w_j^(k)",
+        "alpha_j"
+      ],
+      "outputs": [
+        "w_j^(k+1)"
+      ]
+    },
+    {
+      "step_order": 13,
+      "step_name": "Update Ensemble State (MCMC)",
+      "mathematical_description": "$\\mathbf{S}^{(k+1)} = [\\mathbf{w}_1^{(k+1)}, \\ldots, \\mathbf{w}_{N_{\\text{walkers}}}^{(k+1)}]^T$",
+      "required_operators": [
+        "array_stacking"
+      ],
+      "inputs": [
+        "w_j^(k+1) (all walkers)"
+      ],
+      "outputs": [
+        "S^(k+1)"
+      ]
+    },
+    {
+      "step_order": 14,
+      "step_name": "Store Chain Samples (MCMC)",
+      "mathematical_description": "$\\text{If } k > N_{\\text{burn}}: \\quad \\mathcal{C} \\leftarrow \\mathcal{C} \\cup \\{\\mathbf{S}^{(k+1)}\\}$",
+      "required_operators": [
+        "chain_storage",
+        "burn_in_check"
+      ],
+      "inputs": [
+        "S^(k+1)",
+        "k",
+        "N_burn",
+        "chain_storage"
+      ],
+      "outputs": [
+        "chain_storage (updated)"
+      ]
+    },
+    {
+      "step_order": 15,
+      "step_name": "Check MCMC Convergence",
+      "mathematical_description": "$k < N_{\\text{burn}} + N_{\\text{run}}$ then continue MCMC loop; else terminate",
+      "required_operators": [
+        "comparison",
+        "loop_control"
+      ],
+      "inputs": [
+        "k",
+        "N_burn",
+        "N_run"
+      ],
+      "outputs": [
+        "loop_continue_flag"
+      ]
+    }
+  ]
+}
+```

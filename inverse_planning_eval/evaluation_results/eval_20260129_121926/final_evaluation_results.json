@@ -1,0 +1,1820 @@
+{
+  "metadata": {
+    "prompt_count": 10,
+    "task_count": 53,
+    "executor_model": "claude-opus-4-5-20251101-thinking",
+    "evaluation_timestamp": "2026-01-30T06:37:01.208636",
+    "prompt_dir": "/home/yjh/inverse_planning_eval/optimized_prompts"
+  },
+  "task_results": [
+    {
+      "task_name": "sim",
+      "golden_rating": 1071.7559900889685,
+      "epoch_ratings": {
+        "epoch_01": 1044.08208079835,
+        "epoch_02": 926.6289152826862,
+        "epoch_03": 1027.198130519146,
+        "epoch_04": 1016.6231649311471,
+        "epoch_05": 985.8694887178847,
+        "epoch_06": 927.8422296618178
+      },
+      "similarity_scores": {
+        "epoch_01": {
+          "embedding_similarity": 0.7827674150466919,
+          "structural_similarity": 0.0,
+          "combined_score": 0.39138370752334595
+        },
+        "epoch_02": {
+          "embedding_similarity": 0.48431700468063354,
+          "structural_similarity": 0.0,
+          "combined_score": 0.24215850234031677
+        },
+        "epoch_03": {
+          "embedding_similarity": 0.711150586605072,
+          "structural_similarity": 0.0,
+          "combined_score": 0.355575293302536
+        },
+        "epoch_04": {
+          "embedding_similarity": 0.5058119297027588,
+          "structural_similarity": 0.0,
+          "combined_score": 0.2529059648513794
+        },
+        "epoch_05": {
+          "embedding_similarity": 0.44688332080841064,
+          "structural_similarity": 0.0,
+          "combined_score": 0.22344166040420532
+        },
+        "epoch_06": {
+          "embedding_similarity": 0.5363580584526062,
+          "structural_similarity": 0.0,
+          "combined_score": 0.2681790292263031
+        }
+      },
+      "plans_summary": {
+        "epoch_01": "```json\n{\n  \"algorithm_name\": \"Sparse Hessian Deconvolution for Image Reconstruction\",\n  \"initializa...",
+        "epoch_02": "```json\n{\n  \"algorithm_name\": \"Sparse Hessian Deconvolution (ADMM/Split Bregman)\",\n  \"initialization...",
+        "epoch_03": "```json\n{\n  \"algorithm_name\": \"Sparse Hessian Deconvolution with Richardson-Lucy Refinement\",\n  \"ini...",
+        "epoch_04": "```json\n{\n  \"algorithm_name\": \"Sparse Hessian Deconvolution with Iterative Refinement (SHD-IR)\",\n  \"...",
+        "epoch_05": "```json\n{\n  \"algorithm_name\": \"Sparse Hessian Deconvolution with Accelerated Richardson-Lucy Refinem...",
+        "epoch_06": "```json\n{\n  \"algorithm_name\": \"Sparse Hessian Deconvolution with Split Bregman\",\n  \"initialization\":..."
+      },
+      "timestamp": "2026-01-29T12:57:11.132545"
+    },
+    {
+      "task_name": "ptyrad",
+      "golden_rating": 1055.0920761003874,
+      "epoch_ratings": {
+        "epoch_01": 969.8515440133751,
+        "epoch_02": 914.5120896463942,
+        "epoch_03": 1054.872977617796,
+        "epoch_04": 1034.3818211910711,
+        "epoch_05": 942.8525749007524,
+        "epoch_06": 1028.4369165302235
+      },
+      "similarity_scores": {
+        "epoch_01": {
+          "embedding_similarity": 0.7245587706565857,
+          "structural_similarity": 0.0,
+          "combined_score": 0.36227938532829285
+        },
+        "epoch_02": {
+          "embedding_similarity": 0.6273089647293091,
+          "structural_similarity": 0.0,
+          "combined_score": 0.31365448236465454
+        },
+        "epoch_03": {
+          "embedding_similarity": 0.7486211061477661,
+          "structural_similarity": 0.0,
+          "combined_score": 0.37431055307388306
+        },
+        "epoch_04": {
+          "embedding_similarity": 0.7014983296394348,
+          "structural_similarity": 0.0,
+          "combined_score": 0.3507491648197174
+        },
+        "epoch_05": {
+          "embedding_similarity": 0.593505322933197,
+          "structural_similarity": 0.0,
+          "combined_score": 0.2967526614665985
+        },
+        "epoch_06": {
+          "embedding_similarity": 0.5802199244499207,
+          "structural_similarity": 0.0,
+          "combined_score": 0.2901099622249603
+        }
+      },
+      "plans_summary": {
+        "epoch_01": "```json\n{\n  \"algorithm_name\": \"Multislice Ptychographic Reconstruction via Automatic Differentiation...",
+        "epoch_02": "```json\n{\n  \"algorithm_name\": \"Ptychographic Reconstruction via Automatic Differentiation\",\n  \"initi...",
+        "epoch_03": "```json\n{\n  \"algorithm_name\": \"PtyRAD (Ptychographic Reconstruction using Automatic Differentiation)...",
+        "epoch_04": "```json\n{\n  \"algorithm_name\": \"PtyRAD (Ptychographic Reconstruction via Automatic Differentiation)\",...",
+        "epoch_05": "```json\n{\n  \"algorithm_name\": \"PtyRAD (Ptychographic Reconstruction via Automatic Differentiation)\",...",
+        "epoch_06": "```json\n{\n  \"algorithm_name\": \"PtyRAD Automatic Differentiation Ptychography\",\n  \"initialization\": [..."
+      },
+      "timestamp": "2026-01-29T13:42:12.510274"
+    },
+    {
+      "task_name": "lfm",
+      "golden_rating": 1063.7990216687983,
+      "epoch_ratings": {
+        "epoch_01": 912.3313417976251,
+        "epoch_02": 980.0376107595051,
+        "epoch_03": 994.4017737915378,
+        "epoch_04": 1079.1485899135291,
+        "epoch_05": 968.8449904108646,
+        "epoch_06": 1001.43667165814
+      },
+      "similarity_scores": {
+        "epoch_01": {
+          "embedding_similarity": 0.6273849010467529,
+          "structural_similarity": 0.0,
+          "combined_score": 0.31369245052337646
+        },
+        "epoch_02": {
+          "embedding_similarity": 0.6102153658866882,
+          "structural_similarity": 0.0,
+          "combined_score": 0.3051076829433441
+        },
+        "epoch_03": {
+          "embedding_similarity": 0.7470654249191284,
+          "structural_similarity": 0.0,
+          "combined_score": 0.3735327124595642
+        },
+        "epoch_04": {
+          "embedding_similarity": 0.6754631400108337,
+          "structural_similarity": 0.0,
+          "combined_score": 0.33773157000541687
+        },
+        "epoch_05": {
+          "embedding_similarity": 0.7464921474456787,
+          "structural_similarity": 0.0,
+          "combined_score": 0.37324607372283936
+        },
+        "epoch_06": {
+          "embedding_similarity": 0.7667481899261475,
+          "structural_similarity": 0.0,
+          "combined_score": 0.38337409496307373
+        }
+      },
+      "plans_summary": {
+        "epoch_01": "```json\n{\n  \"algorithm_name\": \"Richardson-Lucy Deconvolution for Light Field Microscopy Volume Recon...",
+        "epoch_02": "```json\n{\n  \"algorithm_name\": \"Richardson-Lucy Deconvolution for Light Field Microscopy Volume Recon...",
+        "epoch_03": "```json\n{\n  \"algorithm_name\": \"Light Field Microscopy Richardson-Lucy Deconvolution\",\n  \"initializat...",
+        "epoch_04": "```json\n{\n  \"algorithm_name\": \"Light Field Microscopy Richardson-Lucy Deconvolution (LFM-RL)\",\n  \"al...",
+        "epoch_05": "```json\n{\n  \"algorithm_name\": \"Richardson-Lucy Deconvolution for Light Field Microscopy Volume Recon...",
+        "epoch_06": "```json\n{\n  \"algorithm_name\": \"Richardson-Lucy Deconvolution for Light Field Microscopy\",\n  \"initial..."
+      },
+      "timestamp": "2026-01-29T14:16:16.573162"
+    },
+    {
+      "task_name": "oopao_sh_wfs",
+      "golden_rating": 1072.3942668317973,
+      "epoch_ratings": {
+        "epoch_01": 1009.1942995346105,
+        "epoch_02": 1039.6402321366822,
+        "epoch_03": 977.1188465586469,
+        "epoch_04": 988.8314817708442,
+        "epoch_05": 998.9563532499294,
+        "epoch_06": 913.8645199174895
+      },
+      "similarity_scores": {
+        "epoch_01": {
+          "embedding_similarity": 0.7479497194290161,
+          "structural_similarity": 0.0,
+          "combined_score": 0.37397485971450806
+        },
+        "epoch_02": {
+          "embedding_similarity": 0.6460210084915161,
+          "structural_similarity": 0.0,
+          "combined_score": 0.32301050424575806
+        },
+        "epoch_03": {
+          "embedding_similarity": 0.6621365547180176,
+          "structural_similarity": 0.0,
+          "combined_score": 0.3310682773590088
+        },
+        "epoch_04": {
+          "embedding_similarity": 0.849134624004364,
+          "structural_similarity": 0.0,
+          "combined_score": 0.424567312002182
+        },
+        "epoch_05": {
+          "embedding_similarity": 0.7656869888305664,
+          "structural_similarity": 0.0,
+          "combined_score": 0.3828434944152832
+        },
+        "epoch_06": {
+          "embedding_similarity": 0.6174697875976562,
+          "structural_similarity": 0.0,
+          "combined_score": 0.3087348937988281
+        }
+      },
+      "plans_summary": {
+        "epoch_01": "```json\n{\n  \"algorithm_name\": \"Adaptive Optics Closed-Loop Control with Shack-Hartmann Wavefront Sen...",
+        "epoch_02": "```json\n{\n  \"algorithm_name\": \"Closed-Loop Adaptive Optics with Shack-Hartmann Wavefront Sensor (Int...",
+        "epoch_03": "```json\n{\n  \"algorithm_name\": \"Closed-Loop Adaptive Optics Integral Controller with Shack-Hartmann W...",
+        "epoch_04": "```json\n{\n  \"algorithm_name\": \"Closed-Loop Integral Controller for Shack-Hartmann Adaptive Optics\",\n...",
+        "epoch_05": "```json\n{\n  \"algorithm_name\": \"Closed-Loop Adaptive Optics with Integral Control\",\n  \"initialization...",
+        "epoch_06": "```json\n{\n  \"algorithm_name\": \"Closed-Loop Adaptive Optics with Integral Control\",\n  \"initialization..."
+      },
+      "timestamp": "2026-01-29T15:00:22.536505"
+    },
+    {
+      "task_name": "oopao_image_zernike",
+      "golden_rating": 1059.729526119354,
+      "epoch_ratings": {
+        "epoch_01": 1006.8315502373265,
+        "epoch_02": 997.1310183106841,
+        "epoch_03": 1000.5125082730578,
+        "epoch_04": 1007.8967092207073,
+        "epoch_05": 1013.7764090322345,
+        "epoch_06": 914.1222788066357
+      },
+      "similarity_scores": {
+        "epoch_01": {
+          "embedding_similarity": 0.7263918519020081,
+          "structural_similarity": 0.0,
+          "combined_score": 0.36319592595100403
+        },
+        "epoch_02": {
+          "embedding_similarity": 0.6519196033477783,
+          "structural_similarity": 0.0,
+          "combined_score": 0.32595980167388916
+        },
+        "epoch_03": {
+          "embedding_similarity": 0.7246959209442139,
+          "structural_similarity": 0.0,
+          "combined_score": 0.36234796047210693
+        },
+        "epoch_04": {
+          "embedding_similarity": 0.7355210781097412,
+          "structural_similarity": 0.0,
+          "combined_score": 0.3677605390548706
+        },
+        "epoch_05": {
+          "embedding_similarity": 0.6990735530853271,
+          "structural_similarity": 0.0,
+          "combined_score": 0.3495367765426636
+        },
+        "epoch_06": {
+          "embedding_similarity": 0.6637351512908936,
+          "structural_similarity": 0.0,
+          "combined_score": 0.3318675756454468
+        }
+      },
+      "plans_summary": {
+        "epoch_01": "```json\n{\n  \"algorithm_name\": \"Adaptive Optics Zernike-Based Phase Decomposition and PSF Computation...",
+        "epoch_02": "```json\n{\n  \"algorithm_name\": \"Zernike-Based Wavefront Decomposition and PSF Computation\",\n  \"initia...",
+        "epoch_03": "```json\n{\n  \"algorithm_name\": \"Zernike Modal Wavefront Decomposition\",\n  \"initialization\": [\n    \"In...",
+        "epoch_04": "```json\n{\n  \"algorithm_name\": \"Zernike Wavefront Decomposition with Fourier Optics Forward Model\",\n ...",
+        "epoch_05": "```json\n{\n  \"algorithm_name\": \"Zernike Modal Decomposition via Pseudoinverse\",\n  \"initialization\": [...",
+        "epoch_06": "```json\n{\n  \"algorithm_name\": \"Zernike Modal Decomposition with FFT-based PSF Forward Model\",\n  \"ini..."
+      },
+      "timestamp": "2026-01-29T15:32:50.813314"
+    },
+    {
+      "task_name": "bayhunt",
+      "golden_rating": 1085.692249845601,
+      "epoch_ratings": {
+        "epoch_01": 1034.167362068619,
+        "epoch_02": 938.3895960602725,
+        "epoch_03": 913.6783832057687,
+        "epoch_04": 979.780136776202,
+        "epoch_05": 1040.1770882960461,
+        "epoch_06": 1008.1151837474906
+      },
+      "similarity_scores": {
+        "epoch_01": {
+          "embedding_similarity": 0.6219114065170288,
+          "structural_similarity": 0.0,
+          "combined_score": 0.3109557032585144
+        },
+        "epoch_02": {
+          "embedding_similarity": 0.7083109617233276,
+          "structural_similarity": 0.0,
+          "combined_score": 0.3541554808616638
+        },
+        "epoch_03": {
+          "embedding_similarity": 0.6373108625411987,
+          "structural_similarity": 0.0,
+          "combined_score": 0.31865543127059937
+        },
+        "epoch_04": {
+          "embedding_similarity": 0.655653715133667,
+          "structural_similarity": 0.0,
+          "combined_score": 0.3278268575668335
+        },
+        "epoch_05": {
+          "embedding_similarity": 0.6612903475761414,
+          "structural_similarity": 0.0,
+          "combined_score": 0.3306451737880707
+        },
+        "epoch_06": {
+          "embedding_similarity": 0.6542972326278687,
+          "structural_similarity": 0.0,
+          "combined_score": 0.3271486163139343
+        }
+      },
+      "plans_summary": {
+        "epoch_01": "```json\n{\n  \"algorithm_name\": \"Transdimensional Bayesian Inversion (Reversible Jump MCMC)\",\n  \"initi...",
+        "epoch_02": "```json\n{\n  \"algorithm_name\": \"Bayesian Seismic Inversion via Reversible-Jump MCMC\",\n  \"initializati...",
+        "epoch_03": "```json\n{\n  \"algorithm_name\": \"BayHunter MCMC Joint Inversion\",\n  \"initialization\": [\n    \"For c = 1...",
+        "epoch_04": "```json\n{\n  \"algorithm_name\": \"BayHunter Joint Bayesian Inversion\",\n  \"initialization\": [\n    \"Load ...",
+        "epoch_05": "```json\n{\n  \"algorithm_name\": \"Trans-dimensional Bayesian MCMC Joint Inversion\",\n  \"initialization\":...",
+        "epoch_06": "```json\n{\n  \"algorithm_name\": \"Transdimensional Bayesian MCMC Inversion\",\n  \"initialization\": [\n    ..."
+      },
+      "timestamp": "2026-01-29T16:10:22.624672"
+    },
+    {
+      "task_name": "pyeit",
+      "golden_rating": 1085.692249845601,
+      "epoch_ratings": {
+        "epoch_01": 1057.4449563917303,
+        "epoch_02": 983.1791649455087,
+        "epoch_03": 948.5898424277975,
+        "epoch_04": 965.5368171427904,
+        "epoch_05": 1009.4047269061954,
+        "epoch_06": 950.1522423403767
+      },
+      "similarity_scores": {
+        "epoch_01": {
+          "embedding_similarity": 0.6991769075393677,
+          "structural_similarity": 0.0,
+          "combined_score": 0.34958845376968384
+        },
+        "epoch_02": {
+          "embedding_similarity": 0.5928652286529541,
+          "structural_similarity": 0.0,
+          "combined_score": 0.29643261432647705
+        },
+        "epoch_03": {
+          "embedding_similarity": 0.5581949949264526,
+          "structural_similarity": 0.0,
+          "combined_score": 0.2790974974632263
+        },
+        "epoch_04": {
+          "embedding_similarity": 0.6621763706207275,
+          "structural_similarity": 0.0,
+          "combined_score": 0.33108818531036377
+        },
+        "epoch_05": {
+          "embedding_similarity": 0.6246343851089478,
+          "structural_similarity": 0.0,
+          "combined_score": 0.3123171925544739
+        },
+        "epoch_06": {
+          "embedding_similarity": 0.6061277389526367,
+          "structural_similarity": 0.0,
+          "combined_score": 0.30306386947631836
+        }
+      },
+      "plans_summary": {
+        "epoch_01": "```json\n{\n  \"algorithm_name\": \"3D EIT Jacobian-Based Tikhonov Reconstruction\",\n  \"initialization\": [...",
+        "epoch_02": "```json\n{\n  \"algorithm_name\": \"3D EIT Jacobian-Based Inversion\",\n  \"initialization\": [\n    \"Assemble...",
+        "epoch_03": "```json\n{\n  \"algorithm_name\": \"JAC (Jacobian-based) EIT Inversion\",\n  \"initialization\": [\n    \"Assem...",
+        "epoch_04": "```json\n{\n  \"algorithm_name\": \"JAC-EIT (Jacobian-based Electrical Impedance Tomography Reconstructio...",
+        "epoch_05": "```json\n{\n  \"algorithm_name\": \"Jacobian-Based EIT Reconstruction (JAC)\",\n  \"initialization\": [\n    \"...",
+        "epoch_06": "```json\n{\n  \"algorithm_name\": \"JAC (Jacobian-based Linear Reconstruction)\",\n  \"initialization\": [\n  ..."
+      },
+      "timestamp": "2026-01-29T16:47:41.543146"
+    },
+    {
+      "task_name": "bpm",
+      "golden_rating": 1070.403760444304,
+      "epoch_ratings": {
+        "epoch_01": 1021.2963740369697,
+        "epoch_02": 1015.934707976201,
+        "epoch_03": 985.6180273682529,
+        "epoch_04": 951.4661790769279,
+        "epoch_05": 1041.395570607261,
+        "epoch_06": 913.8853804900834
+      },
+      "similarity_scores": {
+        "epoch_01": {
+          "embedding_similarity": 0.5498956441879272,
+          "structural_similarity": 0.0,
+          "combined_score": 0.2749478220939636
+        },
+        "epoch_02": {
+          "embedding_similarity": 0.7166883945465088,
+          "structural_similarity": 0.0,
+          "combined_score": 0.3583441972732544
+        },
+        "epoch_03": {
+          "embedding_similarity": 0.6279573440551758,
+          "structural_similarity": 0.0,
+          "combined_score": 0.3139786720275879
+        },
+        "epoch_04": {
+          "embedding_similarity": 0.6676895618438721,
+          "structural_similarity": 0.0,
+          "combined_score": 0.33384478092193604
+        },
+        "epoch_05": {
+          "embedding_similarity": 0.7080766558647156,
+          "structural_similarity": 0.0,
+          "combined_score": 0.3540383279323578
+        },
+        "epoch_06": {
+          "embedding_similarity": 0.658896803855896,
+          "structural_similarity": 0.0,
+          "combined_score": 0.329448401927948
+        }
+      },
+      "plans_summary": {
+        "epoch_01": "```json\n{\n  \"algorithm_name\": \"BPM Inversion with FISTA for Optical Diffraction Tomography\",\n  \"init...",
+        "epoch_02": "```json\n{\n  \"algorithm_name\": \"BPM Optical Diffraction Tomography Reconstruction with FISTA and TV R...",
+        "epoch_03": "```json\n{\n  \"algorithm_name\": \"BPM-FISTA Inversion for Optical Diffraction Tomography\",\n  \"initializ...",
+        "epoch_04": "```json\n{\n  \"algorithm_name\": \"BPM-FISTA (Beam Propagation Method Inversion with FISTA Acceleration)...",
+        "epoch_05": "```json\n{\n  \"algorithm_name\": \"FISTA-BPM Optical Tomography Inversion\",\n  \"initialization\": [\n    \"I...",
+        "epoch_06": "```json\n{\n  \"algorithm_name\": \"FISTA-BPM Optical Diffraction Tomography\",\n  \"initialization\": [\n    ..."
+      },
+      "timestamp": "2026-01-29T17:43:31.303094"
+    },
+    {
+      "task_name": "diff",
+      "golden_rating": 1056.5097763188598,
+      "epoch_ratings": {
+        "epoch_01": 1014.2405831073908,
+        "epoch_02": 942.7777946895195,
+        "epoch_03": 966.5692084785306,
+        "epoch_04": 1083.8065103134961,
+        "epoch_05": 986.520962809069,
+        "epoch_06": 949.5751642831335
+      },
+      "similarity_scores": {
+        "epoch_01": {
+          "embedding_similarity": 0.6568481922149658,
+          "structural_similarity": 0.0,
+          "combined_score": 0.3284240961074829
+        },
+        "epoch_02": {
+          "embedding_similarity": 0.6466580629348755,
+          "structural_similarity": 0.0,
+          "combined_score": 0.32332903146743774
+        },
+        "epoch_03": {
+          "embedding_similarity": 0.6932169795036316,
+          "structural_similarity": 0.0,
+          "combined_score": 0.3466084897518158
+        },
+        "epoch_04": {
+          "embedding_similarity": 0.5673353672027588,
+          "structural_similarity": 0.0,
+          "combined_score": 0.2836676836013794
+        },
+        "epoch_05": {
+          "embedding_similarity": 0.7796298265457153,
+          "structural_similarity": 0.0,
+          "combined_score": 0.38981491327285767
+        },
+        "epoch_06": {
+          "embedding_similarity": 0.7298107147216797,
+          "structural_similarity": 0.0,
+          "combined_score": 0.36490535736083984
+        }
+      },
+      "plans_summary": {
+        "epoch_01": "```json\n{\n  \"algorithm_name\": \"Differentiable Metrology for Lens Parameter Recovery with Adam Optimi...",
+        "epoch_02": "```json\n{\n  \"algorithm_name\": \"Deflectometry-Based Lens Parameter Recovery with Adam Optimizer\",\n  \"...",
+        "epoch_03": "```json\n{\n  \"algorithm_name\": \"Differentiable Deflectometry Lens Parameter Estimation\",\n  \"initializ...",
+        "epoch_04": "```json\n{\n  \"algorithm_name\": \"Differentiable Ray Tracing Lens Metrology Inversion\",\n  \"algorithm_fa...",
+        "epoch_05": "```json\n{\n  \"algorithm_name\": \"Differentiable Metrology Lens Parameter Estimation\",\n  \"initializatio...",
+        "epoch_06": "```json\n{\n  \"algorithm_name\": \"Differentiable Ray Tracing Lens Metrology Inversion\",\n  \"initializati..."
+      },
+      "timestamp": "2026-01-29T18:18:13.374057"
+    },
+    {
+      "task_name": "insar",
+      "golden_rating": 1079.345675093451,
+      "epoch_ratings": {
+        "epoch_01": 976.8064432706076,
+        "epoch_02": 1045.2741775610718,
+        "epoch_03": 982.5223768628566,
+        "epoch_04": 979.2166865150497,
+        "epoch_05": 955.9337582381834,
+        "epoch_06": 980.9008824587798
+      },
+      "similarity_scores": {
+        "epoch_01": {
+          "embedding_similarity": 0.5432460904121399,
+          "structural_similarity": 0.0,
+          "combined_score": 0.27162304520606995
+        },
+        "epoch_02": {
+          "embedding_similarity": 0.5339746475219727,
+          "structural_similarity": 0.0,
+          "combined_score": 0.26698732376098633
+        },
+        "epoch_03": {
+          "embedding_similarity": 0.6262739896774292,
+          "structural_similarity": 0.0,
+          "combined_score": 0.3131369948387146
+        },
+        "epoch_04": {
+          "embedding_similarity": 0.6011670827865601,
+          "structural_similarity": 0.0,
+          "combined_score": 0.30058354139328003
+        },
+        "epoch_05": {
+          "embedding_similarity": 0.5444395542144775,
+          "structural_similarity": 0.0,
+          "combined_score": 0.27221977710723877
+        },
+        "epoch_06": {
+          "embedding_similarity": 0.5857073664665222,
+          "structural_similarity": 0.0,
+          "combined_score": 0.2928536832332611
+        }
+      },
+      "plans_summary": {
+        "epoch_01": "```json\n{\n  \"algorithm_name\": \"InSAR Phase Unwrapping via ADMM\",\n  \"initialization\": [\n    \"F^{(0)} ...",
+        "epoch_02": "```json\n{\n  \"algorithm_name\": \"InSAR Phase Unwrapping via ADMM\",\n  \"initialization\": [\n    \"F^{(0)} ...",
+        "epoch_03": "```json\n{\n  \"algorithm_name\": \"ADMM Phase Unwrapping with p-Shrinkage\",\n  \"initialization\": [\n    \"I...",
+        "epoch_04": "```json\n{\n  \"algorithm_name\": \"ADMM Phase Unwrapping\",\n  \"initialization\": [\n    \"Initialize primal ...",
+        "epoch_05": "```json\n{\n  \"algorithm_name\": \"ADMM Phase Unwrapping\",\n  \"initialization\": [\n    \"Initialize dual va...",
+        "epoch_06": "```json\n{\n  \"algorithm_name\": \"ADMM Phase Unwrapping\",\n  \"initialization\": [\n    \"Initialize dual va..."
+      },
+      "timestamp": "2026-01-29T18:48:19.368660"
+    },
+    {
+      "task_name": "pat",
+      "golden_rating": 1055.8138937895299,
+      "epoch_ratings": {
+        "epoch_01": 1001.4170987651396,
+        "epoch_02": 958.7097474448078,
+        "epoch_03": 994.05168494902,
+        "epoch_04": 1063.8282181343627,
+        "epoch_05": 1011.9725989758491,
+        "epoch_06": 914.2067579412909
+      },
+      "similarity_scores": {
+        "epoch_01": {
+          "embedding_similarity": 0.731151819229126,
+          "structural_similarity": 0.0,
+          "combined_score": 0.365575909614563
+        },
+        "epoch_02": {
+          "embedding_similarity": 0.7500940561294556,
+          "structural_similarity": 0.0,
+          "combined_score": 0.3750470280647278
+        },
+        "epoch_03": {
+          "embedding_similarity": 0.7618757486343384,
+          "structural_similarity": 0.0,
+          "combined_score": 0.3809378743171692
+        },
+        "epoch_04": {
+          "embedding_similarity": 0.7991238832473755,
+          "structural_similarity": 0.0,
+          "combined_score": 0.39956194162368774
+        },
+        "epoch_05": {
+          "embedding_similarity": 0.5182139277458191,
+          "structural_similarity": 0.0,
+          "combined_score": 0.25910696387290955
+        },
+        "epoch_06": {
+          "embedding_similarity": 0.33708587288856506,
+          "structural_similarity": 0.0,
+          "combined_score": 0.16854293644428253
+        }
+      },
+      "plans_summary": {
+        "epoch_01": "```json\n{\n  \"algorithm_name\": \"Photoacoustic Tomography Reconstruction with Spectral Unmixing (PAT-D...",
+        "epoch_02": "```json\n{\n  \"algorithm_name\": \"Photoacoustic Tomography Reconstruction with Spectral Unmixing (Delay...",
+        "epoch_03": "```json\n{\n  \"algorithm_name\": \"Photoacoustic Tomography Delay-and-Sum Backprojection with Linear Spe...",
+        "epoch_04": "```json\n{\n  \"algorithm_name\": \"Delay-and-Sum Photoacoustic Tomography with Spectral Unmixing\",\n  \"in...",
+        "epoch_05": "```json\n{\n  \"algorithm_name\": \"Delay-and-Sum Backprojection with Linear Spectral Unmixing\",\n  \"initi...",
+        "epoch_06": "```json\n{\n  \"algorithm_name\": \"Delay-and-Sum Backprojection with Linear Spectral Unmixing\",\n  \"initi..."
+      },
+      "timestamp": "2026-01-29T19:17:25.085840"
+    },
+    {
+      "task_name": "lensless_admm",
+      "golden_rating": 1085.692249845601,
+      "epoch_ratings": {
+        "epoch_01": 976.4301620041458,
+        "epoch_02": 967.3711558486661,
+        "epoch_03": 922.583150029879,
+        "epoch_04": 1015.2909379842009,
+        "epoch_05": 994.8096633643501,
+        "epoch_06": 1037.822680923157
+      },
+      "similarity_scores": {
+        "epoch_01": {
+          "embedding_similarity": 0.6069780588150024,
+          "structural_similarity": 0.0,
+          "combined_score": 0.3034890294075012
+        },
+        "epoch_02": {
+          "embedding_similarity": 0.7149317264556885,
+          "structural_similarity": 0.0,
+          "combined_score": 0.35746586322784424
+        },
+        "epoch_03": {
+          "embedding_similarity": 0.5604479908943176,
+          "structural_similarity": 0.0,
+          "combined_score": 0.2802239954471588
+        },
+        "epoch_04": {
+          "embedding_similarity": 0.4950009286403656,
+          "structural_similarity": 0.0,
+          "combined_score": 0.2475004643201828
+        },
+        "epoch_05": {
+          "embedding_similarity": 0.5177518725395203,
+          "structural_similarity": 0.0,
+          "combined_score": 0.25887593626976013
+        },
+        "epoch_06": {
+          "embedding_similarity": 0.6267452239990234,
+          "structural_similarity": 0.0,
+          "combined_score": 0.3133726119995117
+        }
+      },
+      "plans_summary": {
+        "epoch_01": "```json\n{\n  \"algorithm_name\": \"ADMM for TV-Regularized Lensless Image Reconstruction\",\n  \"initializa...",
+        "epoch_02": "```json\n{\n  \"algorithm_name\": \"ADMM-Based Lensless Image Reconstruction\",\n  \"initialization\": [\n    ...",
+        "epoch_03": "```json\n{\n  \"algorithm_name\": \"ADMM-TV Lensless Image Reconstruction\",\n  \"initialization\": [\n    \"x^...",
+        "epoch_04": "```json\n{\n  \"algorithm_name\": \"ADMM-TV Lensless Image Reconstruction\",\n  \"initialization\": [\n    \"In...",
+        "epoch_05": "```json\n{\n  \"algorithm_name\": \"ADMM for Lensless Image Reconstruction with Total Variation\",\n  \"init...",
+        "epoch_06": "```json\n{\n  \"algorithm_name\": \"ADMM-TV Lensless Image Reconstruction\",\n  \"initialization\": [\n    \"Lo..."
+      },
+      "timestamp": "2026-01-29T19:49:57.858933"
+    },
+    {
+      "task_name": "lensless_dl",
+      "golden_rating": 1085.692249845601,
+      "epoch_ratings": {
+        "epoch_01": 998.6404058142688,
+        "epoch_02": 998.7316484547458,
+        "epoch_03": 962.6460597915866,
+        "epoch_04": 943.2566235953971,
+        "epoch_05": 1009.2912395550741,
+        "epoch_06": 1001.7417729433265
+      },
+      "similarity_scores": {
+        "epoch_01": {
+          "embedding_similarity": 0.6041940450668335,
+          "structural_similarity": 0.0,
+          "combined_score": 0.30209702253341675
+        },
+        "epoch_02": {
+          "embedding_similarity": 0.5483109951019287,
+          "structural_similarity": 0.0,
+          "combined_score": 0.27415549755096436
+        },
+        "epoch_03": {
+          "embedding_similarity": 0.4748360216617584,
+          "structural_similarity": 0.0,
+          "combined_score": 0.2374180108308792
+        },
+        "epoch_04": {
+          "embedding_similarity": 0.5665712952613831,
+          "structural_similarity": 0.0,
+          "combined_score": 0.28328564763069153
+        },
+        "epoch_05": {
+          "embedding_similarity": 0.45208585262298584,
+          "structural_similarity": 0.0,
+          "combined_score": 0.22604292631149292
+        },
+        "epoch_06": {
+          "embedding_similarity": 0.5215672254562378,
+          "structural_similarity": 0.0,
+          "combined_score": 0.2607836127281189
+        }
+      },
+      "plans_summary": {
+        "epoch_01": "```json\n{\n  \"algorithm_name\": \"FISTA for Non-negative Image Deconvolution\",\n  \"initialization\": [\n  ...",
+        "epoch_02": "```json\n{\n  \"algorithm_name\": \"APGD_FISTA_Image_Deconvolution\",\n  \"initialization\": [\n    \"Initializ...",
+        "epoch_03": "```json\n{\n  \"algorithm_name\": \"APGD (Accelerated Proximal Gradient Descent) / FISTA\",\n  \"initializat...",
+        "epoch_04": "```json\n{\n  \"algorithm_name\": \"APGD (Accelerated Proximal Gradient Descent) / FISTA for Image Deconv...",
+        "epoch_05": "```json\n{\n  \"algorithm_name\": \"APGD (Accelerated Proximal Gradient Descent) / FISTA\",\n  \"initializat...",
+        "epoch_06": "```json\n{\n  \"algorithm_name\": \"FISTA (Fast Iterative Shrinkage-Thresholding Algorithm) for FFT-based..."
+      },
+      "timestamp": "2026-01-29T20:17:23.154990"
+    },
+    {
+      "task_name": "pnp_cassi",
+      "golden_rating": 1064.7539112609797,
+      "epoch_ratings": {
+        "epoch_01": 1028.8290989988022,
+        "epoch_02": 975.2768515196192,
+        "epoch_03": 943.1103385539399,
+        "epoch_04": 1028.7310338442753,
+        "epoch_05": 962.9598949407009,
+        "epoch_06": 996.338870881683
+      },
+      "similarity_scores": {
+        "epoch_01": {
+          "embedding_similarity": 0.5667266249656677,
+          "structural_similarity": 0.0,
+          "combined_score": 0.28336331248283386
+        },
+        "epoch_02": {
+          "embedding_similarity": 0.529341459274292,
+          "structural_similarity": 0.0,
+          "combined_score": 0.264670729637146
+        },
+        "epoch_03": {
+          "embedding_similarity": 0.37561357021331787,
+          "structural_similarity": 0.0,
+          "combined_score": 0.18780678510665894
+        },
+        "epoch_04": {
+          "embedding_similarity": 0.3927517533302307,
+          "structural_similarity": 0.0,
+          "combined_score": 0.19637587666511536
+        },
+        "epoch_05": {
+          "embedding_similarity": 0.44434309005737305,
+          "structural_similarity": 0.0,
+          "combined_score": 0.22217154502868652
+        },
+        "epoch_06": {
+          "embedding_similarity": 0.3924243450164795,
+          "structural_similarity": 0.0,
+          "combined_score": 0.19621217250823975
+        }
+      },
+      "plans_summary": {
+        "epoch_01": "```json\n{\n  \"algorithm_name\": \"GAP-TV (Generalized Alternating Projection with Total Variation) for ...",
+        "epoch_02": "```json\n{\n  \"algorithm_name\": \"GAP-TV (Generalized Alternating Projection with Total Variation) for ...",
+        "epoch_03": "```json\n{\n  \"algorithm_name\": \"GAP-TV (Generalized Alternating Projection with Total Variation)\",\n  ...",
+        "epoch_04": "```json\n{\n  \"algorithm_name\": \"GAP-TV (Generalized Alternating Projection with Total Variation)\",\n  ...",
+        "epoch_05": "```json\n{\n  \"algorithm_name\": \"GAP-TV (Generalized Alternating Projection with Total Variation)\",\n  ...",
+        "epoch_06": "```json\n{\n  \"algorithm_name\": \"GAP-TV (Generalized Alternating Projection with Total Variation)\",\n  ..."
+      },
+      "timestamp": "2026-01-29T20:49:36.198938"
+    },
+    {
+      "task_name": "fpm_inr",
+      "golden_rating": 1085.692249845601,
+      "epoch_ratings": {
+        "epoch_01": 955.9104619195189,
+        "epoch_02": 999.1705674098924,
+        "epoch_03": 995.1560945795297,
+        "epoch_04": 1030.0502637083455,
+        "epoch_05": 977.1573916636385,
+        "epoch_06": 956.8629708734737
+      },
+      "similarity_scores": {
+        "epoch_01": {
+          "embedding_similarity": 0.6358314752578735,
+          "structural_similarity": 0.0,
+          "combined_score": 0.31791573762893677
+        },
+        "epoch_02": {
+          "embedding_similarity": 0.6230489611625671,
+          "structural_similarity": 0.0,
+          "combined_score": 0.31152448058128357
+        },
+        "epoch_03": {
+          "embedding_similarity": 0.5868992209434509,
+          "structural_similarity": 0.0,
+          "combined_score": 0.29344961047172546
+        },
+        "epoch_04": {
+          "embedding_similarity": 0.6238256692886353,
+          "structural_similarity": 0.0,
+          "combined_score": 0.3119128346443176
+        },
+        "epoch_05": {
+          "embedding_similarity": 0.6255970597267151,
+          "structural_similarity": 0.0,
+          "combined_score": 0.31279852986335754
+        },
+        "epoch_06": {
+          "embedding_similarity": 0.6777349710464478,
+          "structural_similarity": 0.0,
+          "combined_score": 0.3388674855232239
+        }
+      },
+      "plans_summary": {
+        "epoch_01": "```json\n{\n  \"algorithm_name\": \"FPM-INR (Fourier Ptychographic Microscopy via Implicit Neural Represe...",
+        "epoch_02": "```json\n{\n  \"algorithm_name\": \"FPM-INR (Fourier Ptychographic Microscopy via Implicit Neural Represe...",
+        "epoch_03": "```json\n{\n  \"algorithm_name\": \"FPM-INR (Fourier Ptychographic Microscopy via Implicit Neural Represe...",
+        "epoch_04": "```json\n{\n  \"algorithm_name\": \"FPM-INR (Fourier Ptychographic Microscopy via Implicit Neural Represe...",
+        "epoch_05": "```json\n{\n  \"algorithm_name\": \"FPM-INR (Fourier Ptychographic Microscopy with Implicit Neural Repres...",
+        "epoch_06": "```json\n{\n  \"algorithm_name\": \"FPM-INR (Fourier Ptychographic Microscopy via Implicit Neural Represe..."
+      },
+      "timestamp": "2026-01-29T21:32:31.788976"
+    },
+    {
+      "task_name": "flfm",
+      "golden_rating": 1085.692249845601,
+      "epoch_ratings": {
+        "epoch_01": 962.8252787522936,
+        "epoch_02": 1043.334122690423,
+        "epoch_03": 954.7409618155364,
+        "epoch_04": 986.4136927750054,
+        "epoch_05": 958.6711622824506,
+        "epoch_06": 1008.3225318386898
+      },
+      "similarity_scores": {
+        "epoch_01": {
+          "embedding_similarity": 0.66141277551651,
+          "structural_similarity": 0.0,
+          "combined_score": 0.330706387758255
+        },
+        "epoch_02": {
+          "embedding_similarity": 0.64997398853302,
+          "structural_similarity": 0.0,
+          "combined_score": 0.32498699426651
+        },
+        "epoch_03": {
+          "embedding_similarity": 0.6772406101226807,
+          "structural_similarity": 0.0,
+          "combined_score": 0.33862030506134033
+        },
+        "epoch_04": {
+          "embedding_similarity": 0.712297260761261,
+          "structural_similarity": 0.0,
+          "combined_score": 0.3561486303806305
+        },
+        "epoch_05": {
+          "embedding_similarity": 0.6882212162017822,
+          "structural_similarity": 0.0,
+          "combined_score": 0.3441106081008911
+        },
+        "epoch_06": {
+          "embedding_similarity": 0.6712774038314819,
+          "structural_similarity": 0.0,
+          "combined_score": 0.33563870191574097
+        }
+      },
+      "plans_summary": {
+        "epoch_01": "```json\n{\n  \"algorithm_name\": \"3D Richardson-Lucy Deconvolution\",\n  \"initialization\": [\n    \"Compute...",
+        "epoch_02": "```json\n{\n  \"algorithm_name\": \"Richardson-Lucy 3D Deconvolution\",\n  \"initialization\": [\n    \"Compute...",
+        "epoch_03": "```json\n{\n  \"algorithm_name\": \"Richardson-Lucy Deconvolution for 3D Fluorescence Microscopy\",\n  \"ini...",
+        "epoch_04": "```json\n{\n  \"algorithm_name\": \"Richardson-Lucy Deconvolution for 3D Widefield Microscopy\",\n  \"initia...",
+        "epoch_05": "```json\n{\n  \"algorithm_name\": \"Richardson-Lucy Deconvolution for 3D Microscopy\",\n  \"initialization\":...",
+        "epoch_06": "```json\n{\n  \"algorithm_name\": \"Richardson-Lucy Deconvolution\",\n  \"initialization\": [\n    \"Compute me..."
+      },
+      "timestamp": "2026-01-29T22:34:22.988549"
+    },
+    {
+      "task_name": "lenstronomy_simple_ring",
+      "golden_rating": 1085.692249845601,
+      "epoch_ratings": {
+        "epoch_01": 1013.6967621411844,
+        "epoch_02": 943.3678915898217,
+        "epoch_03": 1015.8147934360862,
+        "epoch_04": 1020.599098501085,
+        "epoch_05": 1006.8099432707556,
+        "epoch_06": 914.0192612154658
+      },
+      "similarity_scores": {
+        "epoch_01": {
+          "embedding_similarity": 0.7706204056739807,
+          "structural_similarity": 0.0,
+          "combined_score": 0.38531020283699036
+        },
+        "epoch_02": {
+          "embedding_similarity": 0.5836979150772095,
+          "structural_similarity": 0.0,
+          "combined_score": 0.29184895753860474
+        },
+        "epoch_03": {
+          "embedding_similarity": 0.7876386642456055,
+          "structural_similarity": 0.0,
+          "combined_score": 0.39381933212280273
+        },
+        "epoch_04": {
+          "embedding_similarity": 0.6358118057250977,
+          "structural_similarity": 0.0,
+          "combined_score": 0.31790590286254883
+        },
+        "epoch_05": {
+          "embedding_similarity": 0.7261024713516235,
+          "structural_similarity": 0.0,
+          "combined_score": 0.36305123567581177
+        },
+        "epoch_06": {
+          "embedding_similarity": 0.6359544396400452,
+          "structural_similarity": 0.0,
+          "combined_score": 0.3179772198200226
+        }
+      },
+      "plans_summary": {
+        "epoch_01": "```json\n{\n  \"algorithm_name\": \"Gravitational Lens Modeling and Parameter Inference via PSO-MCMC\",\n  ...",
+        "epoch_02": "```json\n{\n  \"algorithm_name\": \"Hybrid PSO-MCMC Gravitational Lens Image Reconstruction\",\n  \"initiali...",
+        "epoch_03": "```json\n{\n  \"algorithm_name\": \"Gravitational Lens Modeling via PSO-MCMC Hybrid Optimization\",\n  \"ini...",
+        "epoch_04": "```json\n{\n  \"algorithm_name\": \"Gravitational Lens Model Fitting via PSO-MCMC Hybrid Optimization\",\n ...",
+        "epoch_05": "```json\n{\n  \"algorithm_name\": \"Gravitational Lens Parameter Estimation via PSO-MCMC\",\n  \"initializat...",
+        "epoch_06": "```json\n{\n  \"algorithm_name\": \"Gravitational Lens Modeling via PSO-MCMC\",\n  \"initialization\": [\n    ..."
+      },
+      "timestamp": "2026-01-30T00:33:49.639479"
+    },
+    {
+      "task_name": "lenstronomy_quad_quasar",
+      "golden_rating": 1085.692249845601,
+      "epoch_ratings": {
+        "epoch_01": 952.526488131854,
+        "epoch_02": 956.5000783971693,
+        "epoch_03": 958.2596863257118,
+        "epoch_04": 1000.3654820233531,
+        "epoch_05": 986.5360448518163,
+        "epoch_06": 1060.1199704244943
+      },
+      "similarity_scores": {
+        "epoch_01": {
+          "embedding_similarity": 0.7437481880187988,
+          "structural_similarity": 0.0,
+          "combined_score": 0.3718740940093994
+        },
+        "epoch_02": {
+          "embedding_similarity": 0.6493870615959167,
+          "structural_similarity": 0.0,
+          "combined_score": 0.3246935307979584
+        },
+        "epoch_03": {
+          "embedding_similarity": 0.5734155178070068,
+          "structural_similarity": 0.0,
+          "combined_score": 0.2867077589035034
+        },
+        "epoch_04": {
+          "embedding_similarity": 0.5964694023132324,
+          "structural_similarity": 0.0,
+          "combined_score": 0.2982347011566162
+        },
+        "epoch_05": {
+          "embedding_similarity": 0.6839617490768433,
+          "structural_similarity": 0.0,
+          "combined_score": 0.34198087453842163
+        },
+        "epoch_06": {
+          "embedding_similarity": 0.6828274726867676,
+          "structural_similarity": 0.0,
+          "combined_score": 0.3414137363433838
+        }
+      },
+      "plans_summary": {
+        "epoch_01": "```json\n{\n  \"algorithm_name\": \"Gravitational Lens Modeling via PSO-MCMC\",\n  \"initialization\": [\n    ...",
+        "epoch_02": "```json\n{\n  \"algorithm_name\": \"Gravitational Lensing Image Reconstruction via PSO-MCMC\",\n  \"initiali...",
+        "epoch_03": "```json\n{\n  \"algorithm_name\": \"Gravitational Lens Modeling via PSO-MCMC Hybrid Optimization\",\n  \"ini...",
+        "epoch_04": "```json\n{\n  \"algorithm_name\": \"Gravitational Lens Model Fitting via PSO-MCMC\",\n  \"initialization\": [...",
+        "epoch_05": "```json\n{\n  \"algorithm_name\": \"Gravitational Lens Parameter Estimation via PSO-MCMC\",\n  \"initializat...",
+        "epoch_06": "```json\n{\n  \"algorithm_name\": \"Gravitational Lens Modeling via PSO-MCMC\",\n  \"initialization\": [\n    ..."
+      },
+      "timestamp": "2026-01-30T02:08:08.237759"
+    },
+    {
+      "task_name": "lenstronomy_double_quasar",
+      "golden_rating": 1085.692249845601,
+      "epoch_ratings": {
+        "epoch_01": 1019.5783615546491,
+        "epoch_02": 978.9506639665403,
+        "epoch_03": 977.1948943483136,
+        "epoch_04": 920.5729570609624,
+        "epoch_05": 1036.3141595132586,
+        "epoch_06": 981.696713710675
+      },
+      "similarity_scores": {
+        "epoch_01": {
+          "embedding_similarity": 0.6556515693664551,
+          "structural_similarity": 0.0,
+          "combined_score": 0.32782578468322754
+        },
+        "epoch_02": {
+          "embedding_similarity": 0.557939887046814,
+          "structural_similarity": 0.0,
+          "combined_score": 0.278969943523407
+        },
+        "epoch_03": {
+          "embedding_similarity": 0.7847121953964233,
+          "structural_similarity": 0.0,
+          "combined_score": 0.39235609769821167
+        },
+        "epoch_04": {
+          "embedding_similarity": 0.636698842048645,
+          "structural_similarity": 0.0,
+          "combined_score": 0.3183494210243225
+        },
+        "epoch_05": {
+          "embedding_similarity": 0.4990957975387573,
+          "structural_similarity": 0.0,
+          "combined_score": 0.24954789876937866
+        },
+        "epoch_06": {
+          "embedding_similarity": 0.7498120069503784,
+          "structural_similarity": 0.0,
+          "combined_score": 0.3749060034751892
+        }
+      },
+      "plans_summary": {
+        "epoch_01": "```json\n{\n  \"algorithm_name\": \"PSO-MCMC Strong Gravitational Lens Modeling Inference\",\n  \"initializa...",
+        "epoch_02": "```json\n{\n  \"algorithm_name\": \"Gravitational Lens Modeling Inversion (PSO-MCMC Hybrid)\",\n  \"initiali...",
+        "epoch_03": "```json\n{\n  \"algorithm_name\": \"Gravitational Lens Modeling via PSO-MCMC Hybrid Optimization\",\n  \"ini...",
+        "epoch_04": "```json\n{\n  \"algorithm_name\": \"Gravitational Lens Modeling with PSO-MCMC Hybrid Optimization\",\n  \"in...",
+        "epoch_05": "```json\n{\n  \"algorithm_name\": \"Gravitational Lens Modeling via PSO-MCMC Hybrid Optimization\",\n  \"ini...",
+        "epoch_06": "```json\n{\n  \"algorithm_name\": \"Gravitational Lens Modeling via PSO-MCMC\",\n  \"initialization\": [\n    ..."
+      },
+      "timestamp": "2026-01-30T02:48:49.704460"
+    },
+    {
+      "task_name": "lenstronomy_shapelets",
+      "golden_rating": 1085.692249845601,
+      "epoch_ratings": {
+        "epoch_01": 975.789237933242,
+        "epoch_02": 912.9796192329127,
+        "epoch_03": 1036.6391338970443,
+        "epoch_04": 992.734176344472,
+        "epoch_05": 951.0817783011862,
+        "epoch_06": 1045.0838044455418
+      },
+      "similarity_scores": {
+        "epoch_01": {
+          "embedding_similarity": 0.7599316239356995,
+          "structural_similarity": 0.0,
+          "combined_score": 0.37996581196784973
+        },
+        "epoch_02": {
+          "embedding_similarity": 0.6157320141792297,
+          "structural_similarity": 0.0,
+          "combined_score": 0.30786600708961487
+        },
+        "epoch_03": {
+          "embedding_similarity": 0.8091702461242676,
+          "structural_similarity": 0.0,
+          "combined_score": 0.4045851230621338
+        },
+        "epoch_04": {
+          "embedding_similarity": 0.658902108669281,
+          "structural_similarity": 0.0,
+          "combined_score": 0.3294510543346405
+        },
+        "epoch_05": {
+          "embedding_similarity": 0.6423403024673462,
+          "structural_similarity": 0.0,
+          "combined_score": 0.3211701512336731
+        },
+        "epoch_06": {
+          "embedding_similarity": 0.7303599715232849,
+          "structural_similarity": 0.0,
+          "combined_score": 0.36517998576164246
+        }
+      },
+      "plans_summary": {
+        "epoch_01": "```json\n{\n  \"algorithm_name\": \"Gravitational Lensing Source Reconstruction via Shapelet Linear Inver...",
+        "epoch_02": "```json\n{\n  \"algorithm_name\": \"Gravitational Lens Source Reconstruction via Shapelet Linear Inversio...",
+        "epoch_03": "```json\n{\n  \"algorithm_name\": \"Shapelet-Based Linear Inversion for Gravitational Lens Source Reconst...",
+        "epoch_04": "```json\n{\n  \"algorithm_name\": \"Weighted Linear Least Squares Shapelet Inversion for Gravitational Le...",
+        "epoch_05": "```json\n{\n  \"algorithm_name\": \"Weighted Least Squares Shapelet Inversion for Gravitational Lens Sour...",
+        "epoch_06": "```json\n{\n  \"algorithm_name\": \"Weighted Least Squares Shapelet Source Reconstruction\",\n  \"initializa..."
+      },
+      "timestamp": "2026-01-30T03:19:43.050282"
+    },
+    {
+      "task_name": "lenstronomy_host_decomp",
+      "golden_rating": 1085.692249845601,
+      "epoch_ratings": {
+        "epoch_01": 979.2237989447042,
+        "epoch_02": 976.8443108517818,
+        "epoch_03": 1035.8541171334248,
+        "epoch_04": 957.8954546793454,
+        "epoch_05": 1013.2794445032898,
+        "epoch_06": 951.2106240418528
+      },
+      "similarity_scores": {
+        "epoch_01": {
+          "embedding_similarity": 0.5799937844276428,
+          "structural_similarity": 0.0,
+          "combined_score": 0.2899968922138214
+        },
+        "epoch_02": {
+          "embedding_similarity": 0.5493907928466797,
+          "structural_similarity": 0.0,
+          "combined_score": 0.27469539642333984
+        },
+        "epoch_03": {
+          "embedding_similarity": 0.585250735282898,
+          "structural_similarity": 0.0,
+          "combined_score": 0.292625367641449
+        },
+        "epoch_04": {
+          "embedding_similarity": 0.6008198261260986,
+          "structural_similarity": 0.0,
+          "combined_score": 0.3004099130630493
+        },
+        "epoch_05": {
+          "embedding_similarity": 0.5843294858932495,
+          "structural_similarity": 0.0,
+          "combined_score": 0.29216474294662476
+        },
+        "epoch_06": {
+          "embedding_similarity": 0.6117517352104187,
+          "structural_similarity": 0.0,
+          "combined_score": 0.30587586760520935
+        }
+      },
+      "plans_summary": {
+        "epoch_01": "```json\n{\n  \"algorithm_name\": \"Particle Swarm Optimization with Linear Amplitude Solving for Quasar-...",
+        "epoch_02": "```json\n{\n  \"algorithm_name\": \"Astronomical Image Decomposition via Particle Swarm Optimization\",\n  ...",
+        "epoch_03": "```json\n{\n  \"algorithm_name\": \"Quasar-Host Galaxy Decomposition via Particle Swarm Optimization\",\n  ...",
+        "epoch_04": "```json\n{\n  \"algorithm_name\": \"PSO-based Astronomical Image Model Fitting\",\n  \"initialization\": [\n  ...",
+        "epoch_05": "```json\n{\n  \"algorithm_name\": \"Particle Swarm Optimization for Quasar-Host Galaxy Image Decompositio...",
+        "epoch_06": "```json\n{\n  \"algorithm_name\": \"Particle Swarm Optimization for Quasar-Host Galaxy Image Decompositio..."
+      },
+      "timestamp": "2026-01-30T03:51:32.119472"
+    },
+    {
+      "task_name": "dpi_task1",
+      "golden_rating": 1085.692249845601,
+      "epoch_ratings": {
+        "epoch_01": 985.1155176272471,
+        "epoch_02": 1000.5375869569243,
+        "epoch_03": 1049.878445804053,
+        "epoch_04": 927.1338417835342,
+        "epoch_05": 994.7654898007938,
+        "epoch_06": 956.8768681818465
+      },
+      "similarity_scores": {
+        "epoch_01": {
+          "embedding_similarity": 0.5163074731826782,
+          "structural_similarity": 0.0,
+          "combined_score": 0.2581537365913391
+        },
+        "epoch_02": {
+          "embedding_similarity": 0.6334114074707031,
+          "structural_similarity": 0.0,
+          "combined_score": 0.31670570373535156
+        },
+        "epoch_03": {
+          "embedding_similarity": 0.789046049118042,
+          "structural_similarity": 0.0,
+          "combined_score": 0.394523024559021
+        },
+        "epoch_04": {
+          "embedding_similarity": 0.6087826490402222,
+          "structural_similarity": 0.0,
+          "combined_score": 0.3043913245201111
+        },
+        "epoch_05": {
+          "embedding_similarity": 0.6314432621002197,
+          "structural_similarity": 0.0,
+          "combined_score": 0.31572163105010986
+        },
+        "epoch_06": {
+          "embedding_similarity": 0.536078929901123,
+          "structural_similarity": 0.0,
+          "combined_score": 0.2680394649505615
+        }
+      },
+      "plans_summary": {
+        "epoch_01": "```json\n{\n  \"algorithm_name\": \"Deep Probabilistic Imaging for Radio Interferometry via Variational I...",
+        "epoch_02": "```json\n{\n  \"algorithm_name\": \"Deep Probabilistic Imaging for Radio Interferometry (RealNVP Normaliz...",
+        "epoch_03": "```json\n{\n  \"algorithm_name\": \"Deep Probabilistic Imaging (DPI) for Radio Interferometry\",\n  \"initia...",
+        "epoch_04": "```json\n{\n  \"algorithm_name\": \"Deep Probabilistic Imaging (DPI) for Radio Interferometry\",\n  \"initia...",
+        "epoch_05": "```json\n{\n  \"algorithm_name\": \"Deep Probabilistic Imaging with RealNVP for Radio Interferometry\",\n  ...",
+        "epoch_06": "```json\n{\n  \"algorithm_name\": \"Deep Probabilistic Imaging (DPI) with RealNVP\",\n  \"initialization\": [..."
+      },
+      "timestamp": "2026-01-30T04:27:07.806425"
+    },
+    {
+      "task_name": "dpi_task2",
+      "golden_rating": 1071.0920761003874,
+      "epoch_ratings": {
+        "epoch_01": 984.014339893368,
+        "epoch_02": 975.9158927151379,
+        "epoch_03": 945.4213973439244,
+        "epoch_04": 1050.6236202992197,
+        "epoch_05": 958.4736247039225,
+        "epoch_06": 1014.45904894404
+      },
+      "similarity_scores": {
+        "epoch_01": {
+          "embedding_similarity": 0.6771990060806274,
+          "structural_similarity": 0.0,
+          "combined_score": 0.3385995030403137
+        },
+        "epoch_02": {
+          "embedding_similarity": 0.5618106126785278,
+          "structural_similarity": 0.0,
+          "combined_score": 0.2809053063392639
+        },
+        "epoch_03": {
+          "embedding_similarity": 0.680252730846405,
+          "structural_similarity": 0.0,
+          "combined_score": 0.3401263654232025
+        },
+        "epoch_04": {
+          "embedding_similarity": 0.6914470195770264,
+          "structural_similarity": 0.0,
+          "combined_score": 0.3457235097885132
+        },
+        "epoch_05": {
+          "embedding_similarity": 0.6511093378067017,
+          "structural_similarity": 0.0,
+          "combined_score": 0.32555466890335083
+        },
+        "epoch_06": {
+          "embedding_similarity": 0.661483645439148,
+          "structural_similarity": 0.0,
+          "combined_score": 0.330741822719574
+        }
+      },
+      "plans_summary": {
+        "epoch_01": "```json\n{\n  \"algorithm_name\": \"Deep Probabilistic Imaging for MRI Reconstruction\",\n  \"initialization...",
+        "epoch_02": "```json\n{\n  \"algorithm_name\": \"Deep Probabilistic Imaging (DPI) for MRI Reconstruction\",\n  \"initiali...",
+        "epoch_03": "```json\n{\n  \"algorithm_name\": \"Deep Probabilistic Imaging for MRI Reconstruction (DPI-MRI)\",\n  \"init...",
+        "epoch_04": "```json\n{\n  \"algorithm_name\": \"Deep Probabilistic Imaging for MRI Reconstruction (DPI-MRI)\",\n  \"init...",
+        "epoch_05": "```json\n{\n  \"algorithm_name\": \"Deep Probabilistic Imaging for MRI Reconstruction (DPI-MRI)\",\n  \"init...",
+        "epoch_06": "```json\n{\n  \"algorithm_name\": \"Deep Probabilistic Imaging for MRI Reconstruction\",\n  \"initialization..."
+      },
+      "timestamp": "2026-01-30T05:03:38.099788"
+    },
+    {
+      "task_name": "dpi_task3",
+      "golden_rating": 1072.3942668317973,
+      "epoch_ratings": {
+        "epoch_01": 963.3527413357771,
+        "epoch_02": 1047.9106110076666,
+        "epoch_03": 934.283767633826,
+        "epoch_04": 979.7589011174875,
+        "epoch_05": 1038.824842820624,
+        "epoch_06": 963.4748692528211
+      },
+      "similarity_scores": {
+        "epoch_01": {
+          "embedding_similarity": 0.542829155921936,
+          "structural_similarity": 0.0,
+          "combined_score": 0.271414577960968
+        },
+        "epoch_02": {
+          "embedding_similarity": 0.6329548358917236,
+          "structural_similarity": 0.0,
+          "combined_score": 0.3164774179458618
+        },
+        "epoch_03": {
+          "embedding_similarity": 0.7308827638626099,
+          "structural_similarity": 0.0,
+          "combined_score": 0.36544138193130493
+        },
+        "epoch_04": {
+          "embedding_similarity": 0.5903408527374268,
+          "structural_similarity": 0.0,
+          "combined_score": 0.2951704263687134
+        },
+        "epoch_05": {
+          "embedding_similarity": 0.5295999646186829,
+          "structural_similarity": 0.0,
+          "combined_score": 0.26479998230934143
+        },
+        "epoch_06": {
+          "embedding_similarity": 0.486707478761673,
+          "structural_similarity": 0.0,
+          "combined_score": 0.2433537393808365
+        }
+      },
+      "plans_summary": {
+        "epoch_01": "```json\n{\n  \"algorithm_name\": \"Deep Probabilistic Imaging for Interferometry via Normalizing Flow Va...",
+        "epoch_02": "```json\n{\n  \"algorithm_name\": \"Deep Probabilistic Imaging via Normalizing Flows\",\n  \"initialization\"...",
+        "epoch_03": "```json\n{\n  \"algorithm_name\": \"Deep Probabilistic Imaging via Normalizing Flows (DPI-NF)\",\n  \"initia...",
+        "epoch_04": "```json\n{\n  \"algorithm_name\": \"Deep Probabilistic Imaging with RealNVP Normalizing Flow\",\n  \"initial...",
+        "epoch_05": "```json\n{\n  \"algorithm_name\": \"Deep Probabilistic Imaging via Normalizing Flows (DPI-NF)\",\n  \"initia...",
+        "epoch_06": "```json\n{\n  \"algorithm_name\": \"Deep Probabilistic Imaging via RealNVP\",\n  \"initialization\": [\n    \"I..."
+      },
+      "timestamp": "2026-01-30T05:42:02.070059"
+    },
+    {
+      "task_name": "AMICO-master",
+      "golden_rating": 1085.692249845601,
+      "epoch_ratings": {
+        "epoch_01": 1042.8633995235587,
+        "epoch_02": 910.1578636616579,
+        "epoch_03": 955.8520921669766,
+        "epoch_04": 992.1458031674339,
+        "epoch_05": 979.8657398121238,
+        "epoch_06": 1033.4228518226482
+      },
+      "similarity_scores": {
+        "epoch_01": {
+          "embedding_similarity": 0.8006814122200012,
+          "structural_similarity": 0.0,
+          "combined_score": 0.4003407061100006
+        },
+        "epoch_02": {
+          "embedding_similarity": 0.6425877809524536,
+          "structural_similarity": 0.0,
+          "combined_score": 0.3212938904762268
+        },
+        "epoch_03": {
+          "embedding_similarity": 0.6611011624336243,
+          "structural_similarity": 0.0,
+          "combined_score": 0.33055058121681213
+        },
+        "epoch_04": {
+          "embedding_similarity": 0.6138874292373657,
+          "structural_similarity": 0.0,
+          "combined_score": 0.30694371461868286
+        },
+        "epoch_05": {
+          "embedding_similarity": 0.6101065278053284,
+          "structural_similarity": 0.0,
+          "combined_score": 0.3050532639026642
+        },
+        "epoch_06": {
+          "embedding_similarity": 0.5554455518722534,
+          "structural_similarity": 0.0,
+          "combined_score": 0.2777227759361267
+        }
+      },
+      "plans_summary": {
+        "epoch_01": "```json\n{\n  \"algorithm_name\": \"AMICO-NODDI Microstructure Imaging\",\n  \"initialization\": [\n    \"Load ...",
+        "epoch_02": "```json\n{\n  \"algorithm_name\": \"NODDI-AMICO\",\n  \"initialization\": [\n    \"Load DWI data: D ← NIfTI_loa...",
+        "epoch_03": "```json\n{\n  \"algorithm_name\": \"AMICO-NODDI (Accelerated Microstructure Imaging via Convex Optimizati...",
+        "epoch_04": "```json\n{\n  \"algorithm_name\": \"AMICO-NODDI (Accelerated Microstructure Imaging via Convex Optimizati...",
+        "epoch_05": "```json\n{\n  \"algorithm_name\": \"AMICO-NODDI (Accelerated Microstructure Imaging via Convex Optimizati...",
+        "epoch_06": "```json\n{\n  \"algorithm_name\": \"AMICO-NODDI\",\n  \"initialization\": [\n    \"Compute orientation dispersi..."
+      },
+      "timestamp": "2026-01-30T06:31:26.634235"
+    },
+    {
+      "task_name": "carspy-main",
+      "golden_rating": 1000,
+      "epoch_ratings": {
+        "epoch_01": 900,
+        "epoch_02": 900,
+        "epoch_03": 900,
+        "epoch_04": 900,
+        "epoch_05": 900,
+        "epoch_06": 900
+      },
+      "similarity_scores": {},
+      "plans_summary": {},
+      "timestamp": "2026-01-30T06:31:39.264135"
+    },
+    {
+      "task_name": "caustics-main",
+      "golden_rating": 1000,
+      "epoch_ratings": {
+        "epoch_01": 900,
+        "epoch_02": 900,
+        "epoch_03": 900,
+        "epoch_04": 900,
+        "epoch_05": 900,
+        "epoch_06": 900
+      },
+      "similarity_scores": {},
+      "plans_summary": {},
+      "timestamp": "2026-01-30T06:31:51.260712"
+    },
+    {
+      "task_name": "CT-and-MR-Perfusion-Tool-main",
+      "golden_rating": 1000,
+      "epoch_ratings": {
+        "epoch_01": 900,
+        "epoch_02": 900,
+        "epoch_03": 900,
+        "epoch_04": 900,
+        "epoch_05": 900,
+        "epoch_06": 900
+      },
+      "similarity_scores": {},
+      "plans_summary": {},
+      "timestamp": "2026-01-30T06:32:02.748034"
+    },
+    {
+      "task_name": "DiffuserCam-Tutorial-master",
+      "golden_rating": 1000,
+      "epoch_ratings": {
+        "epoch_01": 900,
+        "epoch_02": 900,
+        "epoch_03": 900,
+        "epoch_04": 900,
+        "epoch_05": 900,
+        "epoch_06": 900
+      },
+      "similarity_scores": {},
+      "plans_summary": {},
+      "timestamp": "2026-01-30T06:32:14.926542"
+    },
+    {
+      "task_name": "dmipy-master",
+      "golden_rating": 1000,
+      "epoch_ratings": {
+        "epoch_01": 900,
+        "epoch_02": 900,
+        "epoch_03": 900,
+        "epoch_04": 900,
+        "epoch_05": 900,
+        "epoch_06": 900
+      },
+      "similarity_scores": {},
+      "plans_summary": {},
+      "timestamp": "2026-01-30T06:32:27.008091"
+    },
+    {
+      "task_name": "hcipy-master",
+      "golden_rating": 1000,
+      "epoch_ratings": {
+        "epoch_01": 900,
+        "epoch_02": 900,
+        "epoch_03": 900,
+        "epoch_04": 900,
+        "epoch_05": 900,
+        "epoch_06": 900
+      },
+      "similarity_scores": {},
+      "plans_summary": {},
+      "timestamp": "2026-01-30T06:32:40.251341"
+    },
+    {
+      "task_name": "mne-master",
+      "golden_rating": 1000,
+      "epoch_ratings": {
+        "epoch_01": 900,
+        "epoch_02": 900,
+        "epoch_03": 900,
+        "epoch_04": 900,
+        "epoch_05": 900,
+        "epoch_06": 900
+      },
+      "similarity_scores": {},
+      "plans_summary": {},
+      "timestamp": "2026-01-30T06:32:51.839012"
+    },
+    {
+      "task_name": "MPIRF-master",
+      "golden_rating": 1000,
+      "epoch_ratings": {
+        "epoch_01": 900,
+        "epoch_02": 900,
+        "epoch_03": 900,
+        "epoch_04": 900,
+        "epoch_05": 900,
+        "epoch_06": 900
+      },
+      "similarity_scores": {},
+      "plans_summary": {},
+      "timestamp": "2026-01-30T06:33:03.631329"
+    },
+    {
+      "task_name": "MRE-elast-master",
+      "golden_rating": 1000,
+      "epoch_ratings": {
+        "epoch_01": 900,
+        "epoch_02": 900,
+        "epoch_03": 900,
+        "epoch_04": 900,
+        "epoch_05": 900,
+        "epoch_06": 900
+      },
+      "similarity_scores": {},
+      "plans_summary": {},
+      "timestamp": "2026-01-30T06:33:15.501982"
+    },
+    {
+      "task_name": "mrf-reconstruction-mlmir2020-master",
+      "golden_rating": 1000,
+      "epoch_ratings": {
+        "epoch_01": 900,
+        "epoch_02": 900,
+        "epoch_03": 900,
+        "epoch_04": 900,
+        "epoch_05": 900,
+        "epoch_06": 900
+      },
+      "similarity_scores": {},
+      "plans_summary": {},
+      "timestamp": "2026-01-30T06:33:27.227859"
+    },
+    {
+      "task_name": "mripy-master",
+      "golden_rating": 1000,
+      "epoch_ratings": {
+        "epoch_01": 900,
+        "epoch_02": 900,
+        "epoch_03": 900,
+        "epoch_04": 900,
+        "epoch_05": 900,
+        "epoch_06": 900
+      },
+      "similarity_scores": {},
+      "plans_summary": {},
+      "timestamp": "2026-01-30T06:33:39.534227"
+    },
+    {
+      "task_name": "oct-cbort-main",
+      "golden_rating": 1000,
+      "epoch_ratings": {
+        "epoch_01": 900,
+        "epoch_02": 900,
+        "epoch_03": 900,
+        "epoch_04": 900,
+        "epoch_05": 900,
+        "epoch_06": 900
+      },
+      "similarity_scores": {},
+      "plans_summary": {},
+      "timestamp": "2026-01-30T06:33:51.123916"
+    },
+    {
+      "task_name": "phasorpy-main",
+      "golden_rating": 1000,
+      "epoch_ratings": {
+        "epoch_01": 900,
+        "epoch_02": 900,
+        "epoch_03": 900,
+        "epoch_04": 900,
+        "epoch_05": 900,
+        "epoch_06": 900
+      },
+      "similarity_scores": {},
+      "plans_summary": {},
+      "timestamp": "2026-01-30T06:34:02.627203"
+    },
+    {
+      "task_name": "PtyLab-main",
+      "golden_rating": 1000,
+      "epoch_ratings": {
+        "epoch_01": 900,
+        "epoch_02": 900,
+        "epoch_03": 900,
+        "epoch_04": 900,
+        "epoch_05": 900,
+        "epoch_06": 900
+      },
+      "similarity_scores": {},
+      "plans_summary": {},
+      "timestamp": "2026-01-30T06:34:14.537309"
+    },
+    {
+      "task_name": "PyAbel-master",
+      "golden_rating": 1000,
+      "epoch_ratings": {
+        "epoch_01": 900,
+        "epoch_02": 900,
+        "epoch_03": 900,
+        "epoch_04": 900,
+        "epoch_05": 900,
+        "epoch_06": 900
+      },
+      "similarity_scores": {},
+      "plans_summary": {},
+      "timestamp": "2026-01-30T06:34:25.869160"
+    },
+    {
+      "task_name": "pyDHM-master",
+      "golden_rating": 1000,
+      "epoch_ratings": {
+        "epoch_01": 900,
+        "epoch_02": 900,
+        "epoch_03": 900,
+        "epoch_04": 900,
+        "epoch_05": 900,
+        "epoch_06": 900
+      },
+      "similarity_scores": {},
+      "plans_summary": {},
+      "timestamp": "2026-01-30T06:34:38.353837"
+    },
+    {
+      "task_name": "PyHoloscope-main",
+      "golden_rating": 1000,
+      "epoch_ratings": {
+        "epoch_01": 900,
+        "epoch_02": 900,
+        "epoch_03": 900,
+        "epoch_04": 900,
+        "epoch_05": 900,
+        "epoch_06": 900
+      },
+      "similarity_scores": {},
+      "plans_summary": {},
+      "timestamp": "2026-01-30T06:34:50.257755"
+    },
+    {
+      "task_name": "PySMLFM-main",
+      "golden_rating": 1000,
+      "epoch_ratings": {
+        "epoch_01": 900,
+        "epoch_02": 900,
+        "epoch_03": 900,
+        "epoch_04": 900,
+        "epoch_05": 900,
+        "epoch_06": 900
+      },
+      "similarity_scores": {},
+      "plans_summary": {},
+      "timestamp": "2026-01-30T06:35:01.880803"
+    },
+    {
+      "task_name": "PyTomography-main",
+      "golden_rating": 1000,
+      "epoch_ratings": {
+        "epoch_01": 900,
+        "epoch_02": 900,
+        "epoch_03": 900,
+        "epoch_04": 900,
+        "epoch_05": 900,
+        "epoch_06": 900
+      },
+      "similarity_scores": {},
+      "plans_summary": {},
+      "timestamp": "2026-01-30T06:35:13.869451"
+    },
+    {
+      "task_name": "s2ISM-main",
+      "golden_rating": 1000,
+      "epoch_ratings": {
+        "epoch_01": 900,
+        "epoch_02": 900,
+        "epoch_03": 900,
+        "epoch_04": 900,
+        "epoch_05": 900,
+        "epoch_06": 900
+      },
+      "similarity_scores": {},
+      "plans_summary": {},
+      "timestamp": "2026-01-30T06:35:25.631598"
+    },
+    {
+      "task_name": "semiblindpsfdeconv-master",
+      "golden_rating": 1000,
+      "epoch_ratings": {
+        "epoch_01": 900,
+        "epoch_02": 900,
+        "epoch_03": 900,
+        "epoch_04": 900,
+        "epoch_05": 900,
+        "epoch_06": 900
+      },
+      "similarity_scores": {},
+      "plans_summary": {},
+      "timestamp": "2026-01-30T06:35:38.389747"
+    },
+    {
+      "task_name": "spectral_ct_examples-master",
+      "golden_rating": 1000,
+      "epoch_ratings": {
+        "epoch_01": 900,
+        "epoch_02": 900,
+        "epoch_03": 900,
+        "epoch_04": 900,
+        "epoch_05": 900,
+        "epoch_06": 900
+      },
+      "similarity_scores": {},
+      "plans_summary": {},
+      "timestamp": "2026-01-30T06:35:50.054727"
+    },
+    {
+      "task_name": "storm-analysis-master",
+      "golden_rating": 1000,
+      "epoch_ratings": {
+        "epoch_01": 900,
+        "epoch_02": 900,
+        "epoch_03": 900,
+        "epoch_04": 900,
+        "epoch_05": 900,
+        "epoch_06": 900
+      },
+      "similarity_scores": {},
+      "plans_summary": {},
+      "timestamp": "2026-01-30T06:36:01.486584"
+    },
+    {
+      "task_name": "structured-light-python-main",
+      "golden_rating": 1000,
+      "epoch_ratings": {
+        "epoch_01": 900,
+        "epoch_02": 900,
+        "epoch_03": 900,
+        "epoch_04": 900,
+        "epoch_05": 900,
+        "epoch_06": 900
+      },
+      "similarity_scores": {},
+      "plans_summary": {},
+      "timestamp": "2026-01-30T06:36:13.503332"
+    },
+    {
+      "task_name": "svmbir-master",
+      "golden_rating": 1000,
+      "epoch_ratings": {
+        "epoch_01": 900,
+        "epoch_02": 900,
+        "epoch_03": 900,
+        "epoch_04": 900,
+        "epoch_05": 900,
+        "epoch_06": 900
+      },
+      "similarity_scores": {},
+      "plans_summary": {},
+      "timestamp": "2026-01-30T06:36:24.600117"
+    },
+    {
+      "task_name": "tomopy-master",
+      "golden_rating": 1000,
+      "epoch_ratings": {
+        "epoch_01": 900,
+        "epoch_02": 900,
+        "epoch_03": 900,
+        "epoch_04": 900,
+        "epoch_05": 900,
+        "epoch_06": 900
+      },
+      "similarity_scores": {},
+      "plans_summary": {},
+      "timestamp": "2026-01-30T06:36:37.060407"
+    },
+    {
+      "task_name": "us-beamform-linarray-master",
+      "golden_rating": 1000,
+      "epoch_ratings": {
+        "epoch_01": 900,
+        "epoch_02": 900,
+        "epoch_03": 900,
+        "epoch_04": 900,
+        "epoch_05": 900,
+        "epoch_06": 900
+      },
+      "similarity_scores": {},
+      "plans_summary": {},
+      "timestamp": "2026-01-30T06:36:48.905757"
+    },
+    {
+      "task_name": "nirfaster-FF-main_2",
+      "golden_rating": 1000,
+      "epoch_ratings": {
+        "epoch_01": 900,
+        "epoch_02": 900,
+        "epoch_03": 900,
+        "epoch_04": 900,
+        "epoch_05": 900,
+        "epoch_06": 900
+      },
+      "similarity_scores": {},
+      "plans_summary": {},
+      "timestamp": "2026-01-30T06:37:00.744122"
+    }
+  ],
+  "aggregated": {
+    "epochs": [
+      "epoch_01",
+      "epoch_02",
+      "epoch_03",
+      "epoch_04",
+      "epoch_05",
+      "epoch_06",
+      "epoch_07",
+      "epoch_08",
+      "epoch_09",
+      "epoch_10"
+    ],
+    "avg_ratings": [
+      945.0275412942708,
+      936.4012060210621,
+      938.3503526964574,
+      947.0960038088724,
+      943.859338519401,
+      936.3017182516071,
+      0,
+      0,
+      0,
+      0
+    ],
+    "std_ratings": [
+      52.911903534111644,
+      47.5456430791547,
+      48.4089037963945,
+      57.84209384688142,
+      50.4248923215851,
+      49.45973548963058,
+      0,
+      0,
+      0,
+      0
+    ],
+    "avg_cosine": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "std_cosine": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "task_count": 53,
+    "timestamp": "2026-01-30T06:37:00.746522"
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "task_name": "lfm",
+  "golden_rating": 1063.7990216687983,
+  "epoch_ratings": {
+    "epoch_01": 912.3313417976251,
+    "epoch_02": 980.0376107595051,
+    "epoch_03": 994.4017737915378,
+    "epoch_04": 1079.1485899135291,
+    "epoch_05": 968.8449904108646,
+    "epoch_06": 1001.43667165814
+  },
+  "similarity_scores": {
+    "epoch_01": {
+      "embedding_similarity": 0.6273849010467529,
+      "structural_similarity": 0.0,
+      "combined_score": 0.31369245052337646
+    },
+    "epoch_02": {
+      "embedding_similarity": 0.6102153658866882,
+      "structural_similarity": 0.0,
+      "combined_score": 0.3051076829433441
+    },
+    "epoch_03": {
+      "embedding_similarity": 0.7470654249191284,
+      "structural_similarity": 0.0,
+      "combined_score": 0.3735327124595642
+    },
+    "epoch_04": {
+      "embedding_similarity": 0.6754631400108337,
+      "structural_similarity": 0.0,
+      "combined_score": 0.33773157000541687
+    },
+    "epoch_05": {
+      "embedding_similarity": 0.7464921474456787,
+      "structural_similarity": 0.0,
+      "combined_score": 0.37324607372283936
+    },
+    "epoch_06": {
+      "embedding_similarity": 0.7667481899261475,
+      "structural_similarity": 0.0,
+      "combined_score": 0.38337409496307373
+    }
+  },
+  "plans_summary": {
+    "epoch_01": "```json\n{\n  \"algorithm_name\": \"Richardson-Lucy Deconvolution for Light Field Microscopy Volume Recon...",
+    "epoch_02": "```json\n{\n  \"algorithm_name\": \"Richardson-Lucy Deconvolution for Light Field Microscopy Volume Recon...",
+    "epoch_03": "```json\n{\n  \"algorithm_name\": \"Light Field Microscopy Richardson-Lucy Deconvolution\",\n  \"initializat...",
+    "epoch_04": "```json\n{\n  \"algorithm_name\": \"Light Field Microscopy Richardson-Lucy Deconvolution (LFM-RL)\",\n  \"al...",
+    "epoch_05": "```json\n{\n  \"algorithm_name\": \"Richardson-Lucy Deconvolution for Light Field Microscopy Volume Recon...",
+    "epoch_06": "```json\n{\n  \"algorithm_name\": \"Richardson-Lucy Deconvolution for Light Field Microscopy\",\n  \"initial..."
+  },
+  "timestamp": "2026-01-29T14:16:16.573162"
+}

@@ -1,0 +1,147 @@
+```json
+{
+  "algorithm_name": "ADMM-TV Lensless Image Reconstruction",
+  "initialization": [
+    "Load and normalize measurement y: [D, H, W, C] and PSF h: [D, H, W, C]",
+    "Compute padded dimensions: H_p = next_fast_len(2H - 1), W_p = next_fast_len(2W - 1)",
+    "Compute padding indices: s_0 = floor((H_p - H)/2), s_1 = floor((W_p - W)/2), e_0 = s_0 + H, e_1 = s_1 + W",
+    "Pad PSF: h_pad[s_0:e_0, s_1:e_1] = h, zeros elsewhere, shape [D, H_p, W_p, C]",
+    "Compute PSF frequency response: H_hat = rfft2(h_pad, axes=(-3,-2), norm='ortho'), shape [D, H_p, W_p//2+1, C]",
+    "Compute adjoint frequency response: H_adj = conj(H_hat)",
+    "Construct finite difference Gram kernel g with center value 4 (or 6 for D>1) and -1 at neighbors",
+    "Compute TV Gram in frequency: PsiTPsi = rfft2(g, axes=(-3,-2), norm='ortho')",
+    "Precompute x-update denominator: R_div = 1 / (μ_1 * |H_hat|² + μ_2 * |PsiTPsi| + μ_3)",
+    "Precompute X-update denominator: X_div = 1 / (mask + μ_1) where mask=1 in valid region",
+    "Pad measurement: y_pad of shape [1, D, H_p, W_p, C] with y centered",
+    "Initialize primal variable x = 0 of shape [1, D, H_p, W_p, C]",
+    "Initialize auxiliary variable X = 0 of shape [1, D, H_p, W_p, C]",
+    "Initialize auxiliary variable U = 0 of shape [1, D, H_p, W_p, C, 2]",
+    "Initialize auxiliary variable W = 0 of shape [1, D, H_p, W_p, C]",
+    "Initialize dual variable ξ = 0 of shape [1, D, H_p, W_p, C]",
+    "Initialize dual variable η = 0 of shape [1, D, H_p, W_p, C, 2]",
+    "Initialize dual variable ρ = 0 of shape [1, D, H_p, W_p, C]"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Compute finite differences of x",
+      "mathematical_description": "\\nabla x = \\text{stack}\\left( \\text{roll}(x, 1, \\text{axis}=-3) - x, \\; \\text{roll}(x, 1, \\text{axis}=-2) - x \\right)",
+      "required_operators": ["finite_difference", "roll", "stack"],
+      "inputs": ["x"],
+      "outputs": ["grad_x"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "U-update: soft thresholding for TV",
+      "mathematical_description": "v_U = \\nabla x + \\frac{\\eta}{\\mu_2}, \\quad U^{+} = \\text{sign}(v_U) \\odot \\max\\left(0, |v_U| - \\frac{\\tau}{\\mu_2}\\right)",
+      "required_operators": ["soft_threshold", "element_wise_add", "element_wise_multiply"],
+      "inputs": ["grad_x", "eta", "mu_2", "tau"],
+      "outputs": ["U"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Forward convolution Hx",
+      "mathematical_description": "Hx = \\text{ifftshift}\\left( \\mathcal{F}^{-1}_{\\text{2D}}\\left\\{ \\mathcal{F}_{\\text{2D}}\\{x\\} \\odot \\hat{H} \\right\\} \\right)",
+      "required_operators": ["rfft2", "irfft2", "ifftshift", "element_wise_multiply"],
+      "inputs": ["x", "H_hat"],
+      "outputs": ["Hx"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "X-update: data fidelity proximal",
+      "mathematical_description": "X^{+} = X_{\\text{div}} \\odot \\left( \\xi + \\mu_1 \\cdot Hx + y_{\\text{pad}} \\right)",
+      "required_operators": ["element_wise_multiply", "element_wise_add"],
+      "inputs": ["X_div", "xi", "mu_1", "Hx", "y_pad"],
+      "outputs": ["X"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "W-update: non-negativity projection",
+      "mathematical_description": "W^{+} = \\max\\left( \\frac{\\rho}{\\mu_3} + x, \\; 0 \\right)",
+      "required_operators": ["element_wise_add", "element_wise_max", "projection_nonnegative"],
+      "inputs": ["rho", "mu_3", "x"],
+      "outputs": ["W"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Compute r1: non-negativity contribution",
+      "mathematical_description": "r_1 = \\mu_3 W^{+} - \\rho",
+      "required_operators": ["element_wise_multiply", "element_wise_subtract"],
+      "inputs": ["mu_3", "W", "rho"],
+      "outputs": ["r1"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "Compute r2: TV adjoint contribution",
+      "mathematical_description": "v_\\eta = \\mu_2 U^{+} - \\eta, \\quad r_2 = \\nabla^T v_\\eta = \\sum_{d \\in \\{0,1\\}} \\left( \\text{roll}(v_\\eta[...,d], -1, \\text{axis}=-(3-d)) - v_\\eta[...,d] \\right)",
+      "required_operators": ["element_wise_multiply", "element_wise_subtract", "finite_difference_adjoint", "roll"],
+      "inputs": ["mu_2", "U", "eta"],
+      "outputs": ["r2"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "Compute r3: data fidelity adjoint contribution",
+      "mathematical_description": "v_\\xi = \\mu_1 X^{+} - \\xi, \\quad r_3 = H^T v_\\xi = \\text{ifftshift}\\left( \\mathcal{F}^{-1}_{\\text{2D}}\\left\\{ \\mathcal{F}_{\\text{2D}}\\{v_\\xi\\} \\odot \\hat{H}^* \\right\\} \\right)",
+      "required_operators": ["element_wise_multiply", "element_wise_subtract", "rfft2", "irfft2", "ifftshift", "conjugate"],
+      "inputs": ["mu_1", "X", "xi", "H_adj"],
+      "outputs": ["r3"]
+    },
+    {
+      "step_order": 9,
+      "step_name": "Assemble RHS for x-update",
+      "mathematical_description": "r_k = r_1 + r_2 + r_3",
+      "required_operators": ["element_wise_add"],
+      "inputs": ["r1", "r2", "r3"],
+      "outputs": ["r_k"]
+    },
+    {
+      "step_order": 10,
+      "step_name": "x-update: frequency domain solve",
+      "mathematical_description": "x^{+} = \\mathcal{F}^{-1}_{\\text{2D}}\\left\\{ R_{\\text{div}} \\odot \\mathcal{F}_{\\text{2D}}\\{r_k\\} \\right\\}",
+      "required_operators": ["rfft2", "irfft2", "element_wise_multiply"],
+      "inputs": ["R_div", "r_k"],
+      "outputs": ["x"]
+    },
+    {
+      "step_order": 11,
+      "step_name": "Recompute Hx for dual update",
+      "mathematical_description": "Hx^{+} = \\text{ifftshift}\\left( \\mathcal{F}^{-1}_{\\text{2D}}\\left\\{ \\mathcal{F}_{\\text{2D}}\\{x^{+}\\} \\odot \\hat{H} \\right\\} \\right)",
+      "required_operators": ["rfft2", "irfft2", "ifftshift", "element_wise_multiply"],
+      "inputs": ["x", "H_hat"],
+      "outputs": ["Hx_new"]
+    },
+    {
+      "step_order": 12,
+      "step_name": "Recompute gradient for dual update",
+      "mathematical_description": "\\nabla x^{+} = \\text{stack}\\left( \\text{roll}(x^{+}, 1, \\text{axis}=-3) - x^{+}, \\; \\text{roll}(x^{+}, 1, \\text{axis}=-2) - x^{+} \\right)",
+      "required_operators": ["finite_difference", "roll", "stack"],
+      "inputs": ["x"],
+      "outputs": ["grad_x_new"]
+    },
+    {
+      "step_order": 13,
+      "step_name": "Dual update: xi (data fidelity)",
+      "mathematical_description": "\\xi^{+} = \\xi + \\mu_1 \\left( Hx^{+} - X^{+} \\right)",
+      "required_operators": ["element_wise_add", "element_wise_subtract", "element_wise_multiply"],
+      "inputs": ["xi", "mu_1", "Hx_new", "X"],
+      "outputs": ["xi"]
+    },
+    {
+      "step_order": 14,
+      "step_name": "Dual update: eta (TV constraint)",
+      "mathematical_description": "\\eta^{+} = \\eta + \\mu_2 \\left( \\nabla x^{+} - U^{+} \\right)",
+      "required_operators": ["element_wise_add", "element_wise_subtract", "element_wise_multiply"],
+      "inputs": ["eta", "mu_2", "grad_x_new", "U"],
+      "outputs": ["eta"]
+    },
+    {
+      "step_order": 15,
+      "step_name": "Dual update: rho (non-negativity)",
+      "mathematical_description": "\\rho^{+} = \\rho + \\mu_3 \\left( x^{+} - W^{+} \\right)",
+      "required_operators": ["element_wise_add", "element_wise_subtract", "element_wise_multiply"],
+      "inputs": ["rho", "mu_3", "x", "W"],
+      "outputs": ["rho"]
+    }
+  ]
+}
+```

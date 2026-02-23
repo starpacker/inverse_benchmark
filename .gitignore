@@ -48,3 +48,11 @@ new_flow/output_*/
 *.png
 *.gif
 *.bmp
+
+# Large JSON log files
+*.jsonl
+
+
+
+# Execution report JSONs (large)
+inverse_agent_whole/execution_report_*.json

@@ -1,0 +1,70 @@
+```json
+{
+  "algorithm_name": "Zernike Modal Decomposition with FFT-based PSF Forward Model",
+  "initialization": [
+    "Initialize empty list rmse_history = [] to store RMSE values",
+    "Initialize empty list all_coeffs = [] to store Zernike coefficient vectors",
+    "Initialize empty list all_opd_original = [] to store original OPD maps",
+    "Initialize empty list all_opd_reconstructed = [] to store reconstructed OPD maps",
+    "Initialize iteration counter t = 0"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Atmosphere Update",
+      "mathematical_description": "\\text{OPD}_t \\leftarrow \\text{atm.update}()",
+      "required_operators": ["atmosphere_update"],
+      "inputs": ["atm", "v_wind", "Δt"],
+      "outputs": ["OPD_t"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Extract Pupil-Masked OPD",
+      "mathematical_description": "\\boldsymbol{\\phi}_{\\text{masked}} = \\text{OPD}_t[\\mathbf{A} = 1]",
+      "required_operators": ["boolean_indexing", "copy"],
+      "inputs": ["OPD_t", "A"],
+      "outputs": ["φ_masked"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Zernike Coefficient Projection (Inverse Problem)",
+      "mathematical_description": "\\mathbf{c}_t = \\mathbf{Z}^+ \\boldsymbol{\\phi}_{\\text{masked}}",
+      "required_operators": ["matrix_vector_multiply"],
+      "inputs": ["Z_pinv", "φ_masked"],
+      "outputs": ["c_t"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "OPD Reconstruction (Forward Model)",
+      "mathematical_description": "\\text{OPD}_{\\text{rec}} = \\text{reshape}(\\mathbf{Z}_{\\text{full}} \\mathbf{c}_t, (N, N))",
+      "required_operators": ["matrix_vector_multiply", "reshape"],
+      "inputs": ["Z_full", "c_t", "N"],
+      "outputs": ["OPD_rec"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "Compute Residual Map",
+      "mathematical_description": "\\mathbf{R}_t = (\\text{OPD}_t - \\text{OPD}_{\\text{rec}}) \\odot \\mathbf{A}",
+      "required_operators": ["subtract", "hadamard_product"],
+      "inputs": ["OPD_t", "OPD_rec", "A"],
+      "outputs": ["R_t"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Compute RMSE Metric",
+      "mathematical_description": "\\text{RMSE}_t = \\sqrt{\\frac{1}{N_p} \\sum_{p \\in \\mathcal{P}} R_{t,p}^2}",
+      "required_operators": ["boolean_indexing", "std"],
+      "inputs": ["R_t", "A"],
+      "outputs": ["RMSE_t"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "Update Storage and Increment Counter",
+      "mathematical_description": "\\text{rmse\\_history} \\leftarrow \\text{rmse\\_history} \\cup \\{\\text{RMSE}_t\\}, \\quad t \\leftarrow t + 1",
+      "required_operators": ["list_append", "copy", "increment"],
+      "inputs": ["RMSE_t", "c_t", "OPD_t", "OPD_rec", "t"],
+      "outputs": ["rmse_history", "all_coeffs", "all_opd_original", "all_opd_reconstructed", "t"]
+    }
+  ]
+}
+```

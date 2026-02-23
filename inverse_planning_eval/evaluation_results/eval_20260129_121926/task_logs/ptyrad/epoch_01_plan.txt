@@ -1,0 +1,164 @@
+```json
+{
+  "algorithm_name": "Multislice Ptychographic Reconstruction via Automatic Differentiation",
+  "initialization": [
+    "Load parameters from YAML configuration file: params ← load(params_path)",
+    "Set computational device: device ← cuda or cpu based on gpuid",
+    "Initialize object amplitude: A^{(s,m)} ← |O_{init}^{(s,m)}| with shape (N_m, N_s, N_{oy}, N_{ox})",
+    "Initialize object phase: φ^{(s,m)} ← angle(O_{init}^{(s,m)}) with shape (N_m, N_s, N_{oy}, N_{ox})",
+    "Initialize probe: P ← view_as_real(P_{init}) with shape (N_p, N_m, N_{py}, N_{px}, 2)",
+    "Initialize object tilts: θ ← from config with shape (N_{tilt}, 2) in mrad",
+    "Initialize slice thickness: Δz ← from config as scalar or (N_s,)",
+    "Initialize probe position shifts: δr ← zeros with shape (N, 2)",
+    "Build reciprocal space frequency grids: K_y[n] = ifftshift(2π(n - N_{py}/2 + 0.5)/(N_{py} · dx)), K_x[n] = ifftshift(2π(n - N_{px}/2 + 0.5)/(N_{px} · dx))",
+    "Build shift frequency grids: k_y = fftfreq(N_{py}), k_x = fftfreq(N_{px})",
+    "Compute z-component of wavevector: K_z = sqrt(k² - K_x² - K_y²) where k = 2π/λ",
+    "Initialize integer crop positions: c ← crop_pos with shape (N, 2)",
+    "Initialize mode occupancy weights: w ← omode_occu with shape (N_m,)",
+    "Compute probe intensity normalization: I_P = Σ|P|²",
+    "Initialize loss function: loss_fn ← CombinedLoss(loss_params)",
+    "Initialize constraint function: constraint_fn ← CombinedConstraint(constraint_params)",
+    "Create optimizer: optimizer ← Adam(optimizable_params, lr_params)",
+    "Prepare batch indices: batches ← partition({1,...,N}, batch_size)",
+    "Compute base Fresnel propagator: H_0 = exp(j · Δz · K_z)"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Sample Batch",
+      "mathematical_description": "\\mathcal{B}_t \\subseteq \\{1, \\ldots, N\\}",
+      "required_operators": ["BatchSampler"],
+      "inputs": ["batch_schedule", "iteration_index_t"],
+      "outputs": ["batch_indices_B_t"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Update Gradient Requirements",
+      "mathematical_description": "\\forall v \\in \\mathbf{x}: \\text{requires\\_grad}(v) = (\\eta_v \\neq 0) \\wedge (t_{\\text{start}}^v \\leq t \\leq t_{\\text{end}}^v)",
+      "required_operators": ["ConditionalGradientFlag"],
+      "inputs": ["iteration_index_t", "lr_params", "start_iter", "end_iter"],
+      "outputs": ["gradient_flags"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Construct Complex Object",
+      "mathematical_description": "O^{(s,m)}[n_y, n_x] = A^{(s,m)}[n_y, n_x] \\cdot \\exp\\bigl(j\\,\\phi^{(s,m)}[n_y, n_x]\\bigr)",
+      "required_operators": ["ComplexExponential", "ElementwiseMultiply"],
+      "inputs": ["opt_obja_A", "opt_objp_phi"],
+      "outputs": ["complex_object_O"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Extract Object Patches",
+      "mathematical_description": "O_i^{(s,m)}[p_y, p_x] = O^{(s,m)}\\bigl[p_y + c_y^{(i)},\\; p_x + c_x^{(i)}\\bigr] \\quad \\forall i \\in \\mathcal{B}_t",
+      "required_operators": ["ROIExtraction", "BatchIndexing"],
+      "inputs": ["complex_object_O", "crop_pos_c", "batch_indices_B_t"],
+      "outputs": ["object_patches_O_B"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "Optional Object Pre-blur",
+      "mathematical_description": "\\tilde{O}_i = G_{\\sigma_{\\text{obj}}} * O_i \\quad \\text{if } \\sigma_{\\text{obj}} > 0, \\text{ else } \\tilde{O}_i = O_i",
+      "required_operators": ["GaussianBlur2D", "Convolution2D"],
+      "inputs": ["object_patches_O_B", "obj_preblur_std_sigma_obj"],
+      "outputs": ["blurred_object_patches_O_tilde_B"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Apply Sub-pixel Probe Shifts",
+      "mathematical_description": "P_i^{(p,m)}[k_y, k_x] = \\mathcal{F}^{-1}\\Bigl[\\mathcal{F}[P^{(p,m)}] \\cdot \\exp\\bigl(-j2\\pi(k_y \\delta r_y^{(i)} + k_x \\delta r_x^{(i)})\\bigr)\\Bigr]",
+      "required_operators": ["FFT2D", "IFFT2D", "ComplexExponential", "ElementwiseMultiply"],
+      "inputs": ["opt_probe_P", "opt_probe_pos_shifts_delta_r", "shift_probes_grid_k", "batch_indices_B_t"],
+      "outputs": ["shifted_probes_P_B"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "Compute Fresnel Propagators",
+      "mathematical_description": "H_i[K_y, K_x] = \\exp\\Bigl(j\\,\\Delta z \\cdot K_z[K_y, K_x]\\Bigr) \\cdot \\exp\\Bigl(j\\,\\Delta z\\,(K_y \\tan\\theta_y^{(i)} + K_x \\tan\\theta_x^{(i)})\\Bigr)",
+      "required_operators": ["ComplexExponential", "ElementwiseMultiply", "Tangent"],
+      "inputs": ["opt_slice_thickness_delta_z", "opt_obj_tilts_theta", "propagator_grid_K", "Kz", "batch_indices_B_t"],
+      "outputs": ["propagators_H_B"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "Initialize Multislice Wave",
+      "mathematical_description": "\\psi_i^{(0)} = P_i \\quad \\forall i \\in \\mathcal{B}_t",
+      "required_operators": ["Copy"],
+      "inputs": ["shifted_probes_P_B"],
+      "outputs": ["wave_psi_0"]
+    },
+    {
+      "step_order": 9,
+      "step_name": "Multislice Wave Propagation Loop",
+      "mathematical_description": "\\text{For } s = 1, \\ldots, N_s: \\quad \\psi_i^{(s)} = \\mathcal{F}^{-1}\\Bigl[H_i \\cdot \\mathcal{F}\\bigl[\\psi_i^{(s-1)} \\odot \\tilde{O}_i^{(s)}\\bigr]\\Bigr]",
+      "required_operators": ["FFT2D", "IFFT2D", "ElementwiseMultiply", "SliceIndexing"],
+      "inputs": ["wave_psi_0", "blurred_object_patches_O_tilde_B", "propagators_H_B", "num_slices_N_s"],
+      "outputs": ["exit_wave_psi_Ns"]
+    },
+    {
+      "step_order": 10,
+      "step_name": "Compute Exit Wave Intensity",
+      "mathematical_description": "\\hat{I}_i = \\sum_{m=1}^{N_m} w_m \\cdot \\Bigl|\\mathcal{F}\\bigl[\\psi_i^{(N_s, m)}\\bigr]\\Bigr|^2",
+      "required_operators": ["FFT2D", "ComplexModulusSquared", "WeightedSum"],
+      "inputs": ["exit_wave_psi_Ns", "omode_occu_w"],
+      "outputs": ["predicted_intensity_I_hat"]
+    },
+    {
+      "step_order": 11,
+      "step_name": "Optional Detector Blur",
+      "mathematical_description": "\\hat{y}_i = G_{\\sigma_{\\text{det}}} * \\hat{I}_i \\quad \\text{if } \\sigma_{\\text{det}} > 0, \\text{ else } \\hat{y}_i = \\hat{I}_i",
+      "required_operators": ["GaussianBlur2D", "Convolution2D"],
+      "inputs": ["predicted_intensity_I_hat", "detector_blur_std_sigma_det"],
+      "outputs": ["predicted_diffraction_y_hat"]
+    },
+    {
+      "step_order": 12,
+      "step_name": "Retrieve Measurements",
+      "mathematical_description": "y_i \\text{ for } i \\in \\mathcal{B}_t \\text{ with optional padding/resampling}",
+      "required_operators": ["BatchIndexing", "Padding", "Resampling"],
+      "inputs": ["measurements_y", "batch_indices_B_t", "meas_padded", "meas_scale_factors"],
+      "outputs": ["batch_measurements_y_B"]
+    },
+    {
+      "step_order": 13,
+      "step_name": "Compute Data Fidelity Loss",
+      "mathematical_description": "\\mathcal{L}_t = \\mathcal{L}_{\\text{data}}(\\hat{\\mathbf{y}}_{\\mathcal{B}_t}, \\mathbf{y}_{\\mathcal{B}_t}) + \\mathcal{L}_{\\text{reg}}(O_{\\mathcal{B}_t})",
+      "required_operators": ["CombinedLoss", "AmplitudeLoss", "IntensityLoss", "PoissonLoss", "Regularization"],
+      "inputs": ["predicted_diffraction_y_hat", "batch_measurements_y_B", "object_patches_O_B", "loss_fn"],
+      "outputs": ["loss_L_t"]
+    },
+    {
+      "step_order": 14,
+      "step_name": "Backward Pass",
+      "mathematical_description": "\\nabla_{\\mathbf{x}} \\mathcal{L}_t \\text{ via automatic differentiation (autograd)}",
+      "required_operators": ["AutogradBackward"],
+      "inputs": ["loss_L_t"],
+      "outputs": ["gradients_nabla_L"]
+    },
+    {
+      "step_order": 15,
+      "step_name": "Optimizer Step",
+      "mathematical_description": "\\mathbf{x}^{(t+1)} = \\mathbf{x}^{(t)} - \\eta \\cdot \\text{Adam}(\\nabla_{\\mathbf{x}} \\mathcal{L}_t)",
+      "required_operators": ["AdamOptimizer", "ParameterUpdate"],
+      "inputs": ["gradients_nabla_L", "lr_params", "optimizer_state"],
+      "outputs": ["opt_obja_A", "opt_objp_phi", "opt_probe_P", "opt_obj_tilts_theta", "opt_slice_thickness_delta_z", "opt_probe_pos_shifts_delta_r"]
+    },
+    {
+      "step_order": 16,
+      "step_name": "Apply Constraints",
+      "mathematical_description": "\\mathbf{x}^{(t+1)} \\leftarrow \\text{constraint\\_fn}(\\mathbf{x}^{(t+1)}, t)",
+      "required_operators": ["CombinedConstraint", "ProbeNormalization", "AmplitudeClipping", "PhaseWrapping"],
+      "inputs": ["opt_obja_A", "opt_objp_phi", "opt_probe_P", "opt_obj_tilts_theta", "opt_slice_thickness_delta_z", "opt_probe_pos_shifts_delta_r", "iteration_index_t", "constraint_fn"],
+      "outputs": ["opt_obja_A", "opt_objp_phi", "opt_probe_P", "opt_obj_tilts_theta", "opt_slice_thickness_delta_z", "opt_probe_pos_shifts_delta_r"]
+    },
+    {
+      "step_order": 17,
+      "step_name": "Log Metrics",
+      "mathematical_description": "\\text{Store } \\mathcal{L}_t, \\Delta z, \\boldsymbol{\\theta}, \\text{timing information}",
+      "required_operators": ["MetricLogger"],
+      "inputs": ["loss_L_t", "opt_slice_thickness_delta_z", "opt_obj_tilts_theta", "iteration_index_t"],
+      "outputs": ["iteration_logs"]
+    }
+  ]
+}
+```

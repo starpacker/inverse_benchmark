@@ -1,0 +1,101 @@
+```json
+{
+  "algorithm_name": "Richardson-Lucy 3D Deconvolution",
+  "initialization": [
+    "Compute mean of observation: $\\bar{y} = \\frac{1}{n_y n_x} \\sum_{i,j} y_{ij}$",
+    "Initialize 3D volume estimate uniformly: $x^{(0)}_{z,i,j} = \\bar{y} \\quad \\forall z \\in [0, n_z), i \\in [0, n_y), j \\in [0, n_x)$",
+    "Precompute PSF FFTs: $\\hat{H}_z = \\mathcal{F}_{2D}[h_z]$ and $\\hat{H}^T_z = \\mathcal{F}_{2D}[\\text{flip}_{2D}(h_z)]$ for all z",
+    "Set numerical stability constant $\\epsilon = 10^{-8}$"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "compute_estimate_fft",
+      "mathematical_description": "$\\hat{X}^{(k)}_z = \\mathcal{F}_{2D}[x^{(k)}_z] \\quad \\forall z \\in [0, n_z)$",
+      "required_operators": ["rfft2d"],
+      "inputs": ["x^{(k)}"],
+      "outputs": ["X_hat^{(k)}"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "frequency_domain_convolution",
+      "mathematical_description": "$\\hat{C}^{(k)}_z = \\hat{X}^{(k)}_z \\odot \\hat{H}_z \\quad \\forall z \\in [0, n_z)$",
+      "required_operators": ["element_wise_multiply_complex"],
+      "inputs": ["X_hat^{(k)}", "H_hat"],
+      "outputs": ["C_hat^{(k)}"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "inverse_fft_layers",
+      "mathematical_description": "$C^{(k)}_z = \\mathcal{F}^{-1}_{2D}[\\hat{C}^{(k)}_z] \\quad \\forall z \\in [0, n_z)$",
+      "required_operators": ["irfft2d"],
+      "inputs": ["C_hat^{(k)}"],
+      "outputs": ["C^{(k)}"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "sum_over_depth",
+      "mathematical_description": "$\\hat{y}^{(k)} = \\sum_{z=0}^{n_z-1} C^{(k)}_z$",
+      "required_operators": ["sum_along_axis"],
+      "inputs": ["C^{(k)}"],
+      "outputs": ["y_hat^{(k)}"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "compute_ratio",
+      "mathematical_description": "$r^{(k)}_{ij} = \\frac{y_{ij}}{\\hat{y}^{(k)}_{ij} + \\epsilon}$",
+      "required_operators": ["element_wise_division", "element_wise_add_scalar"],
+      "inputs": ["y", "y_hat^{(k)}", "epsilon"],
+      "outputs": ["r^{(k)}"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "compute_ratio_fft",
+      "mathematical_description": "$\\hat{R}^{(k)} = \\mathcal{F}_{2D}[r^{(k)}]$",
+      "required_operators": ["rfft2d"],
+      "inputs": ["r^{(k)}"],
+      "outputs": ["R_hat^{(k)}"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "broadcast_ratio_fft",
+      "mathematical_description": "$\\hat{R}^{(k)}_{\\text{exp}} = \\text{expand}(\\hat{R}^{(k)}, \\text{axis}=0)$ to shape $(1, n_y, \\lfloor n_x/2 \\rfloor + 1)$",
+      "required_operators": ["expand_dims"],
+      "inputs": ["R_hat^{(k)}"],
+      "outputs": ["R_hat_exp^{(k)}"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "frequency_domain_backprojection",
+      "mathematical_description": "$\\hat{U}^{(k)}_z = \\hat{R}^{(k)}_{\\text{exp}} \\odot \\hat{H}^T_z \\quad \\forall z \\in [0, n_z)$",
+      "required_operators": ["element_wise_multiply_complex_broadcast"],
+      "inputs": ["R_hat_exp^{(k)}", "H_hat_T"],
+      "outputs": ["U_hat^{(k)}"]
+    },
+    {
+      "step_order": 9,
+      "step_name": "inverse_fft_update",
+      "mathematical_description": "$u^{(k)}_z = \\mathcal{F}^{-1}_{2D}[\\hat{U}^{(k)}_z] \\quad \\forall z \\in [0, n_z)$",
+      "required_operators": ["irfft2d"],
+      "inputs": ["U_hat^{(k)}"],
+      "outputs": ["u^{(k)}"]
+    },
+    {
+      "step_order": 10,
+      "step_name": "multiplicative_update",
+      "mathematical_description": "$\\tilde{x}^{(k+1)} = x^{(k)} \\odot u^{(k)}$",
+      "required_operators": ["element_wise_multiply"],
+      "inputs": ["x^{(k)}", "u^{(k)}"],
+      "outputs": ["x_tilde^{(k+1)}"]
+    },
+    {
+      "step_order": 11,
+      "step_name": "enforce_nonnegativity",
+      "mathematical_description": "$x^{(k+1)}_{z,i,j} = \\max(\\tilde{x}^{(k+1)}_{z,i,j}, 0)$",
+      "required_operators": ["element_wise_maximum_scalar"],
+      "inputs": ["x_tilde^{(k+1)}"],
+      "outputs": ["x^{(k+1)}"]
+    }
+  ]
+}
+```

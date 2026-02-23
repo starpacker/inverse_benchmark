@@ -1,0 +1,112 @@
+```json
+{
+  "algorithm_name": "3D EIT Jacobian-Based Tikhonov Reconstruction",
+  "initialization": [
+    "Load preprocessed mesh data: node coordinates pts ∈ ℝ^{N_nodes × 3}, tetrahedron connectivity tri ∈ ℤ^{N_e × 4}",
+    "Load precomputed local stiffness matrices: se ∈ ℝ^{N_e × 4 × 4} where K_ij^{(loc)} = (a_i · a_j)/(36 V_e)",
+    "Load excitation pattern ex_mat ∈ ℤ^{N_exc × 2} and measurement pattern meas_mat ∈ ℤ^{N_m × 3}",
+    "Load electrode positions el_pos ∈ ℤ^{N_el} mapping electrodes to node indices",
+    "Load observed voltages: baseline v0 ∈ ℝ^{N_m}, perturbed v1 ∈ ℝ^{N_m}",
+    "Initialize conductivity distribution: perm ← perm_baseline (typically σ_e = 1 for all e)",
+    "Set hyperparameters: λ (regularization weight), p (Kotre exponent), method ∈ {kotre, lm, dgn}"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Assemble Global Stiffness Matrix",
+      "mathematical_description": "\\mathbf{K} = \\sum_{e=1}^{N_e} \\sigma_e \\mathbf{K}_e^{(loc)}, \\quad \\text{with Dirichlet BC: } K_{ref,ref} \\leftarrow K_{ref,ref} + 10^{10}",
+      "required_operators": ["sparse_matrix_assembly", "element_scatter_add"],
+      "inputs": ["se", "tri", "perm", "ref_node"],
+      "outputs": ["kg"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Construct Excitation RHS",
+      "mathematical_description": "\\mathbf{b}[k, \\text{el\\_pos}[\\text{ex\\_mat}[k,0]]] = +1, \\quad \\mathbf{b}[k, \\text{el\\_pos}[\\text{ex\\_mat}[k,1]]] = -1",
+      "required_operators": ["sparse_matrix_construction", "index_assignment"],
+      "inputs": ["ex_mat", "el_pos", "N_exc", "N_nodes"],
+      "outputs": ["b"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Forward Solve for Potential Fields",
+      "mathematical_description": "\\boldsymbol{\\phi}_k = \\mathbf{K}^{-1} \\mathbf{b}_k, \\quad k = 1, \\ldots, N_{exc}",
+      "required_operators": ["sparse_linear_solve", "batch_solve"],
+      "inputs": ["kg", "b"],
+      "outputs": ["f"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Compute Inverse Kernel at Electrodes",
+      "mathematical_description": "\\mathbf{R}_{mat} = (\\mathbf{K}^{-1})_{\\text{el\\_pos},:} \\in \\mathbb{R}^{N_{el} \\times N_{nodes}}",
+      "required_operators": ["sparse_linear_solve", "identity_rhs_construction", "row_extraction"],
+      "inputs": ["kg", "el_pos"],
+      "outputs": ["r_mat"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "Expand Sensitivity to All Excitations",
+      "mathematical_description": "\\mathbf{R}_{el}[k,:,:] = \\mathbf{R}_{mat}, \\quad \\forall k \\in \\{1, \\ldots, N_{exc}\\}",
+      "required_operators": ["tensor_broadcast", "tile_operation"],
+      "inputs": ["r_mat", "N_exc"],
+      "outputs": ["r_el"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Compute Measurement Sensitivity Vectors",
+      "mathematical_description": "\\mathbf{r}_i = \\mathbf{R}_{el}[\\text{exc}_i, n_i, :] - \\mathbf{R}_{el}[\\text{exc}_i, m_i, :], \\quad i = 1, \\ldots, N_m",
+      "required_operators": ["advanced_indexing", "vector_subtraction"],
+      "inputs": ["r_el", "meas_mat"],
+      "outputs": ["ri"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "Assemble Jacobian Matrix",
+      "mathematical_description": "J_{k,e} = \\mathbf{r}_{k,\\mathcal{I}_e}^T \\mathbf{K}_e^{(loc)} \\boldsymbol{\\phi}_{\\text{exc}[k],\\mathcal{I}_e} = \\sum_{i,j \\in e} r_{k,i} \\cdot K_{ij}^{(loc)} \\cdot \\phi_{\\text{exc}[k],j}",
+      "required_operators": ["batched_bilinear_form", "gather_by_index", "matrix_vector_product"],
+      "inputs": ["ri", "se", "f", "tri", "meas_mat"],
+      "outputs": ["jac"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "Compute Gram Matrix",
+      "mathematical_description": "\\mathbf{G} = \\mathbf{J}^T \\mathbf{J} \\in \\mathbb{R}^{N_e \\times N_e}",
+      "required_operators": ["matrix_transpose", "matrix_multiplication"],
+      "inputs": ["jac"],
+      "outputs": ["j_w_j"]
+    },
+    {
+      "step_order": 9,
+      "step_name": "Build Regularization Matrix",
+      "mathematical_description": "\\mathbf{R} = \\begin{cases} \\text{diag}((\\text{diag}(\\mathbf{G}))^p) & \\text{if method = kotre} \\\\ \\text{diag}(\\text{diag}(\\mathbf{G})) & \\text{if method = lm} \\\\ \\mathbf{I} & \\text{if method = dgn} \\end{cases}",
+      "required_operators": ["diagonal_extraction", "elementwise_power", "diagonal_matrix_construction"],
+      "inputs": ["j_w_j", "p", "method"],
+      "outputs": ["r_mat_reg"]
+    },
+    {
+      "step_order": 10,
+      "step_name": "Compute Regularized Inverse Operator",
+      "mathematical_description": "\\mathbf{H} = (\\mathbf{G} + \\lambda \\mathbf{R})^{-1} \\mathbf{J}^T \\in \\mathbb{R}^{N_e \\times N_m}",
+      "required_operators": ["matrix_addition", "scalar_matrix_multiplication", "matrix_inversion", "matrix_multiplication"],
+      "inputs": ["j_w_j", "r_mat_reg", "jac", "lamb"],
+      "outputs": ["H"]
+    },
+    {
+      "step_order": 11,
+      "step_name": "Compute Voltage Difference",
+      "mathematical_description": "\\Delta\\mathbf{v} = \\begin{cases} \\mathbf{v}_1 - \\mathbf{v}_0 & \\text{if normalize = False} \\\\ \\log(|\\mathbf{v}_1|/|\\mathbf{v}_0|) \\cdot \\text{sign}(\\mathbf{v}_0) & \\text{if normalize = True} \\end{cases}",
+      "required_operators": ["vector_subtraction", "elementwise_abs", "elementwise_log", "elementwise_division", "elementwise_sign"],
+      "inputs": ["v1", "v0", "normalize"],
+      "outputs": ["dv"]
+    },
+    {
+      "step_order": 12,
+      "step_name": "Solve Linearized Inverse Problem",
+      "mathematical_description": "\\Delta\\hat{\\boldsymbol{\\sigma}} = -\\mathbf{H} \\cdot \\Delta\\mathbf{v}",
+      "required_operators": ["matrix_vector_multiplication", "scalar_vector_multiplication"],
+      "inputs": ["H", "dv"],
+      "outputs": ["ds"]
+    }
+  ]
+}
+```

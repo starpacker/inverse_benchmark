@@ -1,0 +1,289 @@
+```json
+{
+  "algorithm_name": "Light Field Microscopy Richardson-Lucy Deconvolution (LFM-RL)",
+  "algorithm_family": "Expectation-Maximization / Maximum Likelihood Iterative Deconvolution",
+  "summary": "Reconstructs a 3D volume from a 2D light field microscopy image using Richardson-Lucy iterative deconvolution with depth-adaptive anti-aliasing filtering and sensitivity correction.",
+  "objective_function": {
+    "full_expression": "\\hat{V} = \\arg\\max_{V \\geq 0} \\mathcal{L}(V) = \\arg\\max_{V \\geq 0} \\sum_{i} \\left[ y_i \\log((\\mathbf{H}V)_i) - (\\mathbf{H}V)_i \\right]",
+    "data_fidelity_term": "\\mathcal{D}(V) = -\\sum_{i} \\left[ y_i \\log((\\mathbf{H}V)_i) - (\\mathbf{H}V)_i \\right]",
+    "regularization_term": "\\mathcal{R}(V) = \\text{Depth-adaptive Lanczos low-pass filtering applied per-slice (implicit)}",
+    "constraints": [
+      "V \\geq 0 \\quad \\text{(enforced implicitly via multiplicative updates)}",
+      "\\mathbb{I}_{\\text{finite}}(V) = \\begin{cases} 0 & \\text{if all elements finite} \\\\ +\\infty & \\text{otherwise} \\end{cases}"
+    ]
+  },
+  "variables": {
+    "primal_variables": [
+      {
+        "symbol": "V^{(k)}",
+        "code_name": "reconVolume",
+        "shape": "(N_x, N_y, N_z)",
+        "dtype": "float32",
+        "initialization": "ones",
+        "description": "Reconstructed 3D volume at iteration k"
+      }
+    ],
+    "dual_variables": [],
+    "auxiliary_variables": [
+      {
+        "symbol": "V^{(0)}",
+        "code_name": "initVolume",
+        "shape": "(N_x, N_y, N_z)",
+        "dtype": "float32",
+        "description": "Initial unit volume for normalization computation"
+      },
+      {
+        "symbol": "\\mathbf{s}_f",
+        "code_name": "onesForward",
+        "shape": "(M_x, M_y)",
+        "dtype": "float32",
+        "description": "Forward projection sensitivity map"
+      },
+      {
+        "symbol": "\\mathbf{s}_b",
+        "code_name": "onesBack",
+        "shape": "(N_x, N_y, N_z)",
+        "dtype": "float32",
+        "description": "Back projection sensitivity map"
+      },
+      {
+        "symbol": "\\hat{y}^{(k)}",
+        "code_name": "LFimageGuess",
+        "shape": "(M_x, M_y)",
+        "dtype": "float32",
+        "description": "Predicted light field image at iteration k"
+      },
+      {
+        "symbol": "\\mathbf{e}^{(k)}_{\\text{LF}}",
+        "code_name": "errorLFimage",
+        "shape": "(M_x, M_y)",
+        "dtype": "float32",
+        "description": "Weighted ratio error in image space"
+      },
+      {
+        "symbol": "\\mathbf{e}^{(k)}_{\\text{vol}}",
+        "code_name": "errorBack",
+        "shape": "(N_x, N_y, N_z)",
+        "dtype": "float32",
+        "description": "Normalized back-projected error"
+      },
+      {
+        "symbol": "\\mathcal{K}",
+        "code_name": "kernelFFT",
+        "shape": "(N_x, N_y, N_z)",
+        "dtype": "complex64",
+        "description": "Depth-adaptive Lanczos filter kernels in Fourier domain"
+      },
+      {
+        "symbol": "\\mathbf{w}",
+        "code_name": "widths",
+        "shape": "(N_z,)",
+        "dtype": "float32",
+        "description": "Depth-adaptive filter widths"
+      }
+    ],
+    "constants": [
+      {"symbol": "depth_range", "value": "[-300, 300] mm", "description": "Min/max reconstruction depth"},
+      {"symbol": "depth_step", "value": "150 mm", "description": "Depth sampling interval"},
+      {"symbol": "new_spacing_px", "value": "15 pixels", "description": "Lenslet spacing after resampling"},
+      {"symbol": "super_res_factor", "value": "5", "description": "Super-resolution factor"},
+      {"symbol": "lanczos_window_size", "value": "4", "description": "Lanczos filter window parameter a"},
+      {"symbol": "filter_flag", "value": "True", "description": "Enable anti-aliasing filter"},
+      {"symbol": "niter", "value": "100", "description": "Maximum iteration count"}
+    ],
+    "observations": [
+      {
+        "symbol": "y",
+        "code_name": "LFimage",
+        "shape": "(M_x, M_y)",
+        "dtype": "float32",
+        "description": "Normalized, geometrically corrected light field image"
+      }
+    ]
+  },
+  "data_preprocessing": [
+    {
+      "step_order": 0,
+      "step_name": "Geometry and Operator Computation",
+      "formula": "\\mathbf{H}, \\mathbf{H}^T = \\texttt{LFM\\_computeLFMatrixOperators}(\\text{Camera}, \\text{Resolution}, \\text{LensletCenters})",
+      "inputs": ["config_dict", "white_image", "depth_range", "depth_step", "super_res_factor", "new_spacing_px"],
+      "outputs": ["Camera", "LensletCenters", "Resolution", "H", "Ht"]
+    },
+    {
+      "step_order": 1,
+      "step_name": "Compute Transformation Matrix",
+      "formula": "\\mathbf{T} = \\texttt{LFM\\_retrieveTransformation}(\\text{LensletGridModel}, \\text{NewLensletGridModel})",
+      "inputs": ["LensletGridModel", "NewLensletGridModel"],
+      "outputs": ["FixAll", "trans"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Compute Output Dimensions",
+      "formula": "\\text{imgSize} = \\texttt{get\\_transformed\\_shape}(\\text{white\\_image.shape}, \\mathbf{T}); \\text{volumeSize} = [\\text{texSize}_x, \\text{texSize}_y, N_z]",
+      "inputs": ["white_image.shape", "trans", "texScaleFactor", "depths"],
+      "outputs": ["imgSize", "texSize", "volumeSize"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Apply Geometric Correction",
+      "formula": "y_{\\text{trans}} = \\texttt{transform\\_img}(y_{\\text{raw}}, \\mathbf{T}, \\text{offset})",
+      "inputs": ["lenslet_image", "trans", "offset"],
+      "outputs": ["new"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Normalize to [0,1]",
+      "formula": "y = \\frac{y_{\\text{trans}} - \\min(y_{\\text{trans}})}{\\max(y_{\\text{trans}}) - \\min(y_{\\text{trans}})}",
+      "inputs": ["new"],
+      "outputs": ["LFimage"]
+    }
+  ],
+  "initialization": [
+    "I.1: Initialize volume V^{(0)} = 1 of shape volumeSize",
+    "I.2: Compute forward sensitivity s_f = H * V^{(0)}",
+    "I.3: Compute backward sensitivity s_b = H^T * s_f",
+    "I.4: Compute depth-adaptive filter widths w from camera and resolution parameters",
+    "I.5: Build Lanczos filter kernels K = lanczosfft(volumeSize, w, a=4) in Fourier domain",
+    "I.6: Initialize error_metrics as empty list",
+    "I.7: Start timer t1 = time()"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Forward Projection",
+      "mathematical_description": "\\hat{y}^{(k)} = \\begin{cases} \\mathbf{s}_f & k = 0 \\\\ \\mathbf{H} V^{(k)} & k > 0 \\end{cases}",
+      "required_operators": ["FORWARD"],
+      "inputs": ["reconVolume", "onesForward", "k"],
+      "outputs": ["LFimageGuess"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Compute Image-Space Error Ratio",
+      "mathematical_description": "\\mathbf{e}^{(k)}_{\\text{LF}} = \\frac{y}{\\hat{y}^{(k)}} \\odot \\mathbf{s}_f",
+      "required_operators": ["ELEMENTWISE_DIVIDE", "ELEMENTWISE_MULTIPLY"],
+      "inputs": ["LFimage", "LFimageGuess", "onesForward"],
+      "outputs": ["errorLFimage"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Sanitize Non-Finite Values in Image Error",
+      "mathematical_description": "(\\mathbf{e}^{(k)}_{\\text{LF}})_i \\leftarrow 0 \\quad \\forall i : \\neg\\text{isfinite}((\\mathbf{e}^{(k)}_{\\text{LF}})_i)",
+      "required_operators": ["SANITIZE_NONFINITE"],
+      "inputs": ["errorLFimage"],
+      "outputs": ["errorLFimage"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Compute Error Metric",
+      "mathematical_description": "\\epsilon^{(k)} = \\frac{1}{M_x M_y} \\sum_{i,j} \\left| (\\mathbf{e}^{(k)}_{\\text{LF}})_{ij} - (\\mathbf{s}_f)_{ij} \\right|",
+      "required_operators": ["SUBTRACT", "ABS", "MEAN"],
+      "inputs": ["errorLFimage", "onesForward"],
+      "outputs": ["err_metric"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "Store Error Metric",
+      "mathematical_description": "\\text{error\\_metrics.append}(\\epsilon^{(k)})",
+      "required_operators": ["APPEND"],
+      "inputs": ["err_metric", "error_metrics"],
+      "outputs": ["error_metrics"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Back Projection",
+      "mathematical_description": "\\tilde{\\mathbf{e}}^{(k)}_{\\text{vol}} = \\mathbf{H}^T \\mathbf{e}^{(k)}_{\\text{LF}}",
+      "required_operators": ["ADJOINT"],
+      "inputs": ["errorLFimage", "lenslet_centers", "resolution", "texSize", "crange"],
+      "outputs": ["errorBack"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "Normalize Back-Projected Error",
+      "mathematical_description": "\\mathbf{e}^{(k)}_{\\text{vol}} = \\frac{\\tilde{\\mathbf{e}}^{(k)}_{\\text{vol}}}{\\mathbf{s}_b}",
+      "required_operators": ["ELEMENTWISE_DIVIDE"],
+      "inputs": ["errorBack", "onesBack"],
+      "outputs": ["errorBack"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "Sanitize Non-Finite Values in Volume Error",
+      "mathematical_description": "(\\mathbf{e}^{(k)}_{\\text{vol}})_i \\leftarrow 0 \\quad \\forall i : \\neg\\text{isfinite}((\\mathbf{e}^{(k)}_{\\text{vol}})_i)",
+      "required_operators": ["SANITIZE_NONFINITE"],
+      "inputs": ["errorBack"],
+      "outputs": ["errorBack"]
+    },
+    {
+      "step_order": 9,
+      "step_name": "Multiplicative Volume Update",
+      "mathematical_description": "V^{(k+1)} = V^{(k)} \\odot \\mathbf{e}^{(k)}_{\\text{vol}}",
+      "required_operators": ["ELEMENTWISE_MULTIPLY"],
+      "inputs": ["reconVolume", "errorBack"],
+      "outputs": ["reconVolume"]
+    },
+    {
+      "step_order": 10,
+      "step_name": "Anti-Aliasing Filter (Conditional)",
+      "mathematical_description": "\\text{IF filter\\_flag}: \\forall j \\in [0, N_z-1]: V^{(k+1)}_{:,:,j} = \\left| \\mathcal{F}^{-1}\\left\\{ \\mathcal{K}_{:,:,j} \\odot \\mathcal{F}\\left\\{ V^{(k+1)}_{:,:,j} \\right\\} \\right\\} \\right|",
+      "required_operators": ["FFT2", "IFFT2", "ELEMENTWISE_MULTIPLY", "ABS", "FFTSHIFT"],
+      "inputs": ["reconVolume", "kernelFFT", "filter_flag"],
+      "outputs": ["reconVolume"]
+    },
+    {
+      "step_order": 11,
+      "step_name": "Final Sanitization",
+      "mathematical_description": "(V^{(k+1)})_i \\leftarrow 0 \\quad \\forall i : \\neg\\text{isfinite}((V^{(k+1)})_i)",
+      "required_operators": ["SANITIZE_NONFINITE"],
+      "inputs": ["reconVolume"],
+      "outputs": ["reconVolume"]
+    }
+  ],
+  "finalization": [
+    {
+      "step_order": 1,
+      "step_name": "Record End Time",
+      "formula": "\\Delta t = t_2 - t_1",
+      "inputs": ["t1"],
+      "outputs": ["elapsed_time"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Transfer to CPU",
+      "formula": "\\text{reconVolume\\_np} = \\texttt{cupy.asnumpy}(V^{(N_{\\text{iter}})})",
+      "inputs": ["reconVolume"],
+      "outputs": ["reconVolume_np"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Extract Center Slice",
+      "formula": "\\text{center\\_slice} = V_{:,:,\\lfloor N_z/2 \\rfloor}",
+      "inputs": ["reconVolume_np"],
+      "outputs": ["center_slice"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Normalize for Visualization",
+      "formula": "\\text{img}_{\\text{norm}} = \\left\\lfloor 255 \\times \\frac{\\text{img} - \\min(\\text{img})}{\\max(\\text{img}) - \\min(\\text{img}) + 10^{-8}} \\right\\rfloor",
+      "inputs": ["image_array"],
+      "outputs": ["uint8_image"]
+    }
+  ],
+  "stopping_criterion": {
+    "type": "iteration_limit",
+    "expression": "k < N_{\\text{iter}}",
+    "parameters": {"niter": 100},
+    "check_frequency": "start of each iteration"
+  },
+  "evaluation_metrics": [
+    {
+      "name": "LF Mean Absolute Error (MAE)",
+      "formula": "\\epsilon^{(k)} = \\frac{1}{M_x M_y} \\sum_{i,j} \\left| \\left(\\frac{y}{\\hat{y}^{(k)}} \\cdot \\mathbf{s}_f\\right)_{ij} - (\\mathbf{s}_f)_{ij} \\right|",
+      "description": "Measures deviation of weighted ratio from sensitivity map; approaches 0 as prediction matches observation"
+    },
+    {
+      "name": "Reconstruction Time",
+      "formula": "\\Delta t = t_2 - t_1 \\text{ (seconds)}",
+      "description": "Wall-clock time for all iterations"
+    }
+  ]
+}
+```

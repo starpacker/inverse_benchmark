@@ -1,0 +1,92 @@
+```json
+{
+  "algorithm_name": "Richardson-Lucy Deconvolution for 3D Fluorescence Microscopy",
+  "initialization": [
+    "Compute measurement mean: \\bar{y} = \\frac{1}{n_y n_x} \\sum_{i,j} y_{ij}",
+    "Initialize 3D volume estimate: x^{(0)}_{z,i,j} = \\bar{y} \\quad \\forall z,i,j",
+    "Initialize iteration counter: k \\leftarrow 0"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Compute estimate FFT",
+      "mathematical_description": "\\hat{\\mathbf{x}}^{(k)}_z = \\text{rFFT2}(\\mathbf{x}^{(k)}_z) \\quad \\forall z \\in [0, n_z)",
+      "required_operators": ["rFFT2"],
+      "inputs": ["x^{(k)}"],
+      "outputs": ["\\hat{x}^{(k)}"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Frequency-domain convolution",
+      "mathematical_description": "\\hat{\\mathbf{c}}^{(k)}_z = \\hat{\\mathbf{x}}^{(k)}_z \\odot \\hat{\\mathbf{h}}_z \\quad \\forall z",
+      "required_operators": ["element-wise multiplication (Hadamard product)"],
+      "inputs": ["\\hat{x}^{(k)}", "\\hat{h}"],
+      "outputs": ["\\hat{c}^{(k)}"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Inverse FFT per layer",
+      "mathematical_description": "\\mathbf{c}^{(k)}_z = \\text{irFFT2}(\\hat{\\mathbf{c}}^{(k)}_z) \\quad \\forall z",
+      "required_operators": ["irFFT2"],
+      "inputs": ["\\hat{c}^{(k)}"],
+      "outputs": ["c^{(k)}"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Forward projection (sum over z)",
+      "mathematical_description": "p^{(k)}_{ij} = \\sum_{z=0}^{n_z-1} c^{(k)}_{z,i,j}",
+      "required_operators": ["sum along axis"],
+      "inputs": ["c^{(k)}"],
+      "outputs": ["p^{(k)}"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "Compute measurement-to-projection ratio",
+      "mathematical_description": "r^{(k)}_{ij} = \\frac{y_{ij}}{p^{(k)}_{ij} + \\epsilon}",
+      "required_operators": ["element-wise division", "scalar addition"],
+      "inputs": ["y", "p^{(k)}", "\\epsilon"],
+      "outputs": ["r^{(k)}"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Ratio FFT",
+      "mathematical_description": "\\hat{\\mathbf{r}}^{(k)} = \\text{rFFT2}(\\mathbf{r}^{(k)})",
+      "required_operators": ["rFFT2"],
+      "inputs": ["r^{(k)}"],
+      "outputs": ["\\hat{r}^{(k)}"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "Broadcast and multiply with adjoint PSF",
+      "mathematical_description": "\\hat{\\mathbf{u}}^{(k)}_z = \\hat{\\mathbf{r}}^{(k)} \\odot \\hat{\\mathbf{h}}^T_z \\quad \\forall z",
+      "required_operators": ["broadcast", "element-wise multiplication (Hadamard product)"],
+      "inputs": ["\\hat{r}^{(k)}", "\\hat{h}^T"],
+      "outputs": ["\\hat{u}^{(k)}"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "Inverse FFT for back-projection",
+      "mathematical_description": "\\mathbf{u}^{(k)}_z = \\text{irFFT2}(\\hat{\\mathbf{u}}^{(k)}_z) \\quad \\forall z",
+      "required_operators": ["irFFT2"],
+      "inputs": ["\\hat{u}^{(k)}"],
+      "outputs": ["u^{(k)}"]
+    },
+    {
+      "step_order": 9,
+      "step_name": "Multiplicative update",
+      "mathematical_description": "\\tilde{x}^{(k+1)}_{z,i,j} = x^{(k)}_{z,i,j} \\cdot u^{(k)}_{z,i,j}",
+      "required_operators": ["element-wise multiplication"],
+      "inputs": ["x^{(k)}", "u^{(k)}"],
+      "outputs": ["\\tilde{x}^{(k+1)}"]
+    },
+    {
+      "step_order": 10,
+      "step_name": "Non-negativity projection",
+      "mathematical_description": "x^{(k+1)}_{z,i,j} = \\max(0, \\tilde{x}^{(k+1)}_{z,i,j})",
+      "required_operators": ["ReLU", "element-wise maximum"],
+      "inputs": ["\\tilde{x}^{(k+1)}"],
+      "outputs": ["x^{(k+1)}"]
+    }
+  ]
+}
+```

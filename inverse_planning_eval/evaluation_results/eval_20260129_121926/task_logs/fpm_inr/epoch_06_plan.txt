@@ -1,0 +1,182 @@
+```json
+{
+  "algorithm_name": "FPM-INR (Fourier Ptychographic Microscopy via Implicit Neural Representations)",
+  "initialization": [
+    "Initialize amplitude feature tensor D_real with shape (512, 512, 32) from uniform distribution U(-1e-4, 1e-4)",
+    "Initialize phase feature tensor D_imag with shape (512, 512, 32) from normal distribution N(0, 2e-4)",
+    "Initialize z-axis feature tensors Z_real and Z_imag with shape (5, 32) from standard normal N(0, 1)",
+    "Initialize all MLP weights (W1, W2, W3 for both amplitude and phase networks) using Kaiming uniform initialization",
+    "Initialize all MLP biases using uniform distribution",
+    "Compute normalized spatial coordinates xs, ys as linspace grids covering [delta, 1-delta] for high-resolution image",
+    "Create coordinate meshgrid (xv, yv) and flatten to xy array of shape (M_HR * N_HR, 2)",
+    "Scale coordinates to mode indices and compute integer floor indices idx",
+    "Compute bilinear interpolation weights alpha = xs_scaled - idx",
+    "Compute clamped corner indices x0, y0, x1, y1 for bilinear interpolation",
+    "Initialize Adam first moment m1 and second moment m2 to zeros for all parameters",
+    "Initialize Adam iteration counter t = 0",
+    "Set initial learning rate eta = 1e-3"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Compute Defocus Transfer Function",
+      "mathematical_description": "$\\mathbf{H}_{\\text{df}} = \\exp(i \\cdot \\mathbf{k}_z \\cdot dz)$",
+      "required_operators": ["complex_exponential", "element_wise_multiply"],
+      "inputs": ["k_z", "dz"],
+      "outputs": ["H_df"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Compute Combined Pupil-Defocus Mask",
+      "mathematical_description": "$\\mathbf{M}_{\\text{spec}} = \\mathbf{P}_0 \\odot |\\mathbf{H}_{\\text{df}}| \\odot \\exp(i \\cdot \\mathbf{P}_0 \\odot \\angle\\mathbf{H}_{\\text{df}})$",
+      "required_operators": ["element_wise_multiply", "complex_abs", "complex_angle", "complex_exponential"],
+      "inputs": ["P_0", "H_df"],
+      "outputs": ["M_spec"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Compute Z-Interpolation Parameters",
+      "mathematical_description": "$\\tilde{z} = (z_{\\text{dim}}-1) \\cdot \\frac{dz - z_{\\min}}{z_{\\max} - z_{\\min}}, \\quad z_0 = \\text{clamp}(\\lfloor\\tilde{z}\\rfloor, 0, z_{\\text{dim}}-1), \\quad \\alpha_z = \\tilde{z} - \\lfloor\\tilde{z}\\rfloor$",
+      "required_operators": ["floor", "clamp", "subtract"],
+      "inputs": ["dz", "z_min", "z_max", "z_dim"],
+      "outputs": ["z_0", "z_1", "alpha_z"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Bilinear Interpolation of XY Features (Amplitude)",
+      "mathematical_description": "$\\mathbf{F}_{xy}^{\\text{real}} = \\mathbf{D}^{\\text{real}}[\\mathbf{y}_0, \\mathbf{x}_0](1-\\alpha_x)(1-\\alpha_y) + \\mathbf{D}^{\\text{real}}[\\mathbf{y}_0, \\mathbf{x}_1]\\alpha_x(1-\\alpha_y) + \\mathbf{D}^{\\text{real}}[\\mathbf{y}_1, \\mathbf{x}_0](1-\\alpha_x)\\alpha_y + \\mathbf{D}^{\\text{real}}[\\mathbf{y}_1, \\mathbf{x}_1]\\alpha_x\\alpha_y$",
+      "required_operators": ["gather", "element_wise_multiply", "add"],
+      "inputs": ["D_real", "x_0", "x_1", "y_0", "y_1", "alpha"],
+      "outputs": ["F_xy_real"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "Bilinear Interpolation of XY Features (Phase)",
+      "mathematical_description": "$\\mathbf{F}_{xy}^{\\text{imag}} = \\mathbf{D}^{\\text{imag}}[\\mathbf{y}_0, \\mathbf{x}_0](1-\\alpha_x)(1-\\alpha_y) + \\mathbf{D}^{\\text{imag}}[\\mathbf{y}_0, \\mathbf{x}_1]\\alpha_x(1-\\alpha_y) + \\mathbf{D}^{\\text{imag}}[\\mathbf{y}_1, \\mathbf{x}_0](1-\\alpha_x)\\alpha_y + \\mathbf{D}^{\\text{imag}}[\\mathbf{y}_1, \\mathbf{x}_1]\\alpha_x\\alpha_y$",
+      "required_operators": ["gather", "element_wise_multiply", "add"],
+      "inputs": ["D_imag", "x_0", "x_1", "y_0", "y_1", "alpha"],
+      "outputs": ["F_xy_imag"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Linear Interpolation of Z Features",
+      "mathematical_description": "$\\mathbf{F}_z^{\\text{real}} = (1-\\alpha_z)\\mathbf{Z}^{\\text{real}}[z_0] + \\alpha_z\\mathbf{Z}^{\\text{real}}[z_1], \\quad \\mathbf{F}_z^{\\text{imag}} = (1-\\alpha_z)\\mathbf{Z}^{\\text{imag}}[z_0] + \\alpha_z\\mathbf{Z}^{\\text{imag}}[z_1]$",
+      "required_operators": ["gather", "element_wise_multiply", "add"],
+      "inputs": ["Z_real", "Z_imag", "z_0", "z_1", "alpha_z"],
+      "outputs": ["F_z_real", "F_z_imag"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "Combine XY and Z Features",
+      "mathematical_description": "$\\mathbf{F}^{\\text{real}} = \\mathbf{F}_{xy}^{\\text{real}} \\odot \\mathbf{F}_z^{\\text{real}}, \\quad \\mathbf{F}^{\\text{imag}} = \\mathbf{F}_{xy}^{\\text{imag}} \\odot \\mathbf{F}_z^{\\text{imag}}$",
+      "required_operators": ["element_wise_multiply"],
+      "inputs": ["F_xy_real", "F_xy_imag", "F_z_real", "F_z_imag"],
+      "outputs": ["F_real", "F_imag"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "MLP Forward Pass (Amplitude)",
+      "mathematical_description": "$\\mathbf{h}_1^{\\text{real}} = \\text{ReLU}(\\mathbf{F}^{\\text{real}}\\mathbf{W}_1^{\\text{real}} + \\mathbf{b}_1^{\\text{real}}), \\quad \\mathbf{h}_2^{\\text{real}} = \\text{ReLU}(\\mathbf{h}_1^{\\text{real}}\\mathbf{W}_2^{\\text{real}} + \\mathbf{b}_2^{\\text{real}}), \\quad \\mathbf{A}_{\\text{flat}} = \\mathbf{h}_2^{\\text{real}}\\mathbf{W}_3^{\\text{real}} + \\mathbf{b}_3^{\\text{real}}$",
+      "required_operators": ["matrix_multiply", "add", "relu"],
+      "inputs": ["F_real", "W1_real", "b1_real", "W2_real", "b2_real", "W3_real", "b3_real"],
+      "outputs": ["A_flat"]
+    },
+    {
+      "step_order": 9,
+      "step_name": "MLP Forward Pass (Phase)",
+      "mathematical_description": "$\\mathbf{h}_1^{\\text{imag}} = \\text{ReLU}(\\mathbf{F}^{\\text{imag}}\\mathbf{W}_1^{\\text{imag}} + \\mathbf{b}_1^{\\text{imag}}), \\quad \\mathbf{h}_2^{\\text{imag}} = \\text{ReLU}(\\mathbf{h}_1^{\\text{imag}}\\mathbf{W}_2^{\\text{imag}} + \\mathbf{b}_2^{\\text{imag}}), \\quad \\boldsymbol{\\Phi}_{\\text{flat}} = \\mathbf{h}_2^{\\text{imag}}\\mathbf{W}_3^{\\text{imag}} + \\mathbf{b}_3^{\\text{imag}}$",
+      "required_operators": ["matrix_multiply", "add", "relu"],
+      "inputs": ["F_imag", "W1_imag", "b1_imag", "W2_imag", "b2_imag", "W3_imag", "b3_imag"],
+      "outputs": ["Phi_flat"]
+    },
+    {
+      "step_order": 10,
+      "step_name": "Reshape to Image and Form Complex Field",
+      "mathematical_description": "$\\mathbf{A} = \\text{reshape}(\\mathbf{A}_{\\text{flat}}, (1, M_{\\text{HR}}, N_{\\text{HR}})), \\quad \\boldsymbol{\\Phi} = \\text{reshape}(\\boldsymbol{\\Phi}_{\\text{flat}}, (1, M_{\\text{HR}}, N_{\\text{HR}})), \\quad \\mathbf{f} = \\mathbf{A} \\odot \\exp(i \\boldsymbol{\\Phi})$",
+      "required_operators": ["reshape", "complex_exponential", "element_wise_multiply"],
+      "inputs": ["A_flat", "Phi_flat", "M_HR", "N_HR"],
+      "outputs": ["A", "Phi", "f"]
+    },
+    {
+      "step_order": 11,
+      "step_name": "Compute High-Resolution Spectrum",
+      "mathematical_description": "$\\mathbf{O} = \\text{fftshift}(\\text{FFT2}(\\mathbf{f}))$",
+      "required_operators": ["fft2", "fftshift"],
+      "inputs": ["f"],
+      "outputs": ["O"]
+    },
+    {
+      "step_order": 12,
+      "step_name": "Zero-Pad Spectrum",
+      "mathematical_description": "$\\mathbf{O}_{\\text{pad}} = \\text{ZeroPad}(\\mathbf{O}, (M_{\\text{HR}} \\cdot \\text{MAG}, N_{\\text{HR}} \\cdot \\text{MAG}))$",
+      "required_operators": ["zero_pad"],
+      "inputs": ["O", "MAG"],
+      "outputs": ["O_pad"]
+    },
+    {
+      "step_order": 13,
+      "step_name": "Extract Sub-Aperture for LED",
+      "mathematical_description": "$\\mathbf{O}_l^{\\text{sub}} = \\mathbf{O}_{\\text{pad}}[:, p_y[l]:p_y[l]+M, p_x[l]:p_x[l]+N]$",
+      "required_operators": ["crop", "gather"],
+      "inputs": ["O_pad", "p_LED", "l", "M", "N"],
+      "outputs": ["O_sub_l"]
+    },
+    {
+      "step_order": 14,
+      "step_name": "Apply Pupil and Defocus Mask",
+      "mathematical_description": "$\\tilde{\\mathbf{O}}_l = \\mathbf{M}_{\\text{spec}} \\odot \\mathbf{O}_l^{\\text{sub}}$",
+      "required_operators": ["element_wise_multiply"],
+      "inputs": ["M_spec", "O_sub_l"],
+      "outputs": ["O_tilde_l"]
+    },
+    {
+      "step_order": 15,
+      "step_name": "Inverse FFT to Spatial Domain",
+      "mathematical_description": "$\\mathbf{o}_l = \\text{IFFT2}(\\text{ifftshift}(\\tilde{\\mathbf{O}}_l))$",
+      "required_operators": ["ifftshift", "ifft2"],
+      "inputs": ["O_tilde_l"],
+      "outputs": ["o_l"]
+    },
+    {
+      "step_order": 16,
+      "step_name": "Compute Predicted Amplitude",
+      "mathematical_description": "$\\hat{\\mathbf{I}}_l = |\\mathbf{o}_l|$",
+      "required_operators": ["complex_abs"],
+      "inputs": ["o_l"],
+      "outputs": ["I_hat_l"]
+    },
+    {
+      "step_order": 17,
+      "step_name": "Compute SmoothL1 Loss",
+      "mathematical_description": "$\\mathcal{L} = \\text{SmoothL1}\\left(\\sqrt{\\mathbf{I}_l^{\\text{meas}}}, \\hat{\\mathbf{I}}_l\\right) = \\frac{1}{MN}\\sum_{i,j} \\begin{cases} \\frac{(y_{ij} - \\hat{y}_{ij})^2}{2\\beta} & |y_{ij} - \\hat{y}_{ij}| < \\beta \\\\ |y_{ij} - \\hat{y}_{ij}| - \\frac{\\beta}{2} & \\text{otherwise} \\end{cases}$",
+      "required_operators": ["sqrt", "subtract", "abs", "square", "conditional", "mean"],
+      "inputs": ["I_meas_l", "I_hat_l", "beta"],
+      "outputs": ["loss"]
+    },
+    {
+      "step_order": 18,
+      "step_name": "Backpropagation",
+      "mathematical_description": "$\\nabla_\\theta \\mathcal{L} = \\text{autograd}(\\mathcal{L}, \\theta)$ where $\\theta = \\{\\mathbf{D}^{\\text{real}}, \\mathbf{D}^{\\text{imag}}, \\mathbf{Z}^{\\text{real}}, \\mathbf{Z}^{\\text{imag}}, \\mathbf{W}_i, \\mathbf{b}_i\\}$",
+      "required_operators": ["autograd", "chain_rule"],
+      "inputs": ["loss", "theta"],
+      "outputs": ["grad_theta"]
+    },
+    {
+      "step_order": 19,
+      "step_name": "Adam Optimizer Update",
+      "mathematical_description": "$t \\leftarrow t + 1, \\quad \\mathbf{m}_1 \\leftarrow \\beta_1 \\mathbf{m}_1 + (1-\\beta_1)\\nabla_\\theta\\mathcal{L}, \\quad \\mathbf{m}_2 \\leftarrow \\beta_2 \\mathbf{m}_2 + (1-\\beta_2)(\\nabla_\\theta\\mathcal{L})^2, \\quad \\hat{\\mathbf{m}}_1 = \\frac{\\mathbf{m}_1}{1-\\beta_1^t}, \\quad \\hat{\\mathbf{m}}_2 = \\frac{\\mathbf{m}_2}{1-\\beta_2^t}, \\quad \\theta \\leftarrow \\theta - \\eta \\frac{\\hat{\\mathbf{m}}_1}{\\sqrt{\\hat{\\mathbf{m}}_2} + \\epsilon}$",
+      "required_operators": ["add", "element_wise_multiply", "sqrt", "divide", "subtract"],
+      "inputs": ["grad_theta", "m1", "m2", "t", "eta", "beta1", "beta2", "epsilon", "theta"],
+      "outputs": ["theta", "m1", "m2", "t"]
+    },
+    {
+      "step_order": 20,
+      "step_name": "Learning Rate Decay (per epoch)",
+      "mathematical_description": "$\\eta \\leftarrow \\eta \\cdot \\gamma^{\\lfloor e / T_{\\text{decay}} \\rfloor}$ where $\\gamma = 0.1$, $T_{\\text{decay}} = 6$",
+      "required_operators": ["multiply", "power", "floor_divide"],
+      "inputs": ["eta", "gamma", "e", "T_decay"],
+      "outputs": ["eta"]
+    }
+  ]
+}
+```

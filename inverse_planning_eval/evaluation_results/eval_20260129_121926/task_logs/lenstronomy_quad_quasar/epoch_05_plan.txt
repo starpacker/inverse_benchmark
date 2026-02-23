@@ -1,0 +1,147 @@
+```json
+{
+  "algorithm_name": "Gravitational Lens Parameter Estimation via PSO-MCMC",
+  "initialization": [
+    "Initialize parameter vector θ₀ = [θ_E, γ_EPL, e1^(lens), e2^(lens), x_c^(lens), y_c^(lens), γ₁, γ₂, R_sersic^(src), n_sersic^(src), e1^(src), e2^(src), x_c^(src), y_c^(src), ...]^T from initial guess dictionaries",
+    "Initialize sigma vector σ = [0.3, 0.2, 0.2, 0.2, 0.1, 0.1, 0.1, 0.1, ...]^T containing step sizes for each parameter",
+    "Initialize lower bounds θ_lower = [0, 1.5, -0.5, -0.5, -10, -10, -0.5, -0.5, ...]^T for box constraints",
+    "Initialize upper bounds θ_upper = [10, 2.5, 0.5, 0.5, 10, 10, 0.5, 0.5, ...]^T for box constraints",
+    "Initialize N_particles=50 PSO particles: P_i^(0) = θ₀ + σ_scale^PSO · σ ⊙ z_i where z_i ~ N(0,I)",
+    "Clip particles to bounds: P_ij^(0) ← max(θ_lower,j, min(θ_upper,j, P_ij^(0)))",
+    "Initialize particle velocities: V_ij^(0) = 0 for all i,j",
+    "Evaluate initial fitness: χ_i^(0) = log L(d|P_i^(0)) + log π(P_i^(0)) via forward model",
+    "Initialize personal bests: P_best,i^(local) = P_i^(0), χ_best,i^(local) = χ_i^(0)",
+    "Initialize global best: i* = argmax_i χ_i^(0), p_best^(global) = P_i*^(0), χ_best^(global) = χ_i*^(0)"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "PSO: Generate random coefficients",
+      "mathematical_description": "$r_1, r_2 \\sim \\mathcal{U}(0, 1)^{N_{\\text{params}}}$",
+      "required_operators": ["random_uniform"],
+      "inputs": ["N_params"],
+      "outputs": ["r1", "r2"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "PSO: Update velocities",
+      "mathematical_description": "$V_{ij}^{(t)} = \\omega V_{ij}^{(t-1)} + c_1 r_{1j} (P_{\\text{best},ij}^{\\text{(local)}} - P_{ij}^{(t-1)}) + c_2 r_{2j} (p_{\\text{best},j}^{\\text{(global)}} - P_{ij}^{(t-1)})$",
+      "required_operators": ["elementwise_multiply", "subtract", "add"],
+      "inputs": ["V^(t-1)", "P^(t-1)", "P_best^(local)", "p_best^(global)", "r1", "r2", "omega", "c1", "c2"],
+      "outputs": ["V^(t)"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "PSO: Update positions",
+      "mathematical_description": "$P_{ij}^{(t)} = P_{ij}^{(t-1)} + V_{ij}^{(t)}$",
+      "required_operators": ["add"],
+      "inputs": ["P^(t-1)", "V^(t)"],
+      "outputs": ["P^(t)"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "PSO: Clip positions to bounds",
+      "mathematical_description": "$P_{ij}^{(t)} \\leftarrow \\max(\\theta_{\\text{lower},j}, \\min(\\theta_{\\text{upper},j}, P_{ij}^{(t)}))$",
+      "required_operators": ["clip"],
+      "inputs": ["P^(t)", "theta_lower", "theta_upper"],
+      "outputs": ["P^(t)"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "PSO: Evaluate fitness via forward model",
+      "mathematical_description": "$\\chi_i^{(t)} = -\\frac{1}{2} \\sum_{i,j} \\frac{(d_{ij} - f_{ij}(P_i^{(t)}))^2}{\\sigma_{ij}^2} + \\log \\pi(P_i^{(t)})$",
+      "required_operators": ["forward_model", "chi_squared", "log_prior"],
+      "inputs": ["P^(t)", "d", "sigma_bkg", "t_exp"],
+      "outputs": ["chi^(t)"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "PSO: Update personal bests",
+      "mathematical_description": "$\\text{If } \\chi_i^{(t)} > \\chi_{\\text{best},i}^{\\text{(local)}}: P_{\\text{best},i}^{\\text{(local)}} \\leftarrow P_i^{(t)}, \\chi_{\\text{best},i}^{\\text{(local)}} \\leftarrow \\chi_i^{(t)}$",
+      "required_operators": ["conditional_update", "compare"],
+      "inputs": ["P^(t)", "chi^(t)", "P_best^(local)", "chi_best^(local)"],
+      "outputs": ["P_best^(local)", "chi_best^(local)"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "PSO: Update global best",
+      "mathematical_description": "$\\text{If } \\chi_i^{(t)} > \\chi_{\\text{best}}^{\\text{(global)}}: p_{\\text{best}}^{\\text{(global)}} \\leftarrow P_i^{(t)}, \\chi_{\\text{best}}^{\\text{(global)}} \\leftarrow \\chi_i^{(t)}$",
+      "required_operators": ["conditional_update", "compare", "argmax"],
+      "inputs": ["P^(t)", "chi^(t)", "p_best^(global)", "chi_best^(global)"],
+      "outputs": ["p_best^(global)", "chi_best^(global)"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "Store PSO result and initialize MCMC walkers",
+      "mathematical_description": "$\\boldsymbol{\\theta}_{\\text{PSO}} = p_{\\text{best}}^{\\text{(global)}}$; $W_i^{(0)} = \\boldsymbol{\\theta}_{\\text{PSO}} + \\sigma_{\\text{scale}}^{\\text{MCMC}} \\cdot \\boldsymbol{\\sigma} \\odot z_i$ where $z_i \\sim \\mathcal{N}(0, \\mathbf{I})$",
+      "required_operators": ["copy", "random_normal", "elementwise_multiply", "add", "clip"],
+      "inputs": ["p_best^(global)", "sigma", "sigma_scale^MCMC", "theta_lower", "theta_upper"],
+      "outputs": ["theta_PSO", "W^(0)"]
+    },
+    {
+      "step_order": 9,
+      "step_name": "MCMC: Select complementary walker",
+      "mathematical_description": "$j \\sim \\mathcal{U}\\{1, \\ldots, N_{\\text{walkers}}\\} \\setminus \\{i\\}$",
+      "required_operators": ["random_choice_exclude"],
+      "inputs": ["walker_index_i", "N_walkers"],
+      "outputs": ["j"]
+    },
+    {
+      "step_order": 10,
+      "step_name": "MCMC: Generate stretch factor",
+      "mathematical_description": "$z \\sim g(z) \\propto \\frac{1}{\\sqrt{z}}$ for $z \\in [1/a, a]$ where $a = 2$",
+      "required_operators": ["stretch_distribution_sample"],
+      "inputs": ["a"],
+      "outputs": ["z"]
+    },
+    {
+      "step_order": 11,
+      "step_name": "MCMC: Propose new position",
+      "mathematical_description": "$Y_i = W_j^{(t-1)} + z \\cdot (W_i^{(t-1)} - W_j^{(t-1)})$",
+      "required_operators": ["subtract", "scalar_multiply", "add"],
+      "inputs": ["W_i^(t-1)", "W_j^(t-1)", "z"],
+      "outputs": ["Y_i"]
+    },
+    {
+      "step_order": 12,
+      "step_name": "MCMC: Evaluate proposal log-posterior",
+      "mathematical_description": "$\\chi_Y = \\log \\mathcal{L}(\\mathbf{d} | Y_i) + \\log \\pi(Y_i)$",
+      "required_operators": ["forward_model", "chi_squared", "log_prior"],
+      "inputs": ["Y_i", "d", "sigma_bkg", "t_exp"],
+      "outputs": ["chi_Y"]
+    },
+    {
+      "step_order": 13,
+      "step_name": "MCMC: Compute acceptance probability",
+      "mathematical_description": "$q = \\min\\left(1, z^{N_{\\text{params}}-1} \\exp(\\chi_Y - \\chi_i^{(t-1)})\\right)$",
+      "required_operators": ["power", "exp", "subtract", "min"],
+      "inputs": ["z", "N_params", "chi_Y", "chi_i^(t-1)"],
+      "outputs": ["q"]
+    },
+    {
+      "step_order": 14,
+      "step_name": "MCMC: Accept or reject proposal",
+      "mathematical_description": "$u \\sim \\mathcal{U}(0,1)$; If $u < q$: $W_i^{(t)} \\leftarrow Y_i$, $\\chi_i^{(t)} \\leftarrow \\chi_Y$; Else: $W_i^{(t)} \\leftarrow W_i^{(t-1)}$, $\\chi_i^{(t)} \\leftarrow \\chi_i^{(t-1)}$",
+      "required_operators": ["random_uniform", "compare", "conditional_assign"],
+      "inputs": ["Y_i", "chi_Y", "W_i^(t-1)", "chi_i^(t-1)", "q"],
+      "outputs": ["W_i^(t)", "chi_i^(t)"]
+    },
+    {
+      "step_order": 15,
+      "step_name": "MCMC: Store chain samples (production phase only)",
+      "mathematical_description": "$\\mathcal{S}^{(t)} = \\{W_i^{(t)}\\}_{i=1}^{N_{\\text{walkers}}}$ appended to chain",
+      "required_operators": ["append"],
+      "inputs": ["W^(t)", "chain"],
+      "outputs": ["chain"]
+    },
+    {
+      "step_order": 16,
+      "step_name": "Compute posterior statistics",
+      "mathematical_description": "$\\hat{\\boldsymbol{\\theta}} = \\text{median}(\\mathcal{S})$; $\\boldsymbol{\\sigma}_{\\text{post}} = \\text{std}(\\mathcal{S})$; CI$_{16,84} = $ percentiles$(\\mathcal{S}, [16, 84])$",
+      "required_operators": ["median", "std", "percentile"],
+      "inputs": ["chain"],
+      "outputs": ["theta_hat", "sigma_post", "CI"]
+    }
+  ]
+}
+```

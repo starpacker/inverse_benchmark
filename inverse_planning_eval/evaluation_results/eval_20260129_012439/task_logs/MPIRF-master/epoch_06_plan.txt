@@ -1,0 +1,77 @@
+```json
+{
+  "algorithm_name": "Regularized Kaczmarz Algorithm for MPI Reconstruction",
+  "initialization": [
+    "Initialize primal variable: x = zeros(N, dtype=complex128), where N = x_n * y_n is the number of pixels",
+    "Initialize dual/residual variable: r = zeros(M, dtype=complex128), where M = f_n_len is the number of frequency components",
+    "Compute row energies: e_m = ||a_m||_2 = sqrt(sum_{n=0}^{N-1} |A_{m,n}|^2) for all m in [0, M)",
+    "Create row index cycle: row_index_cycle = [0, 1, 2, ..., M-1]"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Get Row Index",
+      "mathematical_description": "$k = \\text{row\\_index\\_cycle}[m]$",
+      "required_operators": ["indexing"],
+      "inputs": ["row_index_cycle", "m"],
+      "outputs": ["k"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Check Row Energy",
+      "mathematical_description": "$\\text{if } e_k \\leq 0 \\text{ then skip to next } m$",
+      "required_operators": ["comparison"],
+      "inputs": ["e_k"],
+      "outputs": ["skip_flag"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Compute Inner Product",
+      "mathematical_description": "$\\text{dot\\_prod} = \\sum_{n=0}^{N-1} A_{k,n} \\cdot x_n = \\mathbf{a}_k \\cdot \\mathbf{x}$",
+      "required_operators": ["complex_dot_product", "row_extraction"],
+      "inputs": ["A", "k", "x"],
+      "outputs": ["dot_prod"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Compute Numerator",
+      "mathematical_description": "$\\text{num} = b_k - \\text{dot\\_prod} - \\sqrt{\\lambda} \\cdot r_k$",
+      "required_operators": ["subtraction", "scalar_multiplication", "sqrt", "indexing"],
+      "inputs": ["b", "k", "dot_prod", "lambda", "r"],
+      "outputs": ["num"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "Compute Denominator",
+      "mathematical_description": "$\\text{denom} = e_k^2 + \\lambda$",
+      "required_operators": ["power", "addition"],
+      "inputs": ["e", "k", "lambda"],
+      "outputs": ["denom"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Compute Step Size",
+      "mathematical_description": "$\\beta = \\frac{\\text{num}}{\\text{denom}}$",
+      "required_operators": ["division"],
+      "inputs": ["num", "denom"],
+      "outputs": ["beta"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "Update Solution Vector",
+      "mathematical_description": "$\\mathbf{x} \\leftarrow \\mathbf{x} + \\beta \\cdot \\overline{\\mathbf{a}_k}$",
+      "required_operators": ["complex_conjugate", "scalar_vector_multiplication", "vector_addition", "row_extraction"],
+      "inputs": ["x", "beta", "A", "k"],
+      "outputs": ["x"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "Update Residual",
+      "mathematical_description": "$r_k \\leftarrow r_k + \\sqrt{\\lambda} \\cdot \\beta$",
+      "required_operators": ["sqrt", "scalar_multiplication", "addition", "indexing"],
+      "inputs": ["r", "k", "lambda", "beta"],
+      "outputs": ["r"]
+    }
+  ]
+}
+```

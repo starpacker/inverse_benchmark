@@ -1,0 +1,158 @@
+```json
+{
+  "algorithm_name": "Trans-dimensional Bayesian MCMC Joint Inversion",
+  "initialization": [
+    "For c = 1 to n_chains: allocate chain storage objects",
+    "Sample initial number of layers: n_layers^(c) ~ U{1, 20} for each chain",
+    "Sample initial layer thicknesses: h_i^(c) ~ U(h_min, z_max/n_layers) subject to sum(h) <= z_max",
+    "Sample initial shear velocities: v_s,i^(c) ~ U(2.0, 5.0) for each layer",
+    "Sample initial vp/vs ratio: (v_p/v_s)^(c) ~ U(1.4, 2.1)",
+    "Sample initial SWD noise: sigma_SWD^(c) ~ U(1e-5, 0.05)",
+    "Sample initial RF noise: sigma_RF^(c) ~ U(1e-5, 0.05)",
+    "Compute initial forward model for SWD: d_SWD_pred = G_SWD(h, v_s, v_p/v_s)",
+    "Compute initial forward model for RF: d_RF_pred = G_RF(h, v_s, v_p/v_s)",
+    "Build SWD covariance matrix: [C_SWD]_ij = sigma_SWD^2 * exp(-|i-j|/(rho_SWD + kappa))",
+    "Build RF covariance matrix: [C_RF]_ij = sigma_RF^2 * rho_RF^|i-j|",
+    "Compute initial joint log-likelihood: L = L_SWD + L_RF",
+    "Initialize acceptance counters: n_accepted = 0, iteration k = 0"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Select Move Type",
+      "mathematical_description": "\\tau \\sim \\mathcal{U}\\{1, 2, 3, 4, 5\\} \\text{ where } 1=\\text{birth}, 2=\\text{death}, 3=\\text{perturb layer}, 4=\\text{perturb velocity}, 5=\\text{perturb noise}",
+      "required_operators": ["random_integer_uniform"],
+      "inputs": [],
+      "outputs": ["tau"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Birth Move (if tau=1)",
+      "mathematical_description": "\\text{If } n_{\\text{layers}} < 20: z_{\\text{new}} \\sim \\mathcal{U}(0, z_{\\max}), \\; v_{s,\\text{new}} \\sim \\mathcal{U}(2.0, 5.0); \\text{ Insert new layer at } z_{\\text{new}}; \\; n'_{\\text{layers}} = n_{\\text{layers}} + 1",
+      "required_operators": ["random_uniform", "layer_insertion"],
+      "inputs": ["n_layers", "h", "v_s", "z_max"],
+      "outputs": ["h_proposed", "v_s_proposed", "n_layers_proposed"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Death Move (if tau=2)",
+      "mathematical_description": "\\text{If } n_{\\text{layers}} > 1: j \\sim \\mathcal{U}\\{1, \\ldots, n_{\\text{layers}}\\}; \\text{ Remove layer } j; \\; n'_{\\text{layers}} = n_{\\text{layers}} - 1",
+      "required_operators": ["random_integer_uniform", "layer_removal"],
+      "inputs": ["n_layers", "h", "v_s"],
+      "outputs": ["h_proposed", "v_s_proposed", "n_layers_proposed"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Perturb Layer Thickness (if tau=3)",
+      "mathematical_description": "j \\sim \\mathcal{U}\\{1, \\ldots, n_{\\text{layers}}\\}; \\; h'_j = h_j + \\delta_h, \\; \\delta_h \\sim \\mathcal{N}(0, \\Delta_h^2); \\text{ Reject if } h'_j < h_{\\min} \\text{ or } \\sum h' > z_{\\max}",
+      "required_operators": ["random_integer_uniform", "random_normal", "bounds_check"],
+      "inputs": ["n_layers", "h", "Delta_h", "h_min", "z_max"],
+      "outputs": ["h_proposed"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "Perturb Velocity Parameters (if tau=4)",
+      "mathematical_description": "\\xi \\sim \\mathcal{U}\\{1,2\\}; \\text{ If } \\xi=1: v'_{s,j} = v_{s,j} + \\mathcal{N}(0, \\Delta_{v_s}^2), \\text{ check } v'_{s,j} \\in [2,5]; \\text{ If } \\xi=2: (v_p/v_s)' = (v_p/v_s) + \\mathcal{N}(0, \\Delta_{v_p/v_s}^2), \\text{ check } \\in [1.4, 2.1]",
+      "required_operators": ["random_integer_uniform", "random_normal", "bounds_check"],
+      "inputs": ["v_s", "vpvs", "Delta_vs", "Delta_vpvs", "n_layers"],
+      "outputs": ["v_s_proposed", "vpvs_proposed"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Perturb Noise Parameters (if tau=5)",
+      "mathematical_description": "\\zeta \\sim \\mathcal{U}\\{1,2\\}; \\; \\sigma'_\\zeta = \\sigma_\\zeta + \\mathcal{N}(0, \\Delta_\\sigma^2); \\text{ Reject if } \\sigma'_\\zeta \\notin [10^{-5}, 0.05]",
+      "required_operators": ["random_integer_uniform", "random_normal", "bounds_check"],
+      "inputs": ["sigma_SWD", "sigma_RF", "Delta_sigma"],
+      "outputs": ["sigma_SWD_proposed", "sigma_RF_proposed"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "Compute Proposed Forward Model SWD",
+      "mathematical_description": "\\hat{d}'_{\\text{SWD}} = G_{\\text{SWD}}(\\mathbf{h}', \\mathbf{v}'_s, (v_p/v_s)')",
+      "required_operators": ["forward_rayleigh_dispersion"],
+      "inputs": ["h_proposed", "v_s_proposed", "vpvs_proposed", "x_SWD"],
+      "outputs": ["d_SWD_predicted"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "Compute Proposed Forward Model RF",
+      "mathematical_description": "\\hat{d}'_{\\text{RF}} = G_{\\text{RF}}(\\mathbf{h}', \\mathbf{v}'_s, (v_p/v_s)')",
+      "required_operators": ["forward_receiver_function"],
+      "inputs": ["h_proposed", "v_s_proposed", "vpvs_proposed", "x_RF", "ray_parameter"],
+      "outputs": ["d_RF_predicted"]
+    },
+    {
+      "step_order": 9,
+      "step_name": "Compute Proposed Residuals",
+      "mathematical_description": "\\mathbf{r}'_{\\text{SWD}} = d^{\\text{obs}}_{\\text{SWD}} - \\hat{d}'_{\\text{SWD}}; \\quad \\mathbf{r}'_{\\text{RF}} = d^{\\text{obs}}_{\\text{RF}} - \\hat{d}'_{\\text{RF}}",
+      "required_operators": ["vector_subtraction"],
+      "inputs": ["d_SWD_obs", "d_SWD_predicted", "d_RF_obs", "d_RF_predicted"],
+      "outputs": ["r_SWD_proposed", "r_RF_proposed"]
+    },
+    {
+      "step_order": 10,
+      "step_name": "Build Proposed Covariance Matrices",
+      "mathematical_description": "[\\mathbf{C}'_{\\text{SWD}}]_{ij} = (\\sigma'_{\\text{SWD}})^2 \\exp\\left(-\\frac{|i-j|}{\\rho_{\\text{SWD}}+\\kappa}\\right); \\quad [\\mathbf{C}'_{\\text{RF}}]_{ij} = (\\sigma'_{\\text{RF}})^2 (\\rho_{\\text{RF}})^{|i-j|}",
+      "required_operators": ["covariance_matrix_exponential", "covariance_matrix_ar1"],
+      "inputs": ["sigma_SWD_proposed", "sigma_RF_proposed", "rho_SWD", "rho_RF", "kappa"],
+      "outputs": ["C_SWD_proposed", "C_RF_proposed"]
+    },
+    {
+      "step_order": 11,
+      "step_name": "Compute Proposed Log-Likelihood",
+      "mathematical_description": "\\mathcal{L}' = -\\frac{1}{2}(\\mathbf{r}'_{\\text{SWD}})^T(\\mathbf{C}'_{\\text{SWD}})^{-1}\\mathbf{r}'_{\\text{SWD}} - \\frac{1}{2}\\log|\\mathbf{C}'_{\\text{SWD}}| - \\frac{1}{2}(\\mathbf{r}'_{\\text{RF}})^T(\\mathbf{C}'_{\\text{RF}})^{-1}\\mathbf{r}'_{\\text{RF}} - \\frac{1}{2}\\log|\\mathbf{C}'_{\\text{RF}}|",
+      "required_operators": ["matrix_inverse", "log_determinant", "quadratic_form"],
+      "inputs": ["r_SWD_proposed", "r_RF_proposed", "C_SWD_proposed", "C_RF_proposed", "rcond"],
+      "outputs": ["L_proposed"]
+    },
+    {
+      "step_order": 12,
+      "step_name": "Compute Moho Prior Contribution",
+      "mathematical_description": "z'_{\\text{Moho}} = \\sum_{i=1}^{n'_{\\text{layers}}} h'_i; \\quad \\log p_{\\text{Moho}} = -\\frac{(z'_{\\text{Moho}} - \\mu_{\\text{Moho}})^2}{2\\sigma^2_{\\text{Moho}}}",
+      "required_operators": ["vector_sum", "gaussian_log_pdf"],
+      "inputs": ["h_proposed", "mu_Moho", "sigma_Moho"],
+      "outputs": ["log_p_Moho_proposed"]
+    },
+    {
+      "step_order": 13,
+      "step_name": "Compute Acceptance Probability",
+      "mathematical_description": "\\log \\alpha = \\mathcal{L}_{\\text{proposed}} - \\mathcal{L}_{\\text{current}} + \\log p'_{\\text{Moho}} - \\log p_{\\text{Moho}} + \\log\\frac{q(\\text{reverse})}{q(\\text{forward})}",
+      "required_operators": ["scalar_subtraction", "scalar_addition", "proposal_ratio_transdimensional"],
+      "inputs": ["L_proposed", "L_current", "log_p_Moho_proposed", "log_p_Moho_current", "tau", "n_layers", "n_layers_proposed"],
+      "outputs": ["log_alpha"]
+    },
+    {
+      "step_order": 14,
+      "step_name": "Metropolis-Hastings Accept/Reject",
+      "mathematical_description": "u \\sim \\mathcal{U}(0,1); \\quad \\text{Accept if } \\log u < \\log \\alpha: \\; (\\mathbf{h}, \\mathbf{v}_s, v_p/v_s, \\sigma_{\\text{SWD}}, \\sigma_{\\text{RF}}, n_{\\text{layers}}) \\leftarrow (\\mathbf{h}', \\mathbf{v}'_s, (v_p/v_s)', \\sigma'_{\\text{SWD}}, \\sigma'_{\\text{RF}}, n'_{\\text{layers}}); \\; \\mathcal{L}_{\\text{current}} \\leftarrow \\mathcal{L}'",
+      "required_operators": ["random_uniform", "conditional_assignment"],
+      "inputs": ["log_alpha", "h_proposed", "v_s_proposed", "vpvs_proposed", "sigma_SWD_proposed", "sigma_RF_proposed", "n_layers_proposed", "L_proposed"],
+      "outputs": ["h", "v_s", "vpvs", "sigma_SWD", "sigma_RF", "n_layers", "L_current", "accepted_flag"]
+    },
+    {
+      "step_order": 15,
+      "step_name": "Update Acceptance Counter",
+      "mathematical_description": "n_{\\text{accepted}} \\leftarrow n_{\\text{accepted}} + \\mathbb{I}[\\text{accepted}]",
+      "required_operators": ["conditional_increment"],
+      "inputs": ["n_accepted", "accepted_flag"],
+      "outputs": ["n_accepted"]
+    },
+    {
+      "step_order": 16,
+      "step_name": "Store Sample (if post burn-in)",
+      "mathematical_description": "\\text{If } k > N_{\\text{burnin}}: \\text{append } (\\mathbf{h}, \\mathbf{v}_s, v_p/v_s, \\sigma_{\\text{SWD}}, \\sigma_{\\text{RF}}, n_{\\text{layers}}) \\text{ to chain samples}",
+      "required_operators": ["conditional_append"],
+      "inputs": ["k", "N_burnin", "h", "v_s", "vpvs", "sigma_SWD", "sigma_RF", "n_layers"],
+      "outputs": ["chain_samples"]
+    },
+    {
+      "step_order": 17,
+      "step_name": "Adaptive Step Size Tuning (during burn-in)",
+      "mathematical_description": "\\text{If } k \\leq N_{\\text{burnin}} \\text{ and } k \\mod 1000 = 0: \\text{acc\\_rate} = 100 \\cdot n_{\\text{accepted}}/k; \\text{ If acc\\_rate} < 40\\%: \\Delta \\leftarrow 0.95\\Delta; \\text{ If acc\\_rate} > 45\\%: \\Delta \\leftarrow 1.05\\Delta",
+      "required_operators": ["modulo_check", "acceptance_rate_compute", "step_size_adapt"],
+      "inputs": ["k", "N_burnin", "n_accepted", "Delta_h", "Delta_vs", "Delta_vpvs", "Delta_sigma", "acc_min", "acc_max"],
+      "outputs": ["Delta_h", "Delta_vs", "Delta_vpvs", "Delta_sigma"]
+    }
+  ]
+}
+```

@@ -1,0 +1,243 @@
+```json
+{
+  "algorithm_name": "Gravitational Lensing Image Reconstruction via PSO-MCMC",
+  "initialization": [
+    "Concatenate initial parameter values into vector θ^(0) following fixed order: lens EPL parameters, external shear, source Sérsic, lens light Sérsic, point source positions",
+    "Initialize N_particles=50 PSO particles by sampling around θ^(0): p_i^(0) = θ^(0) + σ_scale · σ ⊙ u_i where u_i ~ U[-1,1]^N_params",
+    "Initialize all particle velocities to zero: v_i^(0) = 0",
+    "Evaluate initial fitness for all particles: f_i^(0) = -log L(I_obs | p_i^(0))",
+    "Set personal bests to initial positions: p_i^best = p_i^(0), f_i^best = f_i^(0)",
+    "Set global best to particle with minimum fitness: g^best = p_{argmin_i f_i^(0)}"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Update Particle Velocities",
+      "mathematical_description": "v_i^{(t)} = \\omega v_i^{(t-1)} + c_1 r_1 \\odot (p_i^{\\text{best}} - p_i^{(t-1)}) + c_2 r_2 \\odot (g^{\\text{best}} - p_i^{(t-1)}), \\quad r_1, r_2 \\sim \\mathcal{U}[0,1]^{N_{\\text{params}}}",
+      "required_operators": [
+        "scalar_vector_multiplication",
+        "elementwise_vector_multiplication",
+        "vector_subtraction",
+        "vector_addition",
+        "uniform_random_sampling"
+      ],
+      "inputs": [
+        "v_i^{(t-1)}",
+        "p_i^{(t-1)}",
+        "p_i^{best}",
+        "g^{best}",
+        "omega",
+        "c_1",
+        "c_2"
+      ],
+      "outputs": [
+        "v_i^{(t)}"
+      ]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Update Particle Positions",
+      "mathematical_description": "\\tilde{p}_i^{(t)} = p_i^{(t-1)} + v_i^{(t)}",
+      "required_operators": [
+        "vector_addition"
+      ],
+      "inputs": [
+        "p_i^{(t-1)}",
+        "v_i^{(t)}"
+      ],
+      "outputs": [
+        "p_i_tilde^{(t)}"
+      ]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Apply Box Constraints",
+      "mathematical_description": "p_i^{(t)} = \\max(\\theta_L, \\min(\\theta_U, \\tilde{p}_i^{(t)}))",
+      "required_operators": [
+        "elementwise_maximum",
+        "elementwise_minimum",
+        "box_projection"
+      ],
+      "inputs": [
+        "p_i_tilde^{(t)}",
+        "theta_L",
+        "theta_U"
+      ],
+      "outputs": [
+        "p_i^{(t)}"
+      ]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Evaluate Particle Fitness",
+      "mathematical_description": "f_i^{(t)} = \\frac{1}{2}\\chi^2(p_i^{(t)}) - \\log P(p_i^{(t)}) = \\frac{1}{2}\\sum_{i,j}\\frac{(I_{\\text{obs}}(i,j) - I_{\\text{model}}(i,j; p_i^{(t)}))^2}{\\sigma^2(i,j)} + \\frac{(e_1^{\\text{lens}})^2}{2\\sigma_{e_1}^2} + \\frac{(e_2^{\\text{lens}})^2}{2\\sigma_{e_2}^2}",
+      "required_operators": [
+        "forward_model_evaluation",
+        "chi_squared_computation",
+        "gaussian_prior_evaluation",
+        "scalar_addition"
+      ],
+      "inputs": [
+        "p_i^{(t)}",
+        "I_obs",
+        "sigma_bkg",
+        "t_exp",
+        "PSF_kernel"
+      ],
+      "outputs": [
+        "f_i^{(t)}"
+      ]
+    },
+    {
+      "step_order": 5,
+      "step_name": "Update Personal Bests",
+      "mathematical_description": "\\text{If } f_i^{(t)} < f_i^{\\text{best}}: \\quad p_i^{\\text{best}} \\leftarrow p_i^{(t)}, \\quad f_i^{\\text{best}} \\leftarrow f_i^{(t)}",
+      "required_operators": [
+        "scalar_comparison",
+        "conditional_assignment"
+      ],
+      "inputs": [
+        "f_i^{(t)}",
+        "f_i^{best}",
+        "p_i^{(t)}",
+        "p_i^{best}"
+      ],
+      "outputs": [
+        "p_i^{best}",
+        "f_i^{best}"
+      ]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Update Global Best",
+      "mathematical_description": "g^{\\text{best}} \\leftarrow p_{\\arg\\min_i f_i^{\\text{best}}}",
+      "required_operators": [
+        "argmin_over_particles",
+        "index_selection"
+      ],
+      "inputs": [
+        "p_i^{best}",
+        "f_i^{best}"
+      ],
+      "outputs": [
+        "g^{best}"
+      ]
+    },
+    {
+      "step_order": 7,
+      "step_name": "Check PSO Termination",
+      "mathematical_description": "\\text{Continue PSO if } t < N_{\\text{iter}}^{\\text{PSO}}, \\text{ else transition to MCMC}",
+      "required_operators": [
+        "iteration_counter_comparison",
+        "phase_transition_control"
+      ],
+      "inputs": [
+        "t",
+        "N_iter_PSO"
+      ],
+      "outputs": [
+        "continue_PSO_flag"
+      ]
+    },
+    {
+      "step_order": 8,
+      "step_name": "Initialize MCMC Walkers from PSO Result",
+      "mathematical_description": "w_j^{(0)} = g^{\\text{best}} + \\sigma_{\\text{scale}}^{\\text{MCMC}} \\cdot \\sigma \\odot z_j, \\quad z_j \\sim \\mathcal{N}(0, I)",
+      "required_operators": [
+        "gaussian_random_sampling",
+        "elementwise_vector_multiplication",
+        "scalar_vector_multiplication",
+        "vector_addition"
+      ],
+      "inputs": [
+        "g^{best}",
+        "sigma_scale_MCMC",
+        "sigma_params"
+      ],
+      "outputs": [
+        "w_j^{(0)}"
+      ]
+    },
+    {
+      "step_order": 9,
+      "step_name": "Propose New Positions via Stretch Move",
+      "mathematical_description": "w_j^* = w_k^{(t-1)} + Z \\cdot (w_j^{(t-1)} - w_k^{(t-1)}), \\quad k \\neq j \\text{ uniform}, \\quad Z \\sim g(z) \\propto \\frac{1}{\\sqrt{z}} \\text{ for } z \\in [1/a, a], a=2",
+      "required_operators": [
+        "uniform_index_sampling",
+        "stretch_factor_sampling",
+        "vector_subtraction",
+        "scalar_vector_multiplication",
+        "vector_addition"
+      ],
+      "inputs": [
+        "w_j^{(t-1)}",
+        "stretch_parameter_a"
+      ],
+      "outputs": [
+        "w_j^*",
+        "Z_j"
+      ]
+    },
+    {
+      "step_order": 10,
+      "step_name": "Compute Acceptance Probability",
+      "mathematical_description": "\\alpha_j = \\min\\left(1, Z^{N_{\\text{params}}-1} \\cdot \\frac{\\mathcal{L}(I_{\\text{obs}}|w_j^*) P(w_j^*)}{\\mathcal{L}(I_{\\text{obs}}|w_j^{(t-1)}) P(w_j^{(t-1)})}\\right)",
+      "required_operators": [
+        "log_likelihood_evaluation",
+        "log_prior_evaluation",
+        "exponentiation",
+        "scalar_division",
+        "scalar_minimum"
+      ],
+      "inputs": [
+        "w_j^*",
+        "w_j^{(t-1)}",
+        "Z_j",
+        "N_params",
+        "I_obs"
+      ],
+      "outputs": [
+        "alpha_j"
+      ]
+    },
+    {
+      "step_order": 11,
+      "step_name": "Accept or Reject Proposals",
+      "mathematical_description": "w_j^{(t)} = \\begin{cases} w_j^* & \\text{if } u_j < \\alpha_j \\\\ w_j^{(t-1)} & \\text{otherwise} \\end{cases}, \\quad u_j \\sim \\mathcal{U}[0,1]",
+      "required_operators": [
+        "uniform_random_sampling",
+        "scalar_comparison",
+        "conditional_vector_selection"
+      ],
+      "inputs": [
+        "alpha_j",
+        "w_j^*",
+        "w_j^{(t-1)}"
+      ],
+      "outputs": [
+        "w_j^{(t)}"
+      ]
+    },
+    {
+      "step_order": 12,
+      "step_name": "Store MCMC Samples and Check Termination",
+      "mathematical_description": "\\text{If } t > N_{\\text{burn}}: \\text{ store } w_j^{(t)}; \\quad \\text{Continue if } t < N_{\\text{burn}} + N_{\\text{run}}",
+      "required_operators": [
+        "iteration_counter_comparison",
+        "chain_storage_append",
+        "termination_check"
+      ],
+      "inputs": [
+        "t",
+        "N_burn",
+        "N_run",
+        "w_j^{(t)}"
+      ],
+      "outputs": [
+        "chain_samples",
+        "continue_MCMC_flag"
+      ]
+    }
+  ]
+}
+```

@@ -1,0 +1,31 @@
+global:
+  default_settings:
+    max_rounds: 10
+    model_name: gemini-3-pro-preview
+  sandbox_root: /data/yjh/react_inverse_problem_sandboxes
+tasks:
+- expected_output_path: null
+  gt_code_path: /home/yjh/lenstronomy_double_quasar_sandbox/main.py
+  input_path: null
+  name: lenstronomy_double_quasar
+  working_folder: /home/yjh/lenstronomy_double_quasar_sandbox/
+- expected_output_path: null
+  gt_code_path: /home/yjh/lenstronomy_shapelets_sandbox/main.py
+  input_path: null
+  name: lenstronomy_shapelets
+  working_folder: /home/yjh/lenstronomy_shapelets_sandbox/
+- expected_output_path: null
+  gt_code_path: /home/yjh/lenstronomy_host_decomp_sandbox/main.py
+  input_path: null
+  name: lenstronomy_host_decomp
+  working_folder: /home/yjh/lenstronomy_host_decomp_sandbox/
+- expected_output_path: null
+  gt_code_path: /home/yjh/dpi_task1_sandbox/dpi_task1.py
+  input_path: null
+  name: dpi_task1
+  working_folder: /home/yjh/dpi_task1_sandbox/
+- expected_output_path: null
+  gt_code_path: /home/yjh/dpi_task2_sandbox/dpi_task2.py
+  input_path: null
+  name: dpi_task2
+  working_folder: /home/yjh/dpi_task2_sandbox/

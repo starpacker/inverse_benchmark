@@ -1,0 +1,197 @@
+```json
+{
+  "algorithm_name": "Deep Probabilistic Imaging (DPI) for Radio Interferometry",
+  "initialization": [
+    "Load observation data from uvfits file and extract observation object",
+    "Extract flux constant F_0 as median of APEX-ALMA visibility amplitudes",
+    "Construct pixel grid (ξ, η) with spacing Δ = FOV / N_pix centered at origin",
+    "Compute DFT matrix F with F[p,k,0] = Re(exp(-2πi(u_k·ξ_p + v_k·η_p))), F[p,k,1] = Im(...)",
+    "Build prior image x^prior as 2D Gaussian with specified FWHM, normalized and scaled by F_0",
+    "Extract observed closure phases ψ^true with uncertainties σ_cp using min-cut0bl triangles",
+    "Build index maps (j_1, j_2, j_3) and sign tensors (s_1, s_2, s_3) for closure phase computation",
+    "Initialize RealNVP normalizing flow f_θ with N_flow coupling layers and affine=True",
+    "Initialize learnable log-scale parameter φ = log(F_0 / (0.8 · N_pix²))",
+    "Initialize Adam optimizer with learning rate η for parameters {θ, φ}",
+    "Compute loss weights: w_cp = N_cp / N_camp, λ_logdet = 2·λ_factor / N_camp",
+    "Transfer F, indices, signs, ψ^true, σ_cp, x^prior to GPU device"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Sample Latent Variables",
+      "mathematical_description": "$z \\sim \\mathcal{N}(0, I_{N_{\\text{pix}}^2})$, shape $(N_{\\text{batch}}, N_{\\text{pix}}^2)$",
+      "required_operators": ["gaussian_sampling"],
+      "inputs": ["N_batch", "N_pix"],
+      "outputs": ["z"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Flow Reverse Pass",
+      "mathematical_description": "$(\\tilde{x}_{\\text{flat}}, \\log\\det J_f) = f_\\theta^{-1}(z)$",
+      "required_operators": ["realnvp_inverse"],
+      "inputs": ["z", "θ"],
+      "outputs": ["x_tilde_flat", "logdet_J_f"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Reshape Pre-activation",
+      "mathematical_description": "$\\tilde{x} = \\text{reshape}(\\tilde{x}_{\\text{flat}}, (N_{\\text{batch}}, N_{\\text{pix}}, N_{\\text{pix}}))$",
+      "required_operators": ["reshape"],
+      "inputs": ["x_tilde_flat", "N_batch", "N_pix"],
+      "outputs": ["x_tilde"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Apply Softplus and Scale",
+      "mathematical_description": "$x = \\text{Softplus}(\\tilde{x}) \\cdot e^\\phi = \\log(1 + e^{\\tilde{x}}) \\cdot e^\\phi$",
+      "required_operators": ["softplus", "exp", "scalar_multiply"],
+      "inputs": ["x_tilde", "φ"],
+      "outputs": ["x"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "Compute Softplus Log-Jacobian",
+      "mathematical_description": "$\\Delta_{\\text{sp}} = \\sum_{p} \\log\\sigma(\\tilde{x}_p) = \\sum_{p} \\left( \\tilde{x}_p - \\log(1+e^{\\tilde{x}_p}) \\right)$",
+      "required_operators": ["log_sigmoid", "sum"],
+      "inputs": ["x_tilde"],
+      "outputs": ["Delta_sp"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Compute Scale Log-Jacobian",
+      "mathematical_description": "$\\Delta_{\\text{scale}} = \\phi \\cdot N_{\\text{pix}}^2$",
+      "required_operators": ["scalar_multiply"],
+      "inputs": ["φ", "N_pix"],
+      "outputs": ["Delta_scale"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "Total Log-Determinant",
+      "mathematical_description": "$\\log\\det J = \\log\\det J_f + \\Delta_{\\text{sp}} + \\Delta_{\\text{scale}}$",
+      "required_operators": ["add"],
+      "inputs": ["logdet_J_f", "Delta_sp", "Delta_scale"],
+      "outputs": ["logdet_J"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "Flatten Image for DFT",
+      "mathematical_description": "$x_{\\text{flat}} = \\text{reshape}(x, (N_{\\text{batch}}, N_{\\text{pix}}^2))$",
+      "required_operators": ["reshape"],
+      "inputs": ["x", "N_batch", "N_pix"],
+      "outputs": ["x_flat"]
+    },
+    {
+      "step_order": 9,
+      "step_name": "Compute Complex Visibilities",
+      "mathematical_description": "$V_{\\text{re}} = x_{\\text{flat}} \\mathbf{F}_{:,:,0}$, $V_{\\text{im}} = x_{\\text{flat}} \\mathbf{F}_{:,:,1}$",
+      "required_operators": ["matrix_multiply"],
+      "inputs": ["x_flat", "F"],
+      "outputs": ["V"]
+    },
+    {
+      "step_order": 10,
+      "step_name": "Compute Visibility Amplitudes",
+      "mathematical_description": "$|V|_k = \\sqrt{V_{\\text{re},k}^2 + V_{\\text{im},k}^2 + \\epsilon_{\\text{amp}}}$ where $\\epsilon_{\\text{amp}} = 10^{-16}$",
+      "required_operators": ["square", "add", "sqrt"],
+      "inputs": ["V", "ε_amp"],
+      "outputs": ["V_amp"]
+    },
+    {
+      "step_order": 11,
+      "step_name": "Extract Triangle Visibilities",
+      "mathematical_description": "$V^{(m)} = V_{:,:,j_m}$ for $m \\in \\{1,2,3\\}$",
+      "required_operators": ["index_select"],
+      "inputs": ["V", "j_1", "j_2", "j_3"],
+      "outputs": ["V_1", "V_2", "V_3"]
+    },
+    {
+      "step_order": 12,
+      "step_name": "Compute Visibility Phases",
+      "mathematical_description": "$\\alpha_m = \\text{atan2}(V^{(m)}_{\\text{im}}, V^{(m)}_{\\text{re}})$ for $m \\in \\{1,2,3\\}$",
+      "required_operators": ["atan2"],
+      "inputs": ["V_1", "V_2", "V_3"],
+      "outputs": ["α_1", "α_2", "α_3"]
+    },
+    {
+      "step_order": 13,
+      "step_name": "Compute Predicted Closure Phases",
+      "mathematical_description": "$\\psi^{\\text{pred}} = (s_1 \\alpha_1 + s_2 \\alpha_2 + s_3 \\alpha_3) \\cdot \\frac{180}{\\pi}$",
+      "required_operators": ["multiply", "add", "rad2deg"],
+      "inputs": ["α_1", "α_2", "α_3", "s_1", "s_2", "s_3"],
+      "outputs": ["ψ_pred"]
+    },
+    {
+      "step_order": 14,
+      "step_name": "Compute Closure Phase Loss",
+      "mathematical_description": "$\\mathcal{L}_{\\text{cp}} = \\frac{2}{N_{\\text{cp}}} \\sum_{i} \\frac{1 - \\cos\\left(\\frac{\\pi}{180}(\\psi^{\\text{true}}_i - \\psi^{\\text{pred}}_i)\\right)}{\\left(\\frac{\\pi}{180}\\sigma_{\\text{cp},i}\\right)^2}$",
+      "required_operators": ["subtract", "deg2rad", "cos", "divide", "sum", "mean"],
+      "inputs": ["ψ_pred", "ψ_true", "σ_cp", "N_cp"],
+      "outputs": ["L_cp"]
+    },
+    {
+      "step_order": 15,
+      "step_name": "Compute Cross-Entropy Loss",
+      "mathematical_description": "$\\mathcal{L}_{\\text{CE}} = \\frac{1}{N_{\\text{pix}}^2} \\sum_p x_p \\left(\\log(x_p + \\epsilon_{\\text{log}}) - \\log(x^{\\text{prior}}_p + \\epsilon_{\\text{log}})\\right)$ where $\\epsilon_{\\text{log}} = 10^{-12}$",
+      "required_operators": ["log", "subtract", "multiply", "sum", "mean"],
+      "inputs": ["x", "x_prior", "ε_log", "N_pix"],
+      "outputs": ["L_CE"]
+    },
+    {
+      "step_order": 16,
+      "step_name": "Compute Flux Loss",
+      "mathematical_description": "$\\mathcal{L}_{\\text{flux}} = \\left(\\sum_p x_p - F_0\\right)^2$",
+      "required_operators": ["sum", "subtract", "square"],
+      "inputs": ["x", "F_0"],
+      "outputs": ["L_flux"]
+    },
+    {
+      "step_order": 17,
+      "step_name": "Aggregate Total Loss",
+      "mathematical_description": "$\\mathcal{L} = \\frac{1}{N_{\\text{batch}}}\\sum_b \\left[ w_{\\text{cp}} \\mathcal{L}_{\\text{cp}}^{(b)} + w_{\\text{CE}} \\mathcal{L}_{\\text{CE}}^{(b)} + w_{\\text{flux}} \\mathcal{L}_{\\text{flux}}^{(b)} - \\lambda_{\\text{logdet}} \\log\\det J^{(b)} \\right]$",
+      "required_operators": ["multiply", "add", "subtract", "mean"],
+      "inputs": ["L_cp", "L_CE", "L_flux", "logdet_J", "w_cp", "w_CE", "w_flux", "λ_logdet", "N_batch"],
+      "outputs": ["L_total"]
+    },
+    {
+      "step_order": 18,
+      "step_name": "Zero Gradients",
+      "mathematical_description": "$\\nabla_{\\theta,\\phi} \\leftarrow 0$",
+      "required_operators": ["zero_grad"],
+      "inputs": ["optimizer"],
+      "outputs": ["optimizer"]
+    },
+    {
+      "step_order": 19,
+      "step_name": "Backpropagation",
+      "mathematical_description": "$\\nabla_{\\theta,\\phi} \\mathcal{L} = \\frac{\\partial \\mathcal{L}}{\\partial \\theta}, \\frac{\\partial \\mathcal{L}}{\\partial \\phi}$",
+      "required_operators": ["backward"],
+      "inputs": ["L_total"],
+      "outputs": ["grad_θ", "grad_φ"]
+    },
+    {
+      "step_order": 20,
+      "step_name": "Gradient Clipping",
+      "mathematical_description": "$\\nabla \\leftarrow \\nabla \\cdot \\min\\left(1, \\frac{c_{\\text{grad}}}{\\|\\nabla\\|_2}\\right)$ where $c_{\\text{grad}} = 0.1$",
+      "required_operators": ["norm", "clip_grad_norm"],
+      "inputs": ["grad_θ", "grad_φ", "c_grad"],
+      "outputs": ["grad_θ_clipped", "grad_φ_clipped"]
+    },
+    {
+      "step_order": 21,
+      "step_name": "Adam Parameter Update",
+      "mathematical_description": "$(\\theta, \\phi) \\leftarrow \\text{Adam}((\\theta, \\phi), \\nabla_{\\text{clipped}}, \\eta)$",
+      "required_operators": ["adam_update"],
+      "inputs": ["θ", "φ", "grad_θ_clipped", "grad_φ_clipped", "optimizer", "η"],
+      "outputs": ["θ", "φ", "optimizer"]
+    },
+    {
+      "step_order": 22,
+      "step_name": "Store Loss History",
+      "mathematical_description": "$\\text{history} \\leftarrow \\text{history} \\cup \\{\\mathcal{L}\\}$",
+      "required_operators": ["append"],
+      "inputs": ["L_total", "loss_history"],
+      "outputs": ["loss_history"]
+    }
+  ]
+}
+```

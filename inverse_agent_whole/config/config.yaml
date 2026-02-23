@@ -1,0 +1,82 @@
+global:
+  sandbox_root: "/data/yjh/react_inverse_problem_sandboxes"
+  default_settings:
+    model_name: "gemini-3-pro-preview"
+    max_rounds: 10
+
+tasks:
+  - name: "sim"
+    python_path: "/home/yjh/.conda/envs/sim/bin/python"
+    working_folder: "/home/yjh/sim_sandbox/"
+    questions_file: "/home/yjh/new_flow/output_sim_tutorial/coding_questions.json"
+    
+  - name: "ptyrad"
+    python_path: "/home/yjh/.conda/envs/ptyrad/bin/python"
+    working_folder: "/home/yjh/ad_pty/code_2"
+    questions_file: "/home/yjh/new_flow/output_ptyrad_tutorial/coding_questions.json"
+
+  - name: "lfm"
+    python_path: "/home/yjh/.conda/envs/eht/bin/python"
+    working_folder: "/home/yjh/lfm_sandbox/"
+    questions_file: "/home/yjh/new_flow/output_lfm_tutorial/coding_questions.json"
+
+  - name: "oopao_sh_wfs"
+    python_path: "/home/yjh/.conda/envs/ao/bin/python"
+    working_folder: "/home/yjh/oopao_sh_sandbox/"
+    questions_file: "/home/yjh/new_flow/output_oopao_sh_wfs/coding_questions.json"
+
+  - name: "oopao_image_zernike"
+    python_path: "/home/yjh/.conda/envs/ao/bin/python"
+    working_folder: "/home/yjh/oopao_zernike_sandbox/"
+    questions_file: "/home/yjh/new_flow/output_oopao_image_zernike/coding_questions.json"
+
+  - name: "bayhunt"
+    python_path: "/home/yjh/.conda/envs/bayhunt/bin/python"
+    working_folder: "/home/yjh/BayHunter_standalone/"
+    questions_file: "/home/yjh/new_flow/output_bayhunt_tutorial/coding_questions.json"
+
+  - name: "pyeit"
+    python_path: "/home/yjh/.conda/envs/eht/bin/python"
+    working_folder: "/home/yjh/pyeit_sandbox/examples"
+    questions_file: "/home/yjh/new_flow/output_pyeit_tutorial/coding_questions.json"
+
+  - name: "bpm"
+    python_path: "/home/yjh/.conda/envs/ragas/bin/python"
+    working_folder: "/home/yjh/bpm_sandbox/"
+    questions_file: "/home/yjh/new_flow/output_bpm_tutorial/coding_questions.json"
+
+  - name: "diff"
+    python_path: "/home/yjh/.conda/envs/ragas/bin/python"
+    working_folder: "/home/yjh/diff_sandbox/"
+    questions_file: "/home/yjh/new_flow/output_diff_tutorial/coding_questions.json"
+
+  - name: "insar"
+    python_path: "/home/yjh/.conda/envs/ragas/bin/python"
+    working_folder: "/home/yjh/insar_sandbox/"
+    questions_file: "/home/yjh/new_flow/output_insar_tutorial/coding_questions.json"
+
+  - name: "pat"
+    python_path: "/home/yjh/.conda/envs/patato/bin/python"
+    working_folder: "/home/yjh/pat_sandbox/"
+    questions_file: "/home/yjh/new_flow/output_pat_tutorial/coding_questions.json"
+
+  - name: "lensless_admm"
+    python_path: "/home/yjh/.conda/envs/lensless/bin/python"
+    working_folder: "/home/yjh/lensless_admm_sandbox/"
+    questions_file: "/home/yjh/new_flow/output_lensless_admm_tutorial/coding_questions.json"
+
+  - name: "lensless_dl"
+    python_path: "/home/yjh/.conda/envs/lensless/bin/python"
+    working_folder: "/home/yjh/lensless_dl_sandbox/"
+    questions_file: "/home/yjh/new_flow/output_lensless_dl_tutorial/coding_questions.json"
+
+  - name: "pnp_cassi"
+    python_path: "/home/yjh/.conda/envs/lensless/bin/python"
+    working_folder: "/home/yjh/pnp_cassi_sandbox/"
+    questions_file: "/home/yjh/new_flow/output_pnp_cassi_tutorial/coding_questions.json"
+
+  - name: "fpm_inr"
+    python_path: "/home/yjh/.conda/envs/lensless/bin/python"
+    working_folder: "/home/yjh/fpm_inr_sandbox/"
+    questions_file: "/home/yjh/new_flow/output_fpm_inr_tutorial/coding_questions.json"
+

@@ -1,0 +1,132 @@
+```json
+{
+  "algorithm_name": "Photoacoustic Tomography Delay-and-Sum Backprojection with Linear Spectral Unmixing",
+  "initialization": [
+    "Load raw photoacoustic data y_raw of shape (n_wl, n_det, n_t), detector positions G of shape (n_det, 3), wavelengths λ of shape (n_wl,), sampling frequency f_s, and speed of sound c from HDF5 file",
+    "Remove singleton dimension if y_raw has shape (1, n_wl, n_det, n_t)",
+    "Design Butterworth bandpass filter: compute normalized frequencies ω_low = f_low/(0.5·f_s), ω_high = f_high/(0.5·f_s), then obtain filter coefficients (b, a) = butter(n_order, [ω_low, ω_high], btype='band') with f_low=5000 Hz, f_high=7×10^6 Hz, n_order=4",
+    "Apply zero-phase bandpass filtering: y_filt[w,d,:] = filtfilt(b, a, y_raw[w,d,:]) for all wavelengths w and detectors d",
+    "Compute Hilbert transform to obtain analytic signal: y_analytic = y_filt + j·HT{y_filt}",
+    "Extract imaginary part: y_proc = Im(y_analytic) of shape (n_wl, n_det, n_t)",
+    "Construct reconstruction grid: x_i = -L_x/2 + i·L_x/(n_x-1) for i=0,...,n_x-1, similarly for y, z; create meshgrid (Z, Y, X) of shape (n_z, n_y, n_x) each with L_x=L_y=0.025m, n_x=n_y=100, n_z=1",
+    "Compute spatial sampling interval: Δl = c/f_s",
+    "Interpolate absorption spectra from reference wavelengths λ_ref=[700,730,760,800,850,900] nm to measurement wavelengths λ: ε_Hb(λ) and ε_HbO2(λ)",
+    "Construct absorption coefficient matrix E = [ε_Hb, ε_HbO2] of shape (n_wl, 2)",
+    "Initialize reconstruction array: P = zeros(n_wl, n_z, n_y, n_x)"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Extract Wavelength Signal",
+      "mathematical_description": "\\mathbf{s}^{(w)} = \\mathbf{y}_{proc}[w, :, :] \\in \\mathbb{R}^{n_{det} \\times n_t}",
+      "required_operators": ["array_slicing"],
+      "inputs": ["y_proc", "w"],
+      "outputs": ["s_w"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Extract Detector Position",
+      "mathematical_description": "\\mathbf{g}^{(d)} = \\mathbf{G}[d, :] = (g_x^{(d)}, g_y^{(d)}, g_z^{(d)}) \\in \\mathbb{R}^3",
+      "required_operators": ["array_slicing"],
+      "inputs": ["G", "d"],
+      "outputs": ["g_d"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Compute Distance Map",
+      "mathematical_description": "D^{(d)}_{k,j,i} = \\sqrt{(X_{k,j,i} - g_x^{(d)})^2 + (Y_{k,j,i} - g_y^{(d)})^2 + (Z_{k,j,i} - g_z^{(d)})^2}",
+      "required_operators": ["subtraction", "elementwise_square", "addition", "elementwise_sqrt"],
+      "inputs": ["X", "Y", "Z", "g_d"],
+      "outputs": ["D_d"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Compute Sample Index Map",
+      "mathematical_description": "I^{(d)}_{k,j,i} = \\left\\lfloor \\frac{D^{(d)}_{k,j,i}}{\\Delta l} \\right\\rfloor",
+      "required_operators": ["scalar_division", "floor"],
+      "inputs": ["D_d", "delta_l"],
+      "outputs": ["I_d"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "Compute Valid Mask",
+      "mathematical_description": "M^{(d)}_{k,j,i} = \\mathbb{1}\\left[0 \\leq I^{(d)}_{k,j,i} < n_t\\right]",
+      "required_operators": ["comparison", "logical_and"],
+      "inputs": ["I_d", "n_t"],
+      "outputs": ["M_d"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Backproject Signal",
+      "mathematical_description": "P_{w,k,j,i} \\leftarrow P_{w,k,j,i} + M^{(d)}_{k,j,i} \\cdot s^{(w)}_{d, I^{(d)}_{k,j,i}}",
+      "required_operators": ["fancy_indexing", "elementwise_multiplication", "addition"],
+      "inputs": ["P", "s_w", "I_d", "M_d", "w", "d"],
+      "outputs": ["P"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "Reshape Reconstruction for Unmixing",
+      "mathematical_description": "\\mathbf{S} = \\text{reshape}(\\mathbf{P}, (n_{wl}, n_z \\cdot n_y \\cdot n_x))",
+      "required_operators": ["reshape"],
+      "inputs": ["P", "n_wl", "n_z", "n_y", "n_x"],
+      "outputs": ["S"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "Compute Moore-Penrose Pseudoinverse",
+      "mathematical_description": "\\mathbf{E}^+ = (\\mathbf{E}^T \\mathbf{E})^{-1} \\mathbf{E}^T",
+      "required_operators": ["transpose", "matrix_multiplication", "matrix_inverse"],
+      "inputs": ["E"],
+      "outputs": ["E_pinv"]
+    },
+    {
+      "step_order": 9,
+      "step_name": "Solve Linear Spectral Unmixing",
+      "mathematical_description": "\\mathbf{C}_{flat} = \\mathbf{E}^+ \\mathbf{S}",
+      "required_operators": ["matrix_multiplication"],
+      "inputs": ["E_pinv", "S"],
+      "outputs": ["C_flat"]
+    },
+    {
+      "step_order": 10,
+      "step_name": "Reshape Concentration Maps",
+      "mathematical_description": "\\mathbf{C} = \\text{reshape}(\\mathbf{C}_{flat}, (2, n_z, n_y, n_x)), \\quad \\mathbf{C}[0]=C_{Hb}, \\mathbf{C}[1]=C_{HbO_2}",
+      "required_operators": ["reshape"],
+      "inputs": ["C_flat", "n_z", "n_y", "n_x"],
+      "outputs": ["C"]
+    },
+    {
+      "step_order": 11,
+      "step_name": "Compute Total Hemoglobin",
+      "mathematical_description": "H_{total} = C_{Hb} + C_{HbO_2} = \\mathbf{C}[0] + \\mathbf{C}[1]",
+      "required_operators": ["array_slicing", "addition"],
+      "inputs": ["C"],
+      "outputs": ["H_total"]
+    },
+    {
+      "step_order": 12,
+      "step_name": "Compute sO2 Threshold Mask",
+      "mathematical_description": "M^{sO_2}_{k,j,i} = \\mathbb{1}\\left[H_{total,k,j,i} > \\tau_{mask} \\cdot \\max(\\mathbf{H}_{total})\\right], \\quad \\tau_{mask} = 0.1",
+      "required_operators": ["max", "scalar_multiplication", "comparison"],
+      "inputs": ["H_total", "tau_mask"],
+      "outputs": ["M_sO2"]
+    },
+    {
+      "step_order": 13,
+      "step_name": "Compute Oxygen Saturation",
+      "mathematical_description": "sO_{2,k,j,i} = \\begin{cases} \\frac{C_{HbO_2,k,j,i}}{H_{total,k,j,i}} & \\text{if } M^{sO_2}_{k,j,i} = 1 \\\\ 0 & \\text{otherwise} \\end{cases}",
+      "required_operators": ["masked_division", "where"],
+      "inputs": ["C", "H_total", "M_sO2"],
+      "outputs": ["sO2"]
+    },
+    {
+      "step_order": 14,
+      "step_name": "Clip sO2 to Physical Bounds",
+      "mathematical_description": "\\mathbf{sO_2} = \\text{clip}(\\mathbf{sO_2}, 0, 1)",
+      "required_operators": ["clip"],
+      "inputs": ["sO2"],
+      "outputs": ["sO2"]
+    }
+  ]
+}
+```

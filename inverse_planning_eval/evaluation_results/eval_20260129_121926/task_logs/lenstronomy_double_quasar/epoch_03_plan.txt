@@ -1,0 +1,164 @@
+```json
+{
+  "algorithm_name": "Gravitational Lens Modeling via PSO-MCMC Hybrid Optimization",
+  "initialization": [
+    "Set random seed: np.random.seed(42) for deterministic RNG state",
+    "Compute transformation matrix: T = [[-Δ_pix, 0], [0, Δ_pix]] with Δ_pix = 0.05 arcsec/pixel",
+    "Compute reference coordinates: c_x = c_y = (N_pix - 1)/2 = 49.5; ra_0 = 2.475, dec_0 = -2.475 arcsec",
+    "Initialize ImageData object with zero array d_0 ∈ ℝ^{100×100}",
+    "Configure Gaussian PSF: σ = FWHM / (2√(2ln2)) with FWHM = 0.2 arcsec, truncation = 3",
+    "Construct EPL lens model with true parameters: θ_E = 1.0, γ = 1.96, e1 = 0.07, e2 = -0.03",
+    "Construct external shear model: γ_1 = 0.01, γ_2 = 0.01 with origin fixed at (0, 0)",
+    "Construct lens light Sersic model: amp = 400, R_sersic = 1.0, n_sersic = 2",
+    "Construct source light Sersic model: amp = 160, R_sersic = 0.5, n_sersic = 7, center = (0.1, 0.3), e2 = 0.1",
+    "Solve lens equation to find image positions x_img, y_img satisfying x - α(x) = y_src with numImages = 4",
+    "Compute magnifications: μ_i = 1/det(I - ∇α(x_i)) for each image position",
+    "Set point source amplitudes: A_i = 100 × |μ_i|",
+    "Simulate clean model image via PSF convolution of lens light, lensed source, and point sources",
+    "Add Poisson noise: n^P = Poisson(max(0, m × t_exp))/t_exp - m with t_exp = 100",
+    "Add Gaussian noise: n^G ~ N(0, σ_bkg²) with σ_bkg = 0.5",
+    "Generate noisy observation: d = m + n^P + n^G",
+    "Initialize parameter bounds and sigma values for all 20+ primal variables",
+    "Construct FittingSequence with kwargs_data_joint, kwargs_model, kwargs_constraints, kwargs_likelihood, kwargs_params",
+    "Define fitting pipeline: fitting_kwargs_list = [['PSO', {...}], ['MCMC', {...}]]"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "PSO Swarm Initialization",
+      "mathematical_description": "$\\mathbf{x}_i^{(0)} \\sim \\mathcal{U}(\\boldsymbol{\\theta}_{\\text{init}} - \\sigma_{\\text{scale}} \\cdot \\boldsymbol{\\sigma}, \\boldsymbol{\\theta}_{\\text{init}} + \\sigma_{\\text{scale}} \\cdot \\boldsymbol{\\sigma})$ for $i = 1, \\ldots, N_{\\text{particles}}$",
+      "required_operators": ["uniform_random_sampling", "parameter_bounds_enforcement"],
+      "inputs": ["kwargs_init", "kwargs_sigma", "sigma_scale_PSO", "N_particles", "theta_lower", "theta_upper"],
+      "outputs": ["x_i_positions"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "PSO Velocity Initialization",
+      "mathematical_description": "$\\mathbf{v}_i^{(0)} \\sim \\mathcal{U}(-|\\boldsymbol{\\theta}_{\\text{upper}} - \\boldsymbol{\\theta}_{\\text{lower}}|, |\\boldsymbol{\\theta}_{\\text{upper}} - \\boldsymbol{\\theta}_{\\text{lower}}|)$",
+      "required_operators": ["uniform_random_sampling"],
+      "inputs": ["theta_lower", "theta_upper", "N_particles"],
+      "outputs": ["v_i_velocities"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "PSO Fitness Evaluation",
+      "mathematical_description": "$f_i^{(k)} = \\mathcal{L}(\\mathbf{x}_i^{(k)} | \\mathbf{d}) = -\\frac{1}{2} \\sum_{i,j} \\left( \\frac{d_{ij} - m_{ij}(\\mathbf{x}_i^{(k)})}{\\sigma_{\\text{bkg}}} \\right)^2$",
+      "required_operators": ["forward_operator", "chi_squared_evaluation", "PSF_convolution", "lens_equation_solver", "sersic_profile_evaluation"],
+      "inputs": ["x_i_positions", "observed_image_d", "sigma_bkg", "lens_model_class", "source_model_class", "lens_light_model_class", "psf_class"],
+      "outputs": ["f_i_fitness_values"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "PSO Personal Best Update",
+      "mathematical_description": "$\\mathbf{p}_i^{(k)} = \\begin{cases} \\mathbf{x}_i^{(k)} & \\text{if } f_i^{(k)} > f(\\mathbf{p}_i^{(k-1)}) \\\\ \\mathbf{p}_i^{(k-1)} & \\text{otherwise} \\end{cases}$",
+      "required_operators": ["comparison_operator", "conditional_assignment"],
+      "inputs": ["x_i_positions", "p_i_personal_best_prev", "f_i_fitness_values", "f_p_i_fitness_prev"],
+      "outputs": ["p_i_personal_best"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "PSO Global Best Update",
+      "mathematical_description": "$\\mathbf{g}^{(k)} = \\arg\\max_{\\mathbf{p}_i^{(k)}} f(\\mathbf{p}_i^{(k)})$",
+      "required_operators": ["argmax_operator"],
+      "inputs": ["p_i_personal_best", "f_i_fitness_values"],
+      "outputs": ["g_global_best"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "PSO Velocity Update",
+      "mathematical_description": "$\\mathbf{v}_i^{(k+1)} = \\omega \\mathbf{v}_i^{(k)} + c_1 r_1 (\\mathbf{p}_i^{(k)} - \\mathbf{x}_i^{(k)}) + c_2 r_2 (\\mathbf{g}^{(k)} - \\mathbf{x}_i^{(k)})$, where $r_1, r_2 \\sim \\mathcal{U}(0,1)$",
+      "required_operators": ["velocity_update", "uniform_random_sampling", "vector_subtraction", "scalar_multiplication", "vector_addition"],
+      "inputs": ["v_i_velocities", "x_i_positions", "p_i_personal_best", "g_global_best", "omega_inertia", "c1_cognitive", "c2_social"],
+      "outputs": ["v_i_velocities_updated"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "PSO Position Update",
+      "mathematical_description": "$\\mathbf{x}_i^{(k+1)} = \\text{clip}(\\mathbf{x}_i^{(k)} + \\mathbf{v}_i^{(k+1)}, \\boldsymbol{\\theta}_{\\text{lower}}, \\boldsymbol{\\theta}_{\\text{upper}})$",
+      "required_operators": ["vector_addition", "clip_to_bounds"],
+      "inputs": ["x_i_positions", "v_i_velocities_updated", "theta_lower", "theta_upper"],
+      "outputs": ["x_i_positions_updated"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "PSO Best Extraction",
+      "mathematical_description": "$\\boldsymbol{\\theta}^{\\text{PSO}} = \\mathbf{g}^{(N_{\\text{iter}}^{\\text{PSO}})}$",
+      "required_operators": ["parameter_extraction"],
+      "inputs": ["g_global_best"],
+      "outputs": ["theta_PSO"]
+    },
+    {
+      "step_order": 9,
+      "step_name": "MCMC Walker Initialization",
+      "mathematical_description": "$\\mathbf{w}_j^{(0)} = \\boldsymbol{\\theta}^{\\text{PSO}} + \\sigma_{\\text{scale}}^{\\text{MCMC}} \\cdot \\boldsymbol{\\sigma} \\cdot \\boldsymbol{\\epsilon}_j$, where $\\boldsymbol{\\epsilon}_j \\sim \\mathcal{N}(0, \\mathbf{I})$ for $j = 1, \\ldots, N_w$, $N_w = r_{\\text{walker}} \\times \\dim(\\boldsymbol{\\theta})$",
+      "required_operators": ["gaussian_random_sampling", "scalar_multiplication", "vector_addition"],
+      "inputs": ["theta_PSO", "kwargs_sigma", "sigma_scale_MCMC", "r_walker", "param_dimension"],
+      "outputs": ["w_j_walker_positions"]
+    },
+    {
+      "step_order": 10,
+      "step_name": "MCMC Stretch Move Proposal",
+      "mathematical_description": "$\\mathbf{w}_j^* = \\mathbf{w}_k^{(t)} + z(\\mathbf{w}_j^{(t)} - \\mathbf{w}_k^{(t)})$, where $z \\sim g(z) \\propto \\frac{1}{\\sqrt{z}}$ for $z \\in [1/a, a]$, $a = 2$",
+      "required_operators": ["stretch_move_sampler", "complementary_walker_selection", "vector_subtraction", "scalar_multiplication", "vector_addition"],
+      "inputs": ["w_j_walker_positions", "stretch_parameter_a"],
+      "outputs": ["w_j_star_proposals", "z_stretch_factors"]
+    },
+    {
+      "step_order": 11,
+      "step_name": "MCMC Likelihood Evaluation",
+      "mathematical_description": "$\\mathcal{L}(\\mathbf{w}_j^* | \\mathbf{d}) = -\\frac{1}{2} \\sum_{i,j} \\left( \\frac{d_{ij} - m_{ij}(\\mathbf{w}_j^*)}{\\sigma_{\\text{bkg}}} \\right)^2$",
+      "required_operators": ["forward_operator", "chi_squared_evaluation", "PSF_convolution", "lens_equation_solver"],
+      "inputs": ["w_j_star_proposals", "observed_image_d", "sigma_bkg", "lens_model_class", "source_model_class"],
+      "outputs": ["L_proposal_likelihoods"]
+    },
+    {
+      "step_order": 12,
+      "step_name": "MCMC Acceptance Probability Computation",
+      "mathematical_description": "$\\alpha = \\min\\left(1, z^{d-1} \\frac{\\mathcal{L}(\\mathbf{w}_j^* | \\mathbf{d})}{\\mathcal{L}(\\mathbf{w}_j^{(t)} | \\mathbf{d})}\\right)$, where $d = \\dim(\\boldsymbol{\\theta})$",
+      "required_operators": ["likelihood_ratio_computation", "power_operator", "min_operator"],
+      "inputs": ["L_proposal_likelihoods", "L_current_likelihoods", "z_stretch_factors", "param_dimension"],
+      "outputs": ["alpha_acceptance_probabilities"]
+    },
+    {
+      "step_order": 13,
+      "step_name": "MCMC Accept/Reject Decision",
+      "mathematical_description": "$\\mathbf{w}_j^{(t+1)} = \\begin{cases} \\mathbf{w}_j^* & \\text{if } u < \\alpha, \\; u \\sim \\mathcal{U}(0,1) \\\\ \\mathbf{w}_j^{(t)} & \\text{otherwise} \\end{cases}$",
+      "required_operators": ["uniform_random_sampling", "comparison_operator", "conditional_assignment"],
+      "inputs": ["w_j_star_proposals", "w_j_walker_positions", "alpha_acceptance_probabilities"],
+      "outputs": ["w_j_walker_positions_updated"]
+    },
+    {
+      "step_order": 14,
+      "step_name": "MCMC Chain Storage",
+      "mathematical_description": "Append $\\{\\mathbf{w}_j^{(t)}\\}_{j=1}^{N_w}$ to MCMC chain after burn-in phase ($t > N_{\\text{burn}}$)",
+      "required_operators": ["array_append", "conditional_storage"],
+      "inputs": ["w_j_walker_positions_updated", "current_iteration_t", "N_burn"],
+      "outputs": ["mcmc_chain"]
+    },
+    {
+      "step_order": 15,
+      "step_name": "Extract Best Fit Parameters",
+      "mathematical_description": "$\\boldsymbol{\\theta}^* = \\arg\\max_{\\mathbf{w} \\in \\text{chain}} \\mathcal{L}(\\mathbf{w} | \\mathbf{d})$",
+      "required_operators": ["argmax_operator", "chain_likelihood_evaluation"],
+      "inputs": ["mcmc_chain"],
+      "outputs": ["theta_star_best_fit", "kwargs_result"]
+    },
+    {
+      "step_order": 16,
+      "step_name": "Compute Final Model Image",
+      "mathematical_description": "$\\mathbf{m}^* = \\mathcal{F}(\\boldsymbol{\\theta}^*) = \\text{PSF} * \\left[ I^{\\text{ll}}(\\mathbf{r}) + \\sum_i \\mathcal{L}^{-1}[I^{\\text{src}}](\\mathbf{r}_i) + \\sum_i A_i \\delta(\\mathbf{r}-\\mathbf{r}_i) \\right]$",
+      "required_operators": ["forward_operator", "PSF_convolution", "ray_tracing", "sersic_profile_evaluation", "point_source_rendering"],
+      "inputs": ["theta_star_best_fit", "psf_class", "lens_model_class", "source_model_class", "lens_light_model_class"],
+      "outputs": ["model_image"]
+    },
+    {
+      "step_order": 17,
+      "step_name": "Compute Residual Image",
+      "mathematical_description": "$\\mathbf{r} = \\mathbf{d} - \\mathbf{m}^*$",
+      "required_operators": ["element_wise_subtraction"],
+      "inputs": ["observed_image_d", "model_image"],
+      "outputs": ["residual_image"]
+    }
+  ]
+}
+```

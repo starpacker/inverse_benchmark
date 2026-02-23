@@ -1,0 +1,160 @@
+```json
+{
+  "algorithm_name": "Sparse Hessian Deconvolution with Iterative Refinement (SHD-IR)",
+  "initialization": [
+    "Expand 2D to 3D: If $f$ is 2D, replicate to $(3, N_x, N_y)$ and set $\\gamma \\leftarrow 0$",
+    "Compute Hessian Fourier operators: $\\hat{\\Delta}_{xx} \\leftarrow |\\mathcal{F}([1,-2,1])|^2$, similarly for $\\hat{\\Delta}_{yy}, \\hat{\\Delta}_{zz}, \\hat{\\Delta}_{xy}, \\hat{\\Delta}_{xz}, \\hat{\\Delta}_{yz}$",
+    "Build normalizer: $\\hat{N} \\leftarrow \\frac{\\lambda_f}{\\mu} + \\lambda_s^2 + \\hat{\\Delta}_{xx} + \\hat{\\Delta}_{yy} + \\gamma^2 \\hat{\\Delta}_{zz} + 2\\hat{\\Delta}_{xy} + 2\\gamma\\hat{\\Delta}_{xz} + 2\\gamma\\hat{\\Delta}_{yz}$",
+    "Initialize Bregman variables: $b_{xx}, b_{yy}, b_{zz}, b_{xy}, b_{xz}, b_{yz}, b_{l1} \\leftarrow \\mathbf{0}$",
+    "Initialize update accumulator: $g_{update} \\leftarrow (\\lambda_f/\\mu) \\cdot f$",
+    "Initialize convergence: $r_{prev} \\leftarrow +\\infty$",
+    "For deconvolution stage: $x_0 \\leftarrow y_{padded}$, $y_0 \\leftarrow y_{padded}$, $v_{-1} \\leftarrow \\mathbf{0}$, $\\gamma_1 \\leftarrow 1$"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "FFT of Update Accumulator",
+      "mathematical_description": "$\\hat{g}_{update} \\leftarrow \\mathcal{F}(g_{update})$",
+      "required_operators": ["FFT3D"],
+      "inputs": ["g_update"],
+      "outputs": ["g_update_hat"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Solve Primal in Fourier Domain",
+      "mathematical_description": "$g \\leftarrow \\mathcal{F}^{-1}\\left(\\frac{\\hat{g}_{update}}{\\hat{N}}\\right)$ where $\\hat{N} = \\frac{\\lambda_f}{\\mu} + \\lambda_s^2 + \\sum_{\\text{Hessian}}\\hat{\\Delta}$; at $k=0$: $\\hat{N} = \\lambda_f/\\mu$",
+      "required_operators": ["IFFT3D", "ElementwiseDivision"],
+      "inputs": ["g_update_hat", "N_hat", "lambda_f", "mu"],
+      "outputs": ["g"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Reset Update with Data Fidelity",
+      "mathematical_description": "$g_{update} \\leftarrow \\frac{\\lambda_f}{\\mu} \\cdot f$",
+      "required_operators": ["ScalarMultiply"],
+      "inputs": ["f", "lambda_f", "mu"],
+      "outputs": ["g_update"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Compute Second-Order Derivatives",
+      "mathematical_description": "$g_{xx} \\leftarrow \\nabla_x^- \\nabla_x^+ g$, $g_{yy} \\leftarrow \\nabla_y^- \\nabla_y^+ g$, $g_{zz} \\leftarrow \\nabla_z^- \\nabla_z^+ g$, $g_{xy} \\leftarrow \\nabla_x^+ \\nabla_y^+ g$, $g_{xz} \\leftarrow \\nabla_x^+ \\nabla_z^+ g$, $g_{yz} \\leftarrow \\nabla_y^+ \\nabla_z^+ g$",
+      "required_operators": ["ForwardDifferenceX", "ForwardDifferenceY", "ForwardDifferenceZ", "BackwardDifferenceX", "BackwardDifferenceY", "BackwardDifferenceZ"],
+      "inputs": ["g"],
+      "outputs": ["g_xx", "g_yy", "g_zz", "g_xy", "g_xz", "g_yz"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "Soft Thresholding for Hessian Components",
+      "mathematical_description": "$d_{\\alpha\\beta} \\leftarrow \\mathcal{S}_{1/\\mu}(g_{\\alpha\\beta} + b_{\\alpha\\beta})$ where $\\mathcal{S}_\\tau(x) = \\text{sign}(x) \\cdot \\max(|x| - \\tau, 0)$ for $(\\alpha\\beta) \\in \\{xx, yy, zz, xy, xz, yz\\}$",
+      "required_operators": ["SoftThreshold"],
+      "inputs": ["g_xx", "g_yy", "g_zz", "g_xy", "g_xz", "g_yz", "b_xx", "b_yy", "b_zz", "b_xy", "b_xz", "b_yz", "mu"],
+      "outputs": ["d_xx", "d_yy", "d_zz", "d_xy", "d_xz", "d_yz"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Bregman Variable Updates for Hessian",
+      "mathematical_description": "$b_{\\alpha\\beta} \\leftarrow b_{\\alpha\\beta} + g_{\\alpha\\beta} - d_{\\alpha\\beta}$ for all $(\\alpha\\beta)$",
+      "required_operators": ["ElementwiseAdd", "ElementwiseSubtract"],
+      "inputs": ["b_xx", "b_yy", "b_zz", "b_xy", "b_xz", "b_yz", "g_xx", "g_yy", "g_zz", "g_xy", "g_xz", "g_yz", "d_xx", "d_yy", "d_zz", "d_xy", "d_xz", "d_yz"],
+      "outputs": ["b_xx", "b_yy", "b_zz", "b_xy", "b_xz", "b_yz"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "Compute Hessian Contributions to Update",
+      "mathematical_description": "$L_{xx} \\leftarrow \\nabla_x^- \\nabla_x^+ (d_{xx} - b_{xx})$, $L_{yy} \\leftarrow \\nabla_y^- \\nabla_y^+ (d_{yy} - b_{yy})$, $L_{zz} \\leftarrow \\gamma^2 \\nabla_z^- \\nabla_z^+ (d_{zz} - b_{zz})$, $L_{xy} \\leftarrow 2\\nabla_y^- \\nabla_x^- (d_{xy} - b_{xy})$, $L_{xz} \\leftarrow 2\\gamma \\nabla_z^- \\nabla_x^- (d_{xz} - b_{xz})$, $L_{yz} \\leftarrow 2\\gamma \\nabla_z^- \\nabla_y^- (d_{yz} - b_{yz})$",
+      "required_operators": ["ForwardDifferenceX", "ForwardDifferenceY", "ForwardDifferenceZ", "BackwardDifferenceX", "BackwardDifferenceY", "BackwardDifferenceZ", "ScalarMultiply"],
+      "inputs": ["d_xx", "d_yy", "d_zz", "d_xy", "d_xz", "d_yz", "b_xx", "b_yy", "b_zz", "b_xy", "b_xz", "b_yz", "gamma"],
+      "outputs": ["L_xx", "L_yy", "L_zz", "L_xy", "L_xz", "L_yz"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "Sparsity Soft Thresholding and Bregman Update",
+      "mathematical_description": "$d_s \\leftarrow \\mathcal{S}_{1/\\mu}(g + b_{l1})$, $b_{l1} \\leftarrow b_{l1} + g - d_s$, $L_s \\leftarrow \\lambda_s (d_s - b_{l1})$",
+      "required_operators": ["SoftThreshold", "ElementwiseAdd", "ElementwiseSubtract", "ScalarMultiply"],
+      "inputs": ["g", "b_l1", "mu", "lambda_s"],
+      "outputs": ["d_s", "b_l1", "L_s"]
+    },
+    {
+      "step_order": 9,
+      "step_name": "Accumulate All Contributions",
+      "mathematical_description": "$g_{update} \\leftarrow g_{update} + L_{xx} + L_{yy} + L_{zz} + L_{xy} + L_{xz} + L_{yz} + L_s$",
+      "required_operators": ["ElementwiseAdd"],
+      "inputs": ["g_update", "L_xx", "L_yy", "L_zz", "L_xy", "L_xz", "L_yz", "L_s"],
+      "outputs": ["g_update"]
+    },
+    {
+      "step_order": 10,
+      "step_name": "Convergence Check (every 20 iterations)",
+      "mathematical_description": "$r \\leftarrow \\|f - g\\|_2$; if $\\frac{|r - r_{prev}|}{r_{prev} + 10^{-12}} < \\text{tol}$: terminate Stage 1",
+      "required_operators": ["L2Norm", "ElementwiseSubtract"],
+      "inputs": ["f", "g", "r_prev", "tol"],
+      "outputs": ["r_prev", "converged_flag"]
+    },
+    {
+      "step_order": 11,
+      "step_name": "Positivity Projection (Post Sparse Stage)",
+      "mathematical_description": "$g \\leftarrow \\max(g, 0)$",
+      "required_operators": ["ElementwiseMax"],
+      "inputs": ["g"],
+      "outputs": ["g"]
+    },
+    {
+      "step_order": 12,
+      "step_name": "Forward Convolution Model (RL)",
+      "mathematical_description": "$(Hy_k)_{pred} \\leftarrow \\mathcal{F}^{-1}\\left(\\hat{H} \\cdot \\mathcal{F}(y_k)\\right)$ where $\\hat{H} = \\text{psf2otf}(\\text{Gaussian}(\\sigma_{PSF}))$",
+      "required_operators": ["FFT2D", "IFFT2D", "ElementwiseMultiply", "PSF2OTF"],
+      "inputs": ["y_k", "H_hat"],
+      "outputs": ["Hy_k_pred"]
+    },
+    {
+      "step_order": 13,
+      "step_name": "Compute Ratio for RL Update",
+      "mathematical_description": "$r \\leftarrow \\frac{y}{\\max((Hy_k)_{pred}, \\epsilon)}$ where $\\epsilon = 10^{-6}$",
+      "required_operators": ["ElementwiseDivision", "ElementwiseMax"],
+      "inputs": ["y", "Hy_k_pred", "epsilon"],
+      "outputs": ["ratio"]
+    },
+    {
+      "step_order": 14,
+      "step_name": "Adjoint Backprojection (RL)",
+      "mathematical_description": "$H^T r \\leftarrow \\mathcal{F}^{-1}\\left(\\hat{H}^* \\cdot \\mathcal{F}(r)\\right)$",
+      "required_operators": ["FFT2D", "IFFT2D", "ComplexConjugate", "ElementwiseMultiply"],
+      "inputs": ["ratio", "H_hat"],
+      "outputs": ["H_adjoint_r"]
+    },
+    {
+      "step_order": 15,
+      "step_name": "Richardson-Lucy Multiplicative Update",
+      "mathematical_description": "$x_k \\leftarrow y_k \\cdot \\frac{H^T r}{N_{RL}}$ where $N_{RL} = \\mathcal{F}^{-1}(\\hat{H} \\cdot \\mathcal{F}(\\mathbf{1}))$",
+      "required_operators": ["ElementwiseMultiply", "ElementwiseDivision"],
+      "inputs": ["y_k", "H_adjoint_r", "N_RL"],
+      "outputs": ["x_k"]
+    },
+    {
+      "step_order": 16,
+      "step_name": "Compute Velocity and Acceleration Parameter",
+      "mathematical_description": "$v_k \\leftarrow \\max(x_k - y_k, \\epsilon)$; $\\alpha \\leftarrow \\text{clip}\\left(\\frac{\\langle v_{k-1}, v_k \\rangle}{\\langle v_{k-1}, v_{k-1} \\rangle + 10^{-10}}, \\epsilon, 1\\right)$",
+      "required_operators": ["ElementwiseSubtract", "ElementwiseMax", "InnerProduct", "Clip"],
+      "inputs": ["x_k", "y_k", "v_k_prev", "epsilon"],
+      "outputs": ["v_k", "alpha"]
+    },
+    {
+      "step_order": 17,
+      "step_name": "Extrapolation with Momentum",
+      "mathematical_description": "$y_{k+1} \\leftarrow \\max(x_k + \\alpha(x_k - x_{k-1}), \\epsilon)$; handle NaN: if $\\text{isnan}(y_{k+1})$: $y_{k+1} \\leftarrow \\epsilon$",
+      "required_operators": ["ElementwiseSubtract", "ScalarMultiply", "ElementwiseAdd", "ElementwiseMax", "NaNCheck"],
+      "inputs": ["x_k", "x_k_prev", "alpha", "epsilon"],
+      "outputs": ["y_k"]
+    },
+    {
+      "step_order": 18,
+      "step_name": "Update Previous Iterates",
+      "mathematical_description": "$x_{k-1} \\leftarrow x_k$; $v_{k-1} \\leftarrow v_k$",
+      "required_operators": ["Copy"],
+      "inputs": ["x_k", "v_k"],
+      "outputs": ["x_k_prev", "v_k_prev"]
+    }
+  ]
+}
+```

@@ -1,0 +1,31 @@
+global:
+  default_settings:
+    max_rounds: 10
+    model_name: gemini-3-pro-preview
+  sandbox_root: /data/yjh/react_inverse_problem_sandboxes
+tasks:
+- expected_output_path: null
+  gt_code_path: /data/yjh/MRE-elast-master_sandbox/mre_elast_code.py
+  input_path: null
+  name: MRE-elast-master
+  working_folder: /data/yjh/MRE-elast-master_sandbox
+- expected_output_path: null
+  gt_code_path: /data/yjh/mrf-reconstruction-mlmir2020-master_sandbox/mrf_code.py
+  input_path: null
+  name: mrf-reconstruction-mlmir2020-master
+  working_folder: /data/yjh/mrf-reconstruction-mlmir2020-master_sandbox
+- expected_output_path: null
+  gt_code_path: /data/yjh/mripy-master_sandbox/mripy_code.py
+  input_path: null
+  name: mripy-master
+  working_folder: /data/yjh/mripy-master_sandbox
+- expected_output_path: null
+  gt_code_path: /data/yjh/oct-cbort-main_sandbox/oct_cbort_code.py
+  input_path: null
+  name: oct-cbort-main
+  working_folder: /data/yjh/oct-cbort-main_sandbox
+- expected_output_path: null
+  gt_code_path: /data/yjh/phasorpy-main_sandbox/phasorpy_code.py
+  input_path: null
+  name: phasorpy-main
+  working_folder: /data/yjh/phasorpy-main_sandbox

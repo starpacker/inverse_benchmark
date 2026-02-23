@@ -1,0 +1,199 @@
+```json
+{
+  "algorithm_name": "Gravitational Lens Modeling via PSO-MCMC",
+  "initialization": [
+    "Initialize coordinate system: T = [[-Δ_pix, 0], [0, Δ_pix]], c_x = c_y = (N_pix - 1)/2, RA_0 = 2.475, Dec_0 = -2.475",
+    "Configure Gaussian PSF kernel with σ_PSF = FWHM / (2√(2ln2)) ≈ 0.0849 arcsec",
+    "Define true lens parameters: θ_E=1.0, γ=1.96, e1=0.07, e2=-0.03, shear γ1=γ2=0.01",
+    "Define true lens light: Sersic with A=400, R=1.0, n=2",
+    "Define true source: Sersic with A=160, R=0.5, n=7, center=(0.1, 0.3), e2=0.1",
+    "Solve lens equation to find image positions {θ_k} such that β = (0.1, 0.3)",
+    "Compute magnification μ_k = 1/det(J_k) at each image position",
+    "Set point source amplitudes A_k^ps = |μ_k| × 100",
+    "Generate clean model image via forward operator with PSF convolution",
+    "Add Poisson noise from photon counting statistics",
+    "Add Gaussian background noise n_bkg ~ N(0, σ_bkg²I) with σ_bkg = 0.5",
+    "Form observed image: y = I_clean + n_bkg + n_Poisson",
+    "Initialize lens parameters kwargs_lens_init with θ_E=1.1, γ=2.0, ellipticity=0, shear=0",
+    "Initialize source parameters with R_sersic=0.03, n_sersic=1, ellipticity=0",
+    "Initialize lens light parameters with R_sersic=0.1, n_sersic=1, ellipticity=0",
+    "Initialize point source positions as perturbed true positions: ra = x_image + 0.01, dec = y_image - 0.01",
+    "Define parameter bounds θ_lower and θ_upper for box constraints",
+    "Define initialization widths σ for each parameter (e.g., σ_θE=0.1, σ_e=0.2, σ_γ=0.1)",
+    "Initialize N_particles=50 PSO particles: p_i^(0) ~ N(θ_init, (σ_scale·σ)²)",
+    "Initialize PSO velocities: v_i^(0) ~ Uniform(-|θ_upper - θ_lower|, |θ_upper - θ_lower|)",
+    "Set personal bests: p_best,i = p_i^(0), χ²_best,i = χ²(p_i^(0))",
+    "Set global best: g_best = p_best,i* where i* = argmin_i χ²_best,i"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Generate PSO random coefficients",
+      "mathematical_description": "r_1, r_2 \\sim \\text{Uniform}(0, 1)",
+      "required_operators": ["uniform_random_generator"],
+      "inputs": [],
+      "outputs": ["r_1", "r_2"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Update particle velocity",
+      "mathematical_description": "\\mathbf{v}_i^{(t)} = \\omega \\mathbf{v}_i^{(t-1)} + c_1 r_1 (\\mathbf{p}_{\\text{best},i} - \\mathbf{p}_i^{(t-1)}) + c_2 r_2 (\\mathbf{g}_{\\text{best}} - \\mathbf{p}_i^{(t-1)})",
+      "required_operators": ["vector_scale", "vector_subtract", "vector_add"],
+      "inputs": ["v_i^{(t-1)}", "p_best_i", "g_best", "p_i^{(t-1)}", "omega", "c_1", "c_2", "r_1", "r_2"],
+      "outputs": ["v_i^{(t)}"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Update particle position",
+      "mathematical_description": "\\tilde{\\mathbf{p}}_i^{(t)} = \\mathbf{p}_i^{(t-1)} + \\mathbf{v}_i^{(t)}",
+      "required_operators": ["vector_add"],
+      "inputs": ["p_i^{(t-1)}", "v_i^{(t)}"],
+      "outputs": ["p_i_tilde^{(t)}"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Project onto feasible region",
+      "mathematical_description": "\\mathbf{p}_i^{(t)} = \\text{clip}(\\tilde{\\mathbf{p}}_i^{(t)}, \\boldsymbol{\\theta}_{\\text{lower}}, \\boldsymbol{\\theta}_{\\text{upper}})",
+      "required_operators": ["elementwise_clip"],
+      "inputs": ["p_i_tilde^{(t)}", "theta_lower", "theta_upper"],
+      "outputs": ["p_i^{(t)}"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "Compute EPL deflection field",
+      "mathematical_description": "\\boldsymbol{\\alpha}_{\\text{EPL}}(\\boldsymbol{\\theta}) = \\theta_E^{2-\\gamma} \\frac{2}{1+q} \\left( \\frac{\\theta}{\\theta_E} \\right)^{2-\\gamma} \\hat{\\boldsymbol{\\theta}}_{\\text{ell}}",
+      "required_operators": ["EPL_deflection_operator"],
+      "inputs": ["theta_grid", "theta_E", "gamma_EPL", "e1_lens", "e2_lens", "xc_lens", "yc_lens"],
+      "outputs": ["alpha_EPL"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Compute external shear deflection",
+      "mathematical_description": "\\boldsymbol{\\alpha}_{\\text{shear}}(\\boldsymbol{\\theta}) = \\begin{pmatrix} \\gamma_1 \\theta_x + \\gamma_2 \\theta_y \\\\ \\gamma_2 \\theta_x - \\gamma_1 \\theta_y \\end{pmatrix}",
+      "required_operators": ["shear_deflection_operator"],
+      "inputs": ["theta_grid", "gamma_1", "gamma_2"],
+      "outputs": ["alpha_shear"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "Combine total deflection field",
+      "mathematical_description": "\\boldsymbol{\\alpha}(\\boldsymbol{\\theta}) = \\boldsymbol{\\alpha}_{\\text{EPL}}(\\boldsymbol{\\theta}) + \\boldsymbol{\\alpha}_{\\text{shear}}(\\boldsymbol{\\theta})",
+      "required_operators": ["tensor_add"],
+      "inputs": ["alpha_EPL", "alpha_shear"],
+      "outputs": ["alpha_total"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "Apply lens equation (ray trace)",
+      "mathematical_description": "\\boldsymbol{\\beta}_{ij} = \\boldsymbol{\\theta}_{ij} - \\boldsymbol{\\alpha}(\\boldsymbol{\\theta}_{ij})",
+      "required_operators": ["tensor_subtract"],
+      "inputs": ["theta_grid", "alpha_total"],
+      "outputs": ["beta_grid"]
+    },
+    {
+      "step_order": 9,
+      "step_name": "Evaluate source Sersic profile",
+      "mathematical_description": "I_{\\text{src},ij} = A_{\\text{src}} \\exp\\left( -b_n \\left[ \\left( \\frac{r_{\\text{ell}}(\\boldsymbol{\\beta}_{ij})}{R_{\\text{sersic}}^{\\text{src}}} \\right)^{1/n_{\\text{sersic}}^{\\text{src}}} - 1 \\right] \\right)",
+      "required_operators": ["elliptical_radius_operator", "sersic_profile_operator"],
+      "inputs": ["beta_grid", "R_sersic_src", "n_sersic_src", "e1_src", "e2_src", "xc_src", "yc_src"],
+      "outputs": ["I_src"]
+    },
+    {
+      "step_order": 10,
+      "step_name": "Evaluate lens light Sersic profile",
+      "mathematical_description": "I_{\\text{ll},ij} = A_{\\text{ll}} \\exp\\left( -b_n \\left[ \\left( \\frac{r_{\\text{ell}}(\\boldsymbol{\\theta}_{ij})}{R_{\\text{sersic}}^{\\text{ll}}} \\right)^{1/n_{\\text{sersic}}^{\\text{ll}}} - 1 \\right] \\right)",
+      "required_operators": ["elliptical_radius_operator", "sersic_profile_operator"],
+      "inputs": ["theta_grid", "R_sersic_ll", "n_sersic_ll", "e1_ll", "e2_ll", "xc_ll", "yc_ll"],
+      "outputs": ["I_ll"]
+    },
+    {
+      "step_order": 11,
+      "step_name": "Render point sources",
+      "mathematical_description": "I_{\\text{ps}} = \\sum_{k=1}^{N_{\\text{img}}} A_k^{\\text{ps}} \\delta(\\boldsymbol{\\theta} - \\boldsymbol{\\theta}_k^{\\text{ps}})",
+      "required_operators": ["point_source_renderer"],
+      "inputs": ["theta_grid", "ra_img", "dec_img", "point_amp"],
+      "outputs": ["I_ps"]
+    },
+    {
+      "step_order": 12,
+      "step_name": "Sum all light components",
+      "mathematical_description": "I_{\\text{total}} = I_{\\text{src}} + I_{\\text{ll}} + I_{\\text{ps}}",
+      "required_operators": ["tensor_add"],
+      "inputs": ["I_src", "I_ll", "I_ps"],
+      "outputs": ["I_total"]
+    },
+    {
+      "step_order": 13,
+      "step_name": "Convolve with PSF",
+      "mathematical_description": "\\mathcal{F}(\\boldsymbol{\\theta})_{ij} = (\\text{PSF} * I_{\\text{total}})_{ij} = \\sum_{k,l} \\text{PSF}_{k,l} \\cdot I_{\\text{total},i-k,j-l}",
+      "required_operators": ["PSF_convolution_operator"],
+      "inputs": ["I_total", "PSF_kernel"],
+      "outputs": ["I_model"]
+    },
+    {
+      "step_order": 14,
+      "step_name": "Solve linear amplitudes",
+      "mathematical_description": "\\mathbf{A}^* = \\arg\\min_{\\mathbf{A}} \\| \\mathbf{y} - \\sum_m A_m \\mathbf{B}_m \\|_2^2 = (\\mathbf{B}^T \\mathbf{B})^{-1} \\mathbf{B}^T \\mathbf{y}",
+      "required_operators": ["linear_least_squares_solver"],
+      "inputs": ["y", "basis_images"],
+      "outputs": ["optimal_amplitudes"]
+    },
+    {
+      "step_order": 15,
+      "step_name": "Compute chi-squared residual",
+      "mathematical_description": "\\chi^2(\\mathbf{p}_i^{(t)}) = \\sum_{i,j} \\left( \\frac{y_{ij} - \\mathcal{F}(\\mathbf{p}_i^{(t)})_{ij}}{\\sigma_{\\text{bkg}}} \\right)^2",
+      "required_operators": ["tensor_subtract", "elementwise_square", "tensor_sum"],
+      "inputs": ["y", "I_model", "sigma_bkg"],
+      "outputs": ["chi2_i"]
+    },
+    {
+      "step_order": 16,
+      "step_name": "Update personal best",
+      "mathematical_description": "\\text{if } \\chi^2(\\mathbf{p}_i^{(t)}) < \\chi^2_{\\text{best},i}: \\quad \\mathbf{p}_{\\text{best},i} \\leftarrow \\mathbf{p}_i^{(t)}, \\quad \\chi^2_{\\text{best},i} \\leftarrow \\chi^2(\\mathbf{p}_i^{(t)})",
+      "required_operators": ["scalar_comparison", "conditional_assignment"],
+      "inputs": ["chi2_i", "chi2_best_i", "p_i^{(t)}", "p_best_i"],
+      "outputs": ["p_best_i", "chi2_best_i"]
+    },
+    {
+      "step_order": 17,
+      "step_name": "Update global best",
+      "mathematical_description": "\\text{if } \\chi^2_{\\text{best},i} < \\chi^2_{\\text{global}}: \\quad \\mathbf{g}_{\\text{best}} \\leftarrow \\mathbf{p}_{\\text{best},i}, \\quad \\chi^2_{\\text{global}} \\leftarrow \\chi^2_{\\text{best},i}",
+      "required_operators": ["scalar_comparison", "conditional_assignment"],
+      "inputs": ["chi2_best_i", "chi2_global", "p_best_i", "g_best"],
+      "outputs": ["g_best", "chi2_global"]
+    },
+    {
+      "step_order": 18,
+      "step_name": "Initialize MCMC walkers around PSO best",
+      "mathematical_description": "\\mathbf{W}_k^{(0)} \\sim \\mathcal{N}(\\mathbf{g}_{\\text{best}}, (\\sigma_{\\text{scale}}^{\\text{MCMC}} \\cdot \\boldsymbol{\\sigma})^2), \\quad k = 1, ..., N_{\\text{walkers}}",
+      "required_operators": ["gaussian_sampler"],
+      "inputs": ["g_best", "sigma_mcmc", "N_walkers"],
+      "outputs": ["W^{(0)}"]
+    },
+    {
+      "step_order": 19,
+      "step_name": "MCMC burn-in phase",
+      "mathematical_description": "\\text{for } s = 1, ..., N_{\\text{burn}}: \\quad \\mathbf{W}^{(s)} = \\text{emcee\\_stretch\\_move}(\\mathbf{W}^{(s-1)}, \\log p(\\boldsymbol{\\theta}|\\mathbf{y}))",
+      "required_operators": ["emcee_stretch_move", "log_likelihood_evaluator"],
+      "inputs": ["W^{(s-1)}", "y", "sigma_bkg", "bounds"],
+      "outputs": ["W^{(N_burn)}"]
+    },
+    {
+      "step_order": 20,
+      "step_name": "MCMC sampling phase",
+      "mathematical_description": "\\text{for } s = N_{\\text{burn}}+1, ..., N_{\\text{burn}}+N_{\\text{run}}: \\quad \\mathbf{W}^{(s)} = \\text{emcee\\_stretch\\_move}(\\mathbf{W}^{(s-1)}, \\log p(\\boldsymbol{\\theta}|\\mathbf{y}))",
+      "required_operators": ["emcee_stretch_move", "log_likelihood_evaluator"],
+      "inputs": ["W^{(N_burn)}", "y", "sigma_bkg", "bounds"],
+      "outputs": ["posterior_samples"]
+    },
+    {
+      "step_order": 21,
+      "step_name": "Compute posterior statistics",
+      "mathematical_description": "\\hat{\\boldsymbol{\\theta}} = \\frac{1}{N_{\\text{samples}}} \\sum_{s} \\mathbf{W}^{(s)}, \\quad \\boldsymbol{\\Sigma} = \\text{Cov}(\\{\\mathbf{W}^{(s)}\\})",
+      "required_operators": ["tensor_mean", "covariance_estimator"],
+      "inputs": ["posterior_samples"],
+      "outputs": ["theta_mean", "theta_covariance"]
+    }
+  ]
+}
+```

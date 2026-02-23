@@ -1,0 +1,165 @@
+```json
+{
+  "algorithm_name": "Ptychographic Reconstruction via Automatic Differentiation",
+  "initialization": [
+    "Load parameters from YAML configuration file: params ← load_params(path)",
+    "Initialize complex object tensor: O_init ∈ ℂ^(N_s × N_m × N_oy × N_ox) from init_params",
+    "Decompose object into amplitude and phase: A_o = |O_init|, φ_o = ∠O_init",
+    "Initialize complex probe tensor: P_complex ∈ ℂ^(N_p × N_py × N_px) from init_params",
+    "Convert probe to real view: P = view_as_real(P_complex) with shape (N_p, N_py, N_px, 2)",
+    "Create frequency grids: k_y[n] = (n - N_py/2 + 0.5)/(N_py · Δx), k_x[m] = (m - N_px/2 + 0.5)/(N_px · Δx)",
+    "Compute K_z grid: K_z = sqrt(k² - K_x² - K_y²)",
+    "Initialize base Fresnel propagator: H = exp(i · Δz · K_z)",
+    "Create FFT frequency grids for shifting: ν_y = fftfreq(N_py), ν_x = fftfreq(N_px)",
+    "Initialize Adam optimizer with per-parameter learning rates: opt ← Adam({(p, η_p) : p ∈ x, η_p > 0})",
+    "Initialize iteration counter: t ← 0",
+    "Prepare batch indices via random permutation: I ← shuffle({0, 1, ..., N_pos - 1})"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Sample batch",
+      "mathematical_description": "\\mathcal{B}_t \\subseteq \\mathcal{I} \\text{ with } |\\mathcal{B}_t| = B",
+      "required_operators": ["random_sampling", "index_selection"],
+      "inputs": ["I", "B"],
+      "outputs": ["B_t"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Reconstruct complex object",
+      "mathematical_description": "O = A_o \\odot \\exp(i \\phi_o)",
+      "required_operators": ["elementwise_multiplication", "complex_exponential"],
+      "inputs": ["A_o", "phi_o"],
+      "outputs": ["O"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Extract object patches",
+      "mathematical_description": "O_j = O[:, :, r_j^y : r_j^y + N_{py}, r_j^x : r_j^x + N_{px}] \\text{ for } j \\in \\mathcal{B}_t",
+      "required_operators": ["batched_crop", "index_selection"],
+      "inputs": ["O", "r_j", "B_t"],
+      "outputs": ["O_patch"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Optional object pre-blur",
+      "mathematical_description": "O_{\\text{patch}} \\leftarrow G_{\\sigma_o} * O_{\\text{patch}}",
+      "required_operators": ["gaussian_convolution"],
+      "inputs": ["O_patch", "sigma_o"],
+      "outputs": ["O_patch"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "Reconstruct complex probe",
+      "mathematical_description": "P_{\\text{complex}} = \\text{view\\_as\\_complex}(P)",
+      "required_operators": ["view_as_complex"],
+      "inputs": ["P"],
+      "outputs": ["P_complex"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Compute shifted probes",
+      "mathematical_description": "\\tilde{P}_j = \\mathcal{F}^{-1}\\left[\\mathcal{F}[P_{\\text{complex}}] \\odot \\exp\\left(-2\\pi i (\\nu_y \\delta_j^y + \\nu_x \\delta_j^x)\\right)\\right]",
+      "required_operators": ["FFT2", "IFFT2", "elementwise_multiplication", "complex_exponential"],
+      "inputs": ["P_complex", "delta", "nu_y", "nu_x", "B_t"],
+      "outputs": ["P_tilde"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "Compute tilted propagators",
+      "mathematical_description": "H_j = H \\odot \\exp\\left(i \\Delta z (K_y \\tan(\\theta_j^y/10^3) + K_x \\tan(\\theta_j^x/10^3))\\right)",
+      "required_operators": ["elementwise_multiplication", "complex_exponential", "tan"],
+      "inputs": ["H", "theta", "Delta_z", "K_y", "K_x", "B_t"],
+      "outputs": ["H_tilt"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "Multislice forward propagation",
+      "mathematical_description": "\\psi^{(s+1)} = \\mathcal{F}^{-1}\\left[H_j \\odot \\mathcal{F}\\left[\\psi^{(s)} \\odot O_j^{(s)}\\right]\\right], \\quad \\psi^{(0)} = \\tilde{P}_j, \\quad s = 0, \\ldots, N_s - 1",
+      "required_operators": ["FFT2", "IFFT2", "elementwise_multiplication", "loop_over_slices"],
+      "inputs": ["O_patch", "P_tilde", "H_tilt", "N_s"],
+      "outputs": ["psi_exit"]
+    },
+    {
+      "step_order": 9,
+      "step_name": "Compute diffraction amplitude",
+      "mathematical_description": "\\Psi_j = \\mathcal{F}[\\psi_{\\text{exit}}]",
+      "required_operators": ["FFT2"],
+      "inputs": ["psi_exit"],
+      "outputs": ["Psi"]
+    },
+    {
+      "step_order": 10,
+      "step_name": "Incoherent mode summation",
+      "mathematical_description": "I_j^{\\text{pred}} = \\sum_{p=1}^{N_p} \\sum_{m=1}^{N_m} w_m \\|\\Psi_j^{(p,m)}\\|^2",
+      "required_operators": ["absolute_square", "weighted_sum", "sum_over_modes"],
+      "inputs": ["Psi", "w_m"],
+      "outputs": ["I_pred"]
+    },
+    {
+      "step_order": 11,
+      "step_name": "Optional detector blur",
+      "mathematical_description": "I_j^{\\text{pred}} \\leftarrow G_{\\sigma_d} * I_j^{\\text{pred}}",
+      "required_operators": ["gaussian_convolution"],
+      "inputs": ["I_pred", "sigma_d"],
+      "outputs": ["I_pred"]
+    },
+    {
+      "step_order": 12,
+      "step_name": "Retrieve measurements",
+      "mathematical_description": "I_j^{\\text{meas}} = I^{\\text{meas}}[\\mathcal{B}_t]",
+      "required_operators": ["index_selection"],
+      "inputs": ["I_meas", "B_t"],
+      "outputs": ["I_meas_batch"]
+    },
+    {
+      "step_order": 13,
+      "step_name": "Compute loss",
+      "mathematical_description": "\\mathcal{L}_t = \\text{CombinedLoss}(I^{\\text{meas}}_{\\text{batch}}, I^{\\text{pred}})",
+      "required_operators": ["loss_function"],
+      "inputs": ["I_meas_batch", "I_pred"],
+      "outputs": ["L_t"]
+    },
+    {
+      "step_order": 14,
+      "step_name": "Compute gradients via automatic differentiation",
+      "mathematical_description": "\\nabla_{\\mathbf{x}} \\mathcal{L}_t \\leftarrow \\text{autograd}(\\mathcal{L}_t)",
+      "required_operators": ["autograd_backward"],
+      "inputs": ["L_t", "computation_graph"],
+      "outputs": ["grad_A_o", "grad_phi_o", "grad_theta", "grad_Delta_z", "grad_P", "grad_delta"]
+    },
+    {
+      "step_order": 15,
+      "step_name": "Update parameters with Adam",
+      "mathematical_description": "\\mathbf{x} \\leftarrow \\text{Adam\\_step}(\\mathbf{x}, \\nabla_{\\mathbf{x}} \\mathcal{L}_t, \\eta)",
+      "required_operators": ["adam_optimizer_step"],
+      "inputs": ["A_o", "phi_o", "theta", "Delta_z", "P", "delta", "grad_A_o", "grad_phi_o", "grad_theta", "grad_Delta_z", "grad_P", "grad_delta", "eta"],
+      "outputs": ["A_o", "phi_o", "theta", "Delta_z", "P", "delta"]
+    },
+    {
+      "step_order": 16,
+      "step_name": "Apply constraints",
+      "mathematical_description": "\\mathbf{x} \\leftarrow \\text{CombinedConstraint}(\\mathbf{x}, t)",
+      "required_operators": ["constraint_projection"],
+      "inputs": ["A_o", "phi_o", "theta", "Delta_z", "P", "delta", "t"],
+      "outputs": ["A_o", "phi_o", "theta", "Delta_z", "P", "delta"]
+    },
+    {
+      "step_order": 17,
+      "step_name": "Update learning rate schedule",
+      "mathematical_description": "\\text{For each } p: \\text{ if } t = t_{\\text{start}}^p, \\text{ enable grad; if } t = t_{\\text{end}}^p, \\text{ disable grad}",
+      "required_operators": ["learning_rate_scheduler"],
+      "inputs": ["t", "t_start", "t_end"],
+      "outputs": ["requires_grad_flags"]
+    },
+    {
+      "step_order": 18,
+      "step_name": "Convergence check",
+      "mathematical_description": "\\text{Stop if } t \\geq N_{\\text{iter}}",
+      "required_operators": ["comparison"],
+      "inputs": ["t", "N_iter"],
+      "outputs": ["continue_flag"]
+    }
+  ]
+}
+```

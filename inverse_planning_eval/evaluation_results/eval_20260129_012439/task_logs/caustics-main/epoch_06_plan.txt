@@ -1,0 +1,107 @@
+
+
+```json
+{
+  "algorithm_name": "Gravitational Lens Source Reconstruction via Adam with TV Regularization",
+  "initialization": [
+    "Initialize source image: $x^{(0)} = \\mathbf{0}_{N_s \\times N_s}$ where $N_s = 128$",
+    "Initialize Adam first moment: $m^{(0)} = \\mathbf{0}_{N_s \\times N_s}$",
+    "Initialize Adam second moment: $v^{(0)} = \\mathbf{0}_{N_s \\times N_s}$",
+    "Set learning rate: $\\alpha_0 = 0.1$",
+    "Set Adam hyperparameters: $\\beta_1 = 0.9$, $\\beta_2 = 0.999$, $\\epsilon = 10^{-8}$",
+    "Set TV regularization weight: $\\lambda_{\\text{TV}} = 10^{-4}$",
+    "Precompute lensing deflection angles and coordinate grids",
+    "Precompute PSF FFT for convolution"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Forward Lensing Model",
+      "mathematical_description": "$\\tilde{y}^{(k)} = \\mathcal{A}(x^{(k)})$ where $\\mathcal{A}$ includes ray-tracing, bilinear interpolation, PSF convolution via FFT, and downsampling",
+      "required_operators": ["gravitational_lensing_forward", "bilinear_interpolation", "fft2", "ifft2", "downsampling"],
+      "inputs": ["x^{(k)}", "deflection_angles", "PSF_fft", "coordinate_grids"],
+      "outputs": ["tilde_y^{(k)}"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Compute Data Fidelity Loss",
+      "mathematical_description": "$\\mathcal{L}_{\\text{data}}^{(k)} = \\frac{1}{N_o^2} \\| \\tilde{y}^{(k)} - y \\|_2^2 = \\frac{1}{N_o^2} \\sum_{i,j} (\\tilde{y}^{(k)}_{i,j} - y_{i,j})^2$",
+      "required_operators": ["subtraction", "square", "mean"],
+      "inputs": ["tilde_y^{(k)}", "y"],
+      "outputs": ["L_data^{(k)}"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Compute TV Regularization Loss",
+      "mathematical_description": "$\\mathcal{L}_{\\text{TV}}^{(k)} = \\lambda_{\\text{TV}} \\left( \\frac{1}{N_s(N_s-1)} \\sum_{i,j} |x^{(k)}_{i,j+1} - x^{(k)}_{i,j}| + \\frac{1}{(N_s-1)N_s} \\sum_{i,j} |x^{(k)}_{i+1,j} - x^{(k)}_{i,j}| \\right)$",
+      "required_operators": ["finite_difference_horizontal", "finite_difference_vertical", "absolute_value", "mean", "scalar_multiplication"],
+      "inputs": ["x^{(k)}", "lambda_TV"],
+      "outputs": ["L_TV^{(k)}"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Compute Total Loss",
+      "mathematical_description": "$\\mathcal{L}_{\\text{total}}^{(k)} = \\mathcal{L}_{\\text{data}}^{(k)} + \\mathcal{L}_{\\text{TV}}^{(k)}$",
+      "required_operators": ["addition"],
+      "inputs": ["L_data^{(k)}", "L_TV^{(k)}"],
+      "outputs": ["L_total^{(k)}"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "Compute Gradient via Backpropagation",
+      "mathematical_description": "$g^{(k)} = \\nabla_{x} \\mathcal{L}_{\\text{total}}^{(k)}$",
+      "required_operators": ["automatic_differentiation", "backpropagation"],
+      "inputs": ["L_total^{(k)}", "x^{(k)}"],
+      "outputs": ["g^{(k)}"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Update Adam First Moment",
+      "mathematical_description": "$m^{(k+1)} = \\beta_1 m^{(k)} + (1 - \\beta_1) g^{(k)}$",
+      "required_operators": ["scalar_multiplication", "addition"],
+      "inputs": ["m^{(k)}", "g^{(k)}", "beta_1"],
+      "outputs": ["m^{(k+1)}"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "Update Adam Second Moment",
+      "mathematical_description": "$v^{(k+1)} = \\beta_2 v^{(k)} + (1 - \\beta_2) (g^{(k)})^2$",
+      "required_operators": ["scalar_multiplication", "elementwise_square", "addition"],
+      "inputs": ["v^{(k)}", "g^{(k)}", "beta_2"],
+      "outputs": ["v^{(k+1)}"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "Bias Correction",
+      "mathematical_description": "$\\hat{m}^{(k+1)} = \\frac{m^{(k+1)}}{1 - \\beta_1^{k+1}}, \\quad \\hat{v}^{(k+1)} = \\frac{v^{(k+1)}}{1 - \\beta_2^{k+1}}$",
+      "required_operators": ["power", "subtraction", "division"],
+      "inputs": ["m^{(k+1)}", "v^{(k+1)}", "beta_1", "beta_2", "k"],
+      "outputs": ["hat_m^{(k+1)}", "hat_v^{(k+1)}"]
+    },
+    {
+      "step_order": 9,
+      "step_name": "Adam Parameter Update",
+      "mathematical_description": "$\\hat{x}^{(k+1)} = x^{(k)} - \\alpha^{(k)} \\frac{\\hat{m}^{(k+1)}}{\\sqrt{\\hat{v}^{(k+1)}} + \\epsilon}$",
+      "required_operators": ["sqrt", "addition", "elementwise_division", "scalar_multiplication", "subtraction"],
+      "inputs": ["x^{(k)}", "hat_m^{(k+1)}", "hat_v^{(k+1)}", "alpha^{(k)}", "epsilon"],
+      "outputs": ["hat_x^{(k+1)}"]
+    },
+    {
+      "step_order": 10,
+      "step_name": "Non-negativity Projection",
+      "mathematical_description": "$x^{(k+1)} = \\max(\\hat{x}^{(k+1)}, 0) = \\text{Proj}_{\\geq 0}(\\hat{x}^{(k+1)})$",
+      "required_operators": ["clamp", "elementwise_max"],
+      "inputs": ["hat_x^{(k+1)}"],
+      "outputs": ["x^{(k+1)}"]
+    },
+    {
+      "step_order": 11,
+      "step_name": "Learning Rate Scheduling",
+      "mathematical_description": "$\\alpha^{(k+1)} = \\begin{cases} \\gamma_{\\text{lr}} \\cdot \\alpha^{(k)} & \\text{if } (k+1) \\mod K_{\\text{step}} = 0 \\\\ \\alpha^{(k)} & \\text{otherwise} \\end{cases}$",
+      "required_operators": ["modulo", "conditional", "scalar_multiplication"],
+      "inputs": ["alpha^{(k)}", "k", "K_step", "gamma_lr"],
+      "outputs": ["alpha^{(k+1)}"]
+    }
+  ]
+}
+```

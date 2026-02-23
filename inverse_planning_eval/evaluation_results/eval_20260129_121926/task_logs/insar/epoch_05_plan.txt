@@ -1,0 +1,208 @@
+```json
+{
+  "algorithm_name": "ADMM Phase Unwrapping",
+  "initialization": [
+    "Initialize dual variable for x-gradient: Λ_x^{(0)} = 0_{M×N}",
+    "Initialize dual variable for y-gradient: Λ_y^{(0)} = 0_{M×N}",
+    "Initialize auxiliary variable for x-gradient residual: w_x^{(0)} = 0_{M×N}",
+    "Initialize auxiliary variable for y-gradient residual: w_y^{(0)} = 0_{M×N}",
+    "Initialize primal variable (unwrapped phase): F^{(0)} = 0_{M×N}",
+    "Initialize previous estimate for convergence tracking: F_old^{(0)} = 0_{M×N}",
+    "Initialize iteration counter: k = 0"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Compute RHS X-Component",
+      "mathematical_description": "r_x = \\text{vec}(w_x^{(k)}) + \\text{vec}(\\phi_x) - \\text{vec}(\\Lambda_x^{(k)})",
+      "required_operators": ["flatten", "elementwise_addition", "elementwise_subtraction"],
+      "inputs": ["w_x", "phi_x", "Lambda_x"],
+      "outputs": ["r_x"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Compute RHS Y-Component",
+      "mathematical_description": "r_y = \\text{vec}(w_y^{(k)}) + \\text{vec}(\\phi_y) - \\text{vec}(\\Lambda_y^{(k)})",
+      "required_operators": ["flatten", "elementwise_addition", "elementwise_subtraction"],
+      "inputs": ["w_y", "phi_y", "Lambda_y"],
+      "outputs": ["r_y"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Compute Divergence (RHS)",
+      "mathematical_description": "\\text{RHS} = D_x^T r_x + D_y^T r_y",
+      "required_operators": ["adjoint_gradient_x", "adjoint_gradient_y", "elementwise_addition"],
+      "inputs": ["D_x", "D_y", "r_x", "r_y"],
+      "outputs": ["RHS"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Reshape RHS to 2D",
+      "mathematical_description": "\\text{RHS}_{2D} = \\text{reshape}(\\text{RHS}, (M, N))",
+      "required_operators": ["reshape"],
+      "inputs": ["RHS", "M", "N"],
+      "outputs": ["RHS_2D"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "Forward DCT",
+      "mathematical_description": "\\hat{\\rho} = \\text{DCT-II}(\\text{RHS}_{2D})",
+      "required_operators": ["DCT2D"],
+      "inputs": ["RHS_2D"],
+      "outputs": ["rho_hat"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Apply Inverse Laplacian in Frequency Domain",
+      "mathematical_description": "\\hat{F} = \\hat{\\rho} \\odot K",
+      "required_operators": ["elementwise_multiplication"],
+      "inputs": ["rho_hat", "K"],
+      "outputs": ["F_hat"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "Inverse DCT",
+      "mathematical_description": "F^{(k+1)} = \\text{IDCT-II}(\\hat{F})",
+      "required_operators": ["IDCT2D"],
+      "inputs": ["F_hat"],
+      "outputs": ["F"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "Compute X-Gradient of Primal",
+      "mathematical_description": "F_x^{(k+1)} = \\text{reshape}(D_x \\cdot \\text{vec}(F^{(k+1)}), (M, N))",
+      "required_operators": ["forward_gradient_x", "reshape"],
+      "inputs": ["D_x", "F"],
+      "outputs": ["F_x"]
+    },
+    {
+      "step_order": 9,
+      "step_name": "Compute Y-Gradient of Primal",
+      "mathematical_description": "F_y^{(k+1)} = \\text{reshape}(D_y \\cdot \\text{vec}(F^{(k+1)}), (M, N))",
+      "required_operators": ["forward_gradient_y", "reshape"],
+      "inputs": ["D_y", "F"],
+      "outputs": ["F_y"]
+    },
+    {
+      "step_order": 10,
+      "step_name": "Compute Shrinkage Input X",
+      "mathematical_description": "u_x = F_x^{(k+1)} - \\phi_x + \\Lambda_x^{(k)}",
+      "required_operators": ["elementwise_subtraction", "elementwise_addition"],
+      "inputs": ["F_x", "phi_x", "Lambda_x"],
+      "outputs": ["u_x"]
+    },
+    {
+      "step_order": 11,
+      "step_name": "Compute Shrinkage Input Y",
+      "mathematical_description": "u_y = F_y^{(k+1)} - \\phi_y + \\Lambda_y^{(k)}",
+      "required_operators": ["elementwise_subtraction", "elementwise_addition"],
+      "inputs": ["F_y", "phi_y", "Lambda_y"],
+      "outputs": ["u_y"]
+    },
+    {
+      "step_order": 12,
+      "step_name": "Stack Shrinkage Inputs",
+      "mathematical_description": "\\mathbf{U} = \\text{stack}(u_x, u_y) \\in \\mathbb{R}^{2 \\times M \\times N}",
+      "required_operators": ["stack"],
+      "inputs": ["u_x", "u_y"],
+      "outputs": ["U"]
+    },
+    {
+      "step_order": 13,
+      "step_name": "Compute Pointwise Magnitude",
+      "mathematical_description": "\\text{mag}[i,j] = \\sqrt{u_x[i,j]^2 + u_y[i,j]^2}",
+      "required_operators": ["elementwise_square", "elementwise_addition", "elementwise_sqrt"],
+      "inputs": ["U"],
+      "outputs": ["mag"]
+    },
+    {
+      "step_order": 14,
+      "step_name": "Compute Safe Denominator",
+      "mathematical_description": "\\text{nonzero}[i,j] = \\begin{cases} 1 & \\text{if } \\text{mag}[i,j] = 0 \\\\ \\text{mag}[i,j] & \\text{otherwise} \\end{cases}",
+      "required_operators": ["where", "comparison"],
+      "inputs": ["mag"],
+      "outputs": ["nonzero"]
+    },
+    {
+      "step_order": 15,
+      "step_name": "Compute Generalized p-Shrinkage Factor",
+      "mathematical_description": "s[i,j] = \\frac{\\max\\left(\\text{mag}[i,j] - \\lambda^{2-p} \\cdot (\\text{nonzero}[i,j]^2 + \\epsilon)^{p/2 - 0.5}, 0\\right)}{\\text{nonzero}[i,j]}",
+      "required_operators": ["elementwise_power", "elementwise_multiplication", "elementwise_subtraction", "elementwise_maximum", "elementwise_division"],
+      "inputs": ["mag", "nonzero", "lambda", "p", "epsilon"],
+      "outputs": ["s"]
+    },
+    {
+      "step_order": 16,
+      "step_name": "Apply Shrinkage to Auxiliary Variables",
+      "mathematical_description": "\\mathbf{W} = s \\odot \\mathbf{U}",
+      "required_operators": ["broadcast_multiplication"],
+      "inputs": ["s", "U"],
+      "outputs": ["W"]
+    },
+    {
+      "step_order": 17,
+      "step_name": "Extract Updated Auxiliary X",
+      "mathematical_description": "w_x^{(k+1)} = \\mathbf{W}[0]",
+      "required_operators": ["indexing"],
+      "inputs": ["W"],
+      "outputs": ["w_x"]
+    },
+    {
+      "step_order": 18,
+      "step_name": "Extract Updated Auxiliary Y",
+      "mathematical_description": "w_y^{(k+1)} = \\mathbf{W}[1]",
+      "required_operators": ["indexing"],
+      "inputs": ["W"],
+      "outputs": ["w_y"]
+    },
+    {
+      "step_order": 19,
+      "step_name": "Update Dual Variable X",
+      "mathematical_description": "\\Lambda_x^{(k+1)} = \\Lambda_x^{(k)} + c \\cdot (F_x^{(k+1)} - \\phi_x - w_x^{(k+1)})",
+      "required_operators": ["elementwise_subtraction", "scalar_multiplication", "elementwise_addition"],
+      "inputs": ["Lambda_x", "F_x", "phi_x", "w_x", "c"],
+      "outputs": ["Lambda_x"]
+    },
+    {
+      "step_order": 20,
+      "step_name": "Update Dual Variable Y",
+      "mathematical_description": "\\Lambda_y^{(k+1)} = \\Lambda_y^{(k)} + c \\cdot (F_y^{(k+1)} - \\phi_y - w_y^{(k+1)})",
+      "required_operators": ["elementwise_subtraction", "scalar_multiplication", "elementwise_addition"],
+      "inputs": ["Lambda_y", "F_y", "phi_y", "w_y", "c"],
+      "outputs": ["Lambda_y"]
+    },
+    {
+      "step_order": 21,
+      "step_name": "Compute Iteration Change",
+      "mathematical_description": "\\Delta = \\max_{i,j} |F^{(k+1)}[i,j] - F_{\\text{old}}^{(k)}[i,j]|",
+      "required_operators": ["elementwise_subtraction", "elementwise_abs", "max_reduction"],
+      "inputs": ["F", "F_old"],
+      "outputs": ["Delta"]
+    },
+    {
+      "step_order": 22,
+      "step_name": "Check Convergence",
+      "mathematical_description": "\\text{STOP if } (\\Delta < \\tau) \\text{ OR } \\text{isnan}(\\Delta)",
+      "required_operators": ["comparison", "isnan", "logical_or"],
+      "inputs": ["Delta", "tau"],
+      "outputs": ["convergence_flag"]
+    },
+    {
+      "step_order": 23,
+      "step_name": "Update Previous Estimate",
+      "mathematical_description": "F_{\\text{old}}^{(k+1)} = \\text{copy}(F^{(k+1)})",
+      "required_operators": ["deep_copy"],
+      "inputs": ["F"],
+      "outputs": ["F_old"]
+    },
+    {
+      "step_order": 24,
+      "step_name": "Increment Iteration Counter",
+      "mathematical_description": "k \\leftarrow k + 1",
+      "required_operators": ["scalar_addition"],
+      "inputs": ["k"],
+      "outputs": ["k"]
+    }
+  ]
+}
+```

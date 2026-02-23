@@ -1,0 +1,70 @@
+```json
+{
+  "algorithm_name": "Richardson-Lucy Deconvolution for Light Field Microscopy Volume Reconstruction",
+  "initialization": [
+    "Initialize reconstructed volume to unity: $\\mathbf{x}^{(0)} \\leftarrow \\mathbf{1}_{P \\times Q \\times D}$ where $(P, Q, D)$ is the volumeSize",
+    "Compute forward projection of unity volume: $\\mathbf{f}_1 \\leftarrow \\mathcal{H}(\\mathbf{1}_{P \\times Q \\times D})$",
+    "Compute back projection of onesForward: $\\mathbf{g}_1 \\leftarrow \\mathcal{H}^T(\\mathbf{f}_1)$",
+    "Compute depth-adaptive filter widths: $\\boldsymbol{\\sigma} = [\\sigma_1, \\ldots, \\sigma_D] \\leftarrow \\texttt{LFM\\_computeDepthAdaptiveWidth}(\\texttt{Camera}, \\texttt{Resolution})$",
+    "Build Lanczos filter kernels in Fourier domain: $\\mathbf{K}_d \\leftarrow \\texttt{lanczosfft}(\\texttt{volumeSize}, \\sigma_d, w)$ for all $d \\in \\{1, \\ldots, D\\}$"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Forward Projection",
+      "mathematical_description": "$\\hat{\\mathbf{b}}^{(k)} \\leftarrow \\begin{cases} \\mathbf{f}_1 & \\text{if } k = 0 \\\\ \\mathcal{H}(\\mathbf{x}^{(k)}) & \\text{if } k > 0 \\end{cases}$",
+      "required_operators": ["forward_projection_H"],
+      "inputs": ["reconVolume_x_k", "onesForward_f1", "H"],
+      "outputs": ["LFimageGuess_b_hat_k"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Compute Ratio Correction in Image Domain",
+      "mathematical_description": "$\\mathbf{e}^{(k)}_{ij} \\leftarrow \\frac{b_{ij}}{\\hat{b}^{(k)}_{ij}} \\cdot f_{1,ij}$ with safeguard: $\\mathbf{e}^{(k)}_{ij} \\leftarrow 0$ if $\\mathbf{e}^{(k)}_{ij} \\notin \\mathbb{R}$",
+      "required_operators": ["elementwise_division", "hadamard_product", "nan_inf_replacement"],
+      "inputs": ["LFimage_b", "LFimageGuess_b_hat_k", "onesForward_f1"],
+      "outputs": ["errorLFimage_e_k"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Back Projection",
+      "mathematical_description": "$\\boldsymbol{\\delta}^{(k)} \\leftarrow \\mathcal{H}^T(\\mathbf{e}^{(k)})$",
+      "required_operators": ["adjoint_projection_Ht"],
+      "inputs": ["errorLFimage_e_k", "Ht"],
+      "outputs": ["errorBack_delta_k_raw"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Normalize Back Projection",
+      "mathematical_description": "$\\boldsymbol{\\delta}^{(k)}_{pqd} \\leftarrow \\frac{\\boldsymbol{\\delta}^{(k)}_{pqd}}{g_{1,pqd}}$ with safeguard: $\\boldsymbol{\\delta}^{(k)}_{pqd} \\leftarrow 0$ if $\\boldsymbol{\\delta}^{(k)}_{pqd} \\notin \\mathbb{R}$",
+      "required_operators": ["elementwise_division", "nan_inf_replacement"],
+      "inputs": ["errorBack_delta_k_raw", "onesBack_g1"],
+      "outputs": ["errorBack_delta_k_normalized"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "Multiplicative Update",
+      "mathematical_description": "$\\mathbf{x}^{(k+1)} \\leftarrow \\mathbf{x}^{(k)} \\odot \\boldsymbol{\\delta}^{(k)}$",
+      "required_operators": ["hadamard_product"],
+      "inputs": ["reconVolume_x_k", "errorBack_delta_k_normalized"],
+      "outputs": ["reconVolume_x_k_plus_1_prefilter"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Anti-Aliasing Filter (Conditional)",
+      "mathematical_description": "If filter\\_flag = True: $\\mathbf{x}^{(k+1)}_{:,:,d} \\leftarrow \\left| \\mathcal{F}^{-1}\\left( \\text{fftshift}\\left( \\mathbf{K}_d \\odot \\mathcal{F}\\left( \\mathbf{x}^{(k+1)}_{:,:,d} \\right) \\right) \\right) \\right|$ for all $d \\in \\{1, \\ldots, D\\}$",
+      "required_operators": ["fft_2d", "ifft_2d", "fftshift", "hadamard_product", "absolute_value"],
+      "inputs": ["reconVolume_x_k_plus_1_prefilter", "kernelFFT_K", "filter_flag"],
+      "outputs": ["reconVolume_x_k_plus_1_filtered"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "Final Numerical Safeguard",
+      "mathematical_description": "$\\mathbf{x}^{(k+1)}_{pqd} \\leftarrow 0$ if $\\mathbf{x}^{(k+1)}_{pqd} \\notin \\mathbb{R}$ (i.e., NaN or Inf)",
+      "required_operators": ["nan_inf_replacement"],
+      "inputs": ["reconVolume_x_k_plus_1_filtered"],
+      "outputs": ["reconVolume_x_k_plus_1"]
+    }
+  ]
+}
+```

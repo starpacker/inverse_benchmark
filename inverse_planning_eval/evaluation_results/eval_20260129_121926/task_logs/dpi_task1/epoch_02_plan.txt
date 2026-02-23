@@ -1,0 +1,136 @@
+```json
+{
+  "algorithm_name": "Deep Probabilistic Imaging for Radio Interferometry (RealNVP Normalizing Flow)",
+  "initialization": [
+    "Initialize RealNVP normalizing flow parameters θ using Xavier/Kaiming initialization with n_flow affine coupling layers",
+    "Initialize log-scale parameter: s^{(0)} = ln(F_target / (0.8 * N_pix^2))",
+    "Create Adam optimizer for parameters {θ, s} with learning rate η, β_1 = 0.9, β_2 = 0.999",
+    "Set loss weights: w_cp = N_cp / N_camp, w_flux = 1000, w_ce = 1024, w_logdet = 2λ / N_camp",
+    "Precompute DFT matrix F from (u,v) coordinates and pixel grid",
+    "Precompute closure phase baseline indices (I_1, I_2, I_3) and signs (s_1, s_2, s_3)",
+    "Generate Gaussian prior image I^prior centered at origin with target flux F_target"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Sample Latent Codes",
+      "mathematical_description": "$z^{(b)} \\sim \\mathcal{N}(0, I_{N_{\\text{pix}}^2})$ for $b = 1, \\ldots, N_{\\text{batch}}$",
+      "required_operators": ["random_normal_sampling"],
+      "inputs": ["N_batch", "N_pix"],
+      "outputs": ["z"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Apply Inverse Flow",
+      "mathematical_description": "$(\\tilde{I}, \\log|\\det J_g|) = g_\\theta^{-1}(z)$ where $\\log|\\det J_g| = \\sum_{\\ell=1}^{n_{\\text{flow}}} \\sum_i \\log|s_\\ell^{(i)}|$",
+      "required_operators": ["realnvp_inverse_pass", "log_determinant_accumulation"],
+      "inputs": ["z", "θ"],
+      "outputs": ["I_tilde", "log_det_J_g"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Apply Positivity Transform",
+      "mathematical_description": "$I_{i,j} = \\text{softplus}(\\tilde{I}_{i,j}) \\cdot e^s$ where $\\text{softplus}(x) = \\ln(1 + e^x)$",
+      "required_operators": ["softplus", "scalar_multiplication", "exponential"],
+      "inputs": ["I_tilde", "s"],
+      "outputs": ["I"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Update Log-Determinant",
+      "mathematical_description": "$\\log|\\det J| = \\log|\\det J_g| + \\sum_{i,j} \\left( \\tilde{I}_{i,j} - \\text{softplus}(\\tilde{I}_{i,j}) \\right) + s \\cdot N_{\\text{pix}}^2$",
+      "required_operators": ["softplus", "elementwise_subtraction", "summation", "scalar_multiplication"],
+      "inputs": ["log_det_J_g", "I_tilde", "s", "N_pix"],
+      "outputs": ["log_det_J"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "Compute Visibilities via DFT",
+      "mathematical_description": "$V_{\\text{real}} = I_{\\text{flat}} \\cdot F_{:,:,0}$, $V_{\\text{imag}} = I_{\\text{flat}} \\cdot F_{:,:,1}$",
+      "required_operators": ["reshape", "matrix_multiplication"],
+      "inputs": ["I", "F"],
+      "outputs": ["V"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Compute Visibility Amplitudes",
+      "mathematical_description": "$\\|V_k\\| = \\sqrt{V_{\\text{real},k}^2 + V_{\\text{imag},k}^2 + \\epsilon}$",
+      "required_operators": ["elementwise_square", "addition", "sqrt"],
+      "inputs": ["V", "epsilon"],
+      "outputs": ["V_amplitude"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "Compute Predicted Closure Phases",
+      "mathematical_description": "$\\phi_j^{\\text{pred}} = \\frac{180}{\\pi} \\left( s_{1,j} \\cdot \\text{atan2}(V_{\\text{imag}}[\\mathcal{I}_{1,j}], V_{\\text{real}}[\\mathcal{I}_{1,j}]) + s_{2,j} \\cdot \\text{atan2}(V_{\\text{imag}}[\\mathcal{I}_{2,j}], V_{\\text{real}}[\\mathcal{I}_{2,j}]) + s_{3,j} \\cdot \\text{atan2}(V_{\\text{imag}}[\\mathcal{I}_{3,j}], V_{\\text{real}}[\\mathcal{I}_{3,j}]) \\right)$",
+      "required_operators": ["indexing", "atan2", "scalar_multiplication", "addition", "rad_to_deg"],
+      "inputs": ["V", "I_1", "I_2", "I_3", "s_1", "s_2", "s_3"],
+      "outputs": ["phi_pred"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "Compute Cross-Entropy Loss",
+      "mathematical_description": "$\\mathcal{L}_{\\text{ce}}^{(b)} = \\frac{1}{N_{\\text{pix}}^2} \\sum_{i,j} I_{i,j}^{(b)} \\left( \\ln(I_{i,j}^{(b)} + \\epsilon) - \\ln(I_{i,j}^{\\text{prior}} + \\epsilon) \\right)$",
+      "required_operators": ["log", "addition", "subtraction", "elementwise_multiplication", "summation", "scalar_division"],
+      "inputs": ["I", "I_prior", "epsilon", "N_pix"],
+      "outputs": ["L_ce"]
+    },
+    {
+      "step_order": 9,
+      "step_name": "Compute Flux Loss",
+      "mathematical_description": "$\\mathcal{L}_{\\text{flux}}^{(b)} = \\left( \\sum_{i,j} I_{i,j}^{(b)} - F_{\\text{target}} \\right)^2$",
+      "required_operators": ["summation", "subtraction", "square"],
+      "inputs": ["I", "F_target"],
+      "outputs": ["L_flux"]
+    },
+    {
+      "step_order": 10,
+      "step_name": "Compute Closure Phase Loss",
+      "mathematical_description": "$\\mathcal{L}_{\\text{cp}}^{(b)} = \\frac{2}{N_{\\text{cp}}} \\sum_{j=1}^{N_{\\text{cp}}} \\frac{1 - \\cos\\left( \\frac{\\pi}{180}(\\phi_j^{\\text{true}} - \\phi_j^{\\text{pred},(b)}) \\right)}{\\left( \\frac{\\pi}{180} \\sigma_{\\text{cp},j} \\right)^2}$",
+      "required_operators": ["subtraction", "deg_to_rad", "cosine", "elementwise_division", "square", "summation", "scalar_multiplication"],
+      "inputs": ["phi_true", "phi_pred", "sigma_cp", "N_cp"],
+      "outputs": ["L_cp"]
+    },
+    {
+      "step_order": 11,
+      "step_name": "Compute Total Loss",
+      "mathematical_description": "$\\mathcal{L} = \\frac{1}{N_{\\text{batch}}} \\sum_{b=1}^{N_{\\text{batch}}} \\left[ w_{\\text{cp}} \\mathcal{L}_{\\text{cp}}^{(b)} + w_{\\text{ce}} \\mathcal{L}_{\\text{ce}}^{(b)} + w_{\\text{flux}} \\mathcal{L}_{\\text{flux}}^{(b)} - w_{\\text{logdet}} \\log|\\det J|^{(b)} \\right]$",
+      "required_operators": ["scalar_multiplication", "addition", "subtraction", "mean"],
+      "inputs": ["L_cp", "L_ce", "L_flux", "log_det_J", "w_cp", "w_ce", "w_flux", "w_logdet", "N_batch"],
+      "outputs": ["L_total"]
+    },
+    {
+      "step_order": 12,
+      "step_name": "Compute Gradients",
+      "mathematical_description": "$\\nabla_\\theta \\mathcal{L}$, $\\nabla_s \\mathcal{L}$ via automatic differentiation (backpropagation)",
+      "required_operators": ["autograd_backward"],
+      "inputs": ["L_total", "θ", "s"],
+      "outputs": ["grad_theta", "grad_s"]
+    },
+    {
+      "step_order": 13,
+      "step_name": "Clip Gradients",
+      "mathematical_description": "$\\tilde{g} = g \\cdot \\min\\left(1, \\frac{c}{\\|g\\|_2}\\right)$ where $c = 0.1$",
+      "required_operators": ["l2_norm", "minimum", "scalar_division", "scalar_multiplication"],
+      "inputs": ["grad_theta", "grad_s", "clip_threshold"],
+      "outputs": ["grad_theta_clipped", "grad_s_clipped"]
+    },
+    {
+      "step_order": 14,
+      "step_name": "Adam Parameter Update",
+      "mathematical_description": "$m_t = \\beta_1 m_{t-1} + (1-\\beta_1) \\tilde{g}$, $v_t = \\beta_2 v_{t-1} + (1-\\beta_2) \\tilde{g}^2$, $\\hat{m}_t = m_t / (1-\\beta_1^t)$, $\\hat{v}_t = v_t / (1-\\beta_2^t)$, $\\theta_{t+1} = \\theta_t - \\eta \\cdot \\hat{m}_t / (\\sqrt{\\hat{v}_t} + \\epsilon_{\\text{Adam}})$",
+      "required_operators": ["scalar_multiplication", "addition", "subtraction", "elementwise_square", "sqrt", "elementwise_division", "bias_correction"],
+      "inputs": ["θ", "s", "grad_theta_clipped", "grad_s_clipped", "m_t-1", "v_t-1", "η", "β_1", "β_2", "epsilon_adam", "t"],
+      "outputs": ["θ", "s", "m_t", "v_t"]
+    },
+    {
+      "step_order": 15,
+      "step_name": "Convergence Check",
+      "mathematical_description": "if $k < N_{\\text{epoch}} - 1$: continue; else: terminate",
+      "required_operators": ["comparison"],
+      "inputs": ["k", "N_epoch"],
+      "outputs": ["continue_flag"]
+    }
+  ]
+}
+```

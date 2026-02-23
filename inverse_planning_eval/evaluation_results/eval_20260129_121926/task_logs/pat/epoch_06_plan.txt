@@ -1,0 +1,159 @@
+```json
+{
+  "algorithm_name": "Delay-and-Sum Backprojection with Linear Spectral Unmixing",
+  "initialization": [
+    "Create uniform spatial grid: $x_s[i] = -L_x/2 + i \\cdot L_x/(N_x - 1)$ for $i \\in [0, N_x-1]$",
+    "Create uniform spatial grid: $y_s[j] = -L_y/2 + j \\cdot L_y/(N_y - 1)$ for $j \\in [0, N_y-1]$",
+    "Set z-coordinates: $z_s = [0.0]$ (single z-plane)",
+    "Generate 3D meshgrid: $(Z, Y, X) = \\text{meshgrid}(z_s, y_s, x_s, \\texttt{indexing='ij'})$ each of shape $(N_z, N_y, N_x)$",
+    "Compute spatial sample spacing: $\\Delta l = c / f_s$",
+    "Initialize reconstruction volume: $\\hat{p}_0 = \\mathbf{0}$ of shape $(N_\\lambda, N_z, N_y, N_x)$"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Extract wavelength signal",
+      "mathematical_description": "$y^{(\\lambda)} = y[i_\\lambda, :, :]$",
+      "required_operators": ["array_slice"],
+      "inputs": ["y", "i_lambda"],
+      "outputs": ["y_lambda"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Extract detector position",
+      "mathematical_description": "$\\mathbf{r}_d = \\mathbf{g}[i_d, :] = (x_d, y_d, z_d)$",
+      "required_operators": ["array_slice"],
+      "inputs": ["g", "i_d"],
+      "outputs": ["r_d"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Compute distance field",
+      "mathematical_description": "$d_{i_d}[k,j,i] = \\sqrt{(X[k,j,i] - x_d)^2 + (Y[k,j,i] - y_d)^2 + (Z[k,j,i] - z_d)^2}$",
+      "required_operators": ["euclidean_distance", "broadcast_subtraction", "elementwise_square", "elementwise_sqrt"],
+      "inputs": ["X", "Y", "Z", "r_d"],
+      "outputs": ["d_id"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Compute sample indices (time-of-flight)",
+      "mathematical_description": "$\\tau_{i_d}[k,j,i] = \\lfloor d_{i_d}[k,j,i] / \\Delta l \\rfloor$",
+      "required_operators": ["elementwise_division", "floor"],
+      "inputs": ["d_id", "delta_l"],
+      "outputs": ["tau_id"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "Compute valid sample mask",
+      "mathematical_description": "$M_{\\text{valid}}[k,j,i] = (\\tau_{i_d}[k,j,i] \\geq 0) \\land (\\tau_{i_d}[k,j,i] < N_t)$",
+      "required_operators": ["comparison_geq", "comparison_lt", "logical_and"],
+      "inputs": ["tau_id", "N_t"],
+      "outputs": ["M_valid"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Accumulate backprojection (Adjoint operator)",
+      "mathematical_description": "$\\hat{p}_0[i_\\lambda, k, j, i] \\mathrel{+}= y^{(\\lambda)}[i_d, \\tau_{i_d}[k,j,i]] \\cdot M_{\\text{valid}}[k,j,i]$",
+      "required_operators": ["time_of_flight_lookup", "masked_accumulation", "adjoint_backprojection"],
+      "inputs": ["p0_hat", "y_lambda", "tau_id", "M_valid", "i_lambda", "i_d"],
+      "outputs": ["p0_hat"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "Interpolate Hb extinction spectrum",
+      "mathematical_description": "$\\epsilon_{\\text{Hb}}(\\lambda_i) = \\text{interp1d}(\\lambda_{\\text{ref}}, \\epsilon_{\\text{Hb,ref}})(\\lambda_i)$ for each $\\lambda_i \\in \\boldsymbol{\\lambda}$",
+      "required_operators": ["linear_interpolation"],
+      "inputs": ["lambda_ref", "epsilon_Hb_ref", "lambda"],
+      "outputs": ["epsilon_Hb"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "Interpolate HbO2 extinction spectrum",
+      "mathematical_description": "$\\epsilon_{\\text{HbO2}}(\\lambda_i) = \\text{interp1d}(\\lambda_{\\text{ref}}, \\epsilon_{\\text{HbO2,ref}})(\\lambda_i)$ for each $\\lambda_i \\in \\boldsymbol{\\lambda}$",
+      "required_operators": ["linear_interpolation"],
+      "inputs": ["lambda_ref", "epsilon_HbO2_ref", "lambda"],
+      "outputs": ["epsilon_HbO2"]
+    },
+    {
+      "step_order": 9,
+      "step_name": "Build extinction coefficient matrix",
+      "mathematical_description": "$E = \\begin{bmatrix} \\epsilon_{\\text{Hb}}(\\lambda_1) & \\epsilon_{\\text{HbO2}}(\\lambda_1) \\\\ \\vdots & \\vdots \\\\ \\epsilon_{\\text{Hb}}(\\lambda_{N_\\lambda}) & \\epsilon_{\\text{HbO2}}(\\lambda_{N_\\lambda}) \\end{bmatrix}$",
+      "required_operators": ["column_stack"],
+      "inputs": ["epsilon_Hb", "epsilon_HbO2"],
+      "outputs": ["E"]
+    },
+    {
+      "step_order": 10,
+      "step_name": "Compute Moore-Penrose pseudo-inverse",
+      "mathematical_description": "$E^\\dagger = (E^T E)^{-1} E^T$",
+      "required_operators": ["matrix_transpose", "matrix_multiplication", "matrix_inverse", "pseudo_inverse"],
+      "inputs": ["E"],
+      "outputs": ["E_pinv"]
+    },
+    {
+      "step_order": 11,
+      "step_name": "Flatten reconstruction for unmixing",
+      "mathematical_description": "$S = \\text{reshape}(\\hat{p}_0, (N_\\lambda, N_z \\cdot N_y \\cdot N_x))$",
+      "required_operators": ["reshape"],
+      "inputs": ["p0_hat"],
+      "outputs": ["S"]
+    },
+    {
+      "step_order": 12,
+      "step_name": "Linear spectral unmixing",
+      "mathematical_description": "$C_{\\text{flat}} = E^\\dagger \\cdot S$",
+      "required_operators": ["matrix_multiplication"],
+      "inputs": ["E_pinv", "S"],
+      "outputs": ["C_flat"]
+    },
+    {
+      "step_order": 13,
+      "step_name": "Reshape concentration maps",
+      "mathematical_description": "$C = \\text{reshape}(C_{\\text{flat}}, (2, N_z, N_y, N_x))$",
+      "required_operators": ["reshape"],
+      "inputs": ["C_flat"],
+      "outputs": ["C"]
+    },
+    {
+      "step_order": 14,
+      "step_name": "Extract hemoglobin concentrations",
+      "mathematical_description": "$[\\text{Hb}] = C[0, :, :, :], \\quad [\\text{HbO}_2] = C[1, :, :, :]$",
+      "required_operators": ["array_slice"],
+      "inputs": ["C"],
+      "outputs": ["Hb", "HbO2"]
+    },
+    {
+      "step_order": 15,
+      "step_name": "Compute total hemoglobin",
+      "mathematical_description": "$H_{\\text{total}} = [\\text{Hb}] + [\\text{HbO}_2]$",
+      "required_operators": ["elementwise_addition"],
+      "inputs": ["Hb", "HbO2"],
+      "outputs": ["H_total"]
+    },
+    {
+      "step_order": 16,
+      "step_name": "Compute sO2 validity mask",
+      "mathematical_description": "$M_{\\text{sO2}}[k,j,i] = (H_{\\text{total}}[k,j,i] > \\theta_{\\text{mask}} \\cdot \\max(H_{\\text{total}}))$",
+      "required_operators": ["array_max", "scalar_multiplication", "comparison_gt"],
+      "inputs": ["H_total", "theta_mask"],
+      "outputs": ["M_sO2"]
+    },
+    {
+      "step_order": 17,
+      "step_name": "Compute oxygen saturation",
+      "mathematical_description": "$\\text{sO}_2[k,j,i] = \\frac{[\\text{HbO}_2][k,j,i]}{H_{\\text{total}}[k,j,i]} \\cdot M_{\\text{sO2}}[k,j,i]$",
+      "required_operators": ["masked_elementwise_division", "zeros_initialization"],
+      "inputs": ["HbO2", "H_total", "M_sO2"],
+      "outputs": ["sO2"]
+    },
+    {
+      "step_order": 18,
+      "step_name": "Clip sO2 to physiological range",
+      "mathematical_description": "$\\text{sO}_2 = \\text{clip}(\\text{sO}_2, 0, 1)$",
+      "required_operators": ["clip"],
+      "inputs": ["sO2"],
+      "outputs": ["sO2"]
+    }
+  ]
+}
+```

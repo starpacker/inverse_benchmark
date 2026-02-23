@@ -1,0 +1,94 @@
+```json
+{
+  "algorithm_name": "Tikhonov-Regularized Kaczmarz Algorithm for MPI Reconstruction",
+  "initialization": [
+    "Initialize solution vector: $\\mathbf{x}^{(0)} = \\mathbf{0}_N \\in \\mathbb{C}^N$",
+    "Initialize auxiliary residual vector: $\\mathbf{r}^{(0)} = \\mathbf{0}_M \\in \\mathbb{C}^M$",
+    "Precompute row norms: $e_m = \\|\\mathbf{a}_m\\|_2 = \\sqrt{\\sum_{n=0}^{N-1} |A_{m,n}|^2}$ for $m = 0, \\ldots, M-1$",
+    "Define row index cycle: $\\mathbf{k} = [0, 1, 2, \\ldots, M-1]$",
+    "Set outer iteration counter: $\\ell = 0$"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Get current row index",
+      "mathematical_description": "$k = \\mathbf{k}[m]$ where $m$ is the inner loop index cycling through $0, 1, \\ldots, M-1$",
+      "required_operators": ["indexing"],
+      "inputs": ["k_indices", "m"],
+      "outputs": ["k"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Check row energy and skip if degenerate",
+      "mathematical_description": "If $e_k \\leq 0$, skip to next row index $m$",
+      "required_operators": ["comparison"],
+      "inputs": ["e", "k"],
+      "outputs": []
+    },
+    {
+      "step_order": 3,
+      "step_name": "Compute inner product of row with current solution",
+      "mathematical_description": "$\\alpha = \\langle \\mathbf{a}_k, \\mathbf{x} \\rangle = \\sum_{n=0}^{N-1} A_{k,n} \\cdot x_n$",
+      "required_operators": ["row_extraction", "complex_dot_product"],
+      "inputs": ["A", "x", "k"],
+      "outputs": ["alpha"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Compute update coefficient numerator",
+      "mathematical_description": "$\\nu = b_k - \\alpha - \\sqrt{\\lambda} \\cdot r_k$",
+      "required_operators": ["indexing", "scalar_multiplication", "subtraction", "square_root"],
+      "inputs": ["b", "alpha", "lambda", "r", "k"],
+      "outputs": ["nu"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "Compute regularized denominator",
+      "mathematical_description": "$\\delta = e_k^2 + \\lambda$",
+      "required_operators": ["square", "addition"],
+      "inputs": ["e", "k", "lambda"],
+      "outputs": ["delta"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Compute Kaczmarz step size",
+      "mathematical_description": "$\\gamma = \\frac{\\nu}{\\delta}$",
+      "required_operators": ["complex_division"],
+      "inputs": ["nu", "delta"],
+      "outputs": ["gamma"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "Update solution vector",
+      "mathematical_description": "$x_n \\leftarrow x_n + \\gamma \\cdot \\overline{A_{k,n}}$ for all $n = 0, \\ldots, N-1$, equivalently $\\mathbf{x} \\leftarrow \\mathbf{x} + \\gamma \\cdot \\overline{\\mathbf{a}_k}$",
+      "required_operators": ["row_extraction", "complex_conjugate", "scalar_vector_multiplication", "vector_addition"],
+      "inputs": ["x", "gamma", "A", "k"],
+      "outputs": ["x"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "Update auxiliary residual variable",
+      "mathematical_description": "$r_k \\leftarrow r_k + \\sqrt{\\lambda} \\cdot \\gamma$",
+      "required_operators": ["square_root", "scalar_multiplication", "addition", "indexing"],
+      "inputs": ["r", "k", "lambda", "gamma"],
+      "outputs": ["r"]
+    },
+    {
+      "step_order": 9,
+      "step_name": "Increment inner loop and check completion",
+      "mathematical_description": "$m \\leftarrow m + 1$; if $m < M$, return to step 1; otherwise proceed to step 10",
+      "required_operators": ["increment", "comparison"],
+      "inputs": ["m", "M"],
+      "outputs": ["m"]
+    },
+    {
+      "step_order": 10,
+      "step_name": "Increment outer iteration and check stopping criterion",
+      "mathematical_description": "$\\ell \\leftarrow \\ell + 1$; if $\\ell < L$, reset $m = 0$ and return to step 1; otherwise terminate",
+      "required_operators": ["increment", "comparison"],
+      "inputs": ["ell", "L"],
+      "outputs": ["ell"]
+    }
+  ]
+}
+```

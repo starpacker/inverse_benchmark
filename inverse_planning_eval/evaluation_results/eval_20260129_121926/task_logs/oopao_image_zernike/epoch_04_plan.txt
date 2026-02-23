@@ -1,0 +1,116 @@
+```json
+{
+  "algorithm_name": "Zernike Wavefront Decomposition with Fourier Optics Forward Model",
+  "initialization": [
+    "Initialize telescope: pixel_size δ = D/N, generate binary pupil mask tel.pupil of shape (N,N)",
+    "Initialize source: extract wavelength λ from ngs object",
+    "Create spatial coordinate grids: X_{i,j} = (j - N/2)·δ, Y_{i,j} = (i - N/2)·δ",
+    "Compute normalized polar coordinates: r = sqrt(x² + y²)/(D/2), θ = atan2(y, x)",
+    "Generate Zernike radial polynomials R_n^{|m|}(r) for all Noll indices j = 1 to J",
+    "Assemble full Zernike modes Z_n^m(r,θ) with appropriate normalization factors",
+    "Construct Zernike basis matrix Z of shape (N_pupil, J) containing modes at valid pupil pixels",
+    "Construct full-resolution Zernike matrix Z_full of shape (N², J)",
+    "Compute Moore-Penrose pseudoinverse: Z† = (Z^T Z)^{-1} Z^T of shape (J, N_pupil)",
+    "Initialize atmospheric turbulence model with r_0, L_0, wind parameters",
+    "Initialize empty history arrays: rmse_history=[], all_coeffs=[], all_opd_original=[], all_opd_reconstructed=[]"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Update Atmosphere",
+      "mathematical_description": "\\text{atm.update}() \\rightarrow \\text{Evolve Kolmogorov/von Kármán phase screen}",
+      "required_operators": ["atmospheric_propagation"],
+      "inputs": ["atm_state"],
+      "outputs": ["atm_state_updated"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Extract Current OPD",
+      "mathematical_description": "\\boldsymbol{\\phi} = \\text{atm.OPD} \\in \\mathbb{R}^{N \\times N}",
+      "required_operators": ["array_copy"],
+      "inputs": ["atm_state_updated"],
+      "outputs": ["phi"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Mask Extraction",
+      "mathematical_description": "\\boldsymbol{\\phi}_{\\text{masked}} = \\boldsymbol{\\phi}[\\text{pupil} = 1] \\in \\mathbb{R}^{N_{\\text{pupil}}}",
+      "required_operators": ["boolean_indexing"],
+      "inputs": ["phi", "pupil"],
+      "outputs": ["phi_masked"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Zernike Projection (Inverse Model)",
+      "mathematical_description": "\\mathbf{c} = \\mathbf{Z}^{\\dagger} \\boldsymbol{\\phi}_{\\text{masked}} = (\\mathbf{Z}^T \\mathbf{Z})^{-1} \\mathbf{Z}^T \\boldsymbol{\\phi}_{\\text{masked}}",
+      "required_operators": ["matrix_vector_multiply", "pseudoinverse"],
+      "inputs": ["Z_pinv", "phi_masked"],
+      "outputs": ["coefficients"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "OPD Reconstruction (Forward Synthesis)",
+      "mathematical_description": "\\boldsymbol{\\phi}_{\\text{rec}} = \\text{reshape}(\\mathbf{Z}_{\\text{full}} \\mathbf{c}, (N, N)) = \\sum_{j=1}^{J} c_j \\mathbf{Z}_j",
+      "required_operators": ["matrix_vector_multiply", "reshape"],
+      "inputs": ["Z_full", "coefficients"],
+      "outputs": ["phi_reconstructed"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Compute Residual Error",
+      "mathematical_description": "\\text{diff} = (\\boldsymbol{\\phi} - \\boldsymbol{\\phi}_{\\text{rec}}) \\odot \\text{pupil}",
+      "required_operators": ["element_wise_subtraction", "element_wise_multiplication"],
+      "inputs": ["phi", "phi_reconstructed", "pupil"],
+      "outputs": ["diff"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "Compute RMSE Metric",
+      "mathematical_description": "\\text{RMSE}_i = \\sqrt{\\frac{1}{N_{\\text{pupil}}} \\sum_{p \\in \\mathcal{P}} (\\phi_p - \\phi_{\\text{rec},p})^2} = \\text{std}(\\text{diff}[\\text{pupil}=1])",
+      "required_operators": ["boolean_indexing", "standard_deviation"],
+      "inputs": ["diff", "pupil"],
+      "outputs": ["rmse_i"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "Store Iteration Results",
+      "mathematical_description": "\\text{rmse\\_history}.\\text{append}(\\text{RMSE}_i), \\; \\text{all\\_coeffs}.\\text{append}(\\mathbf{c})",
+      "required_operators": ["list_append"],
+      "inputs": ["rmse_i", "coefficients", "phi", "phi_reconstructed"],
+      "outputs": ["rmse_history", "all_coeffs", "all_opd_original", "all_opd_reconstructed"]
+    },
+    {
+      "step_order": 9,
+      "step_name": "Forward Operator - Complex Electric Field",
+      "mathematical_description": "\\mathbf{E} = A \\odot e^{i\\phi} = \\text{pupil} \\odot \\exp(i \\cdot \\phi_{\\text{rec}})",
+      "required_operators": ["element_wise_multiplication", "complex_exponential"],
+      "inputs": ["pupil", "phi_reconstructed"],
+      "outputs": ["E_field"]
+    },
+    {
+      "step_order": 10,
+      "step_name": "Forward Operator - Zero Padding",
+      "mathematical_description": "\\mathbf{E}_{\\text{pad}} = \\text{pad}(\\mathbf{E}, w), \\quad N_{\\text{pad}} = 4N, \\quad w = \\frac{N_{\\text{pad}} - N}{2}",
+      "required_operators": ["zero_padding"],
+      "inputs": ["E_field", "zero_padding_factor"],
+      "outputs": ["E_padded"]
+    },
+    {
+      "step_order": 11,
+      "step_name": "Forward Operator - Fourier Propagation",
+      "mathematical_description": "\\tilde{\\mathbf{E}} = \\mathcal{F}_{\\text{shift}}\\{\\mathcal{F}\\{\\mathcal{F}^{-1}_{\\text{shift}}\\{\\mathbf{E}_{\\text{pad}}\\}\\}\\}",
+      "required_operators": ["fftshift", "fft2", "ifftshift"],
+      "inputs": ["E_padded"],
+      "outputs": ["E_focal"]
+    },
+    {
+      "step_order": 12,
+      "step_name": "Forward Operator - PSF Computation",
+      "mathematical_description": "\\text{PSF} = \\frac{|\\tilde{\\mathbf{E}}|^2}{\\max(|\\tilde{\\mathbf{E}}|^2)}",
+      "required_operators": ["complex_modulus_squared", "normalization"],
+      "inputs": ["E_focal"],
+      "outputs": ["psf"]
+    }
+  ]
+}
+```

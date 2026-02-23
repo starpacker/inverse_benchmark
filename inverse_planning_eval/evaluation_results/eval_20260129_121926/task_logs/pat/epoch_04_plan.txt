@@ -1,0 +1,199 @@
+```json
+{
+  "algorithm_name": "Delay-and-Sum Photoacoustic Tomography with Spectral Unmixing",
+  "initialization": [
+    "Load raw photoacoustic data y_raw, detector geometry r_d, sampling frequency f_s, speed of sound c, and wavelengths λ from HDF5 file",
+    "Squeeze batch dimension if y_raw has shape (1, N_λ, N_det, N_t)",
+    "Compute Nyquist frequency: f_nyq = 0.5 × f_s",
+    "Compute normalized filter cutoffs: ω_low = f_HP / f_nyq, ω_high = f_LP / f_nyq",
+    "Design 4th-order Butterworth bandpass filter coefficients (b, a)",
+    "Apply zero-phase bandpass filtering: y_filt = filtfilt(b, a, y_raw) for each wavelength and detector",
+    "Compute analytic signal via Hilbert transform: y_analytic = y_filt + j × H{y_filt}",
+    "Extract processed signal: y = Im(y_analytic)",
+    "Create x-coordinates: x_i = -L_x/2 + i × L_x/(N_x - 1) for i = 0, ..., N_x - 1",
+    "Create y-coordinates: y_j = -L_y/2 + j × L_y/(N_y - 1) for j = 0, ..., N_y - 1",
+    "Create z-coordinates: zs = [0.0]",
+    "Generate 3D meshgrid: (Z, Y, X) = meshgrid(zs, ys, xs, indexing='ij')",
+    "Initialize reconstruction array: p̂_0 ← zeros(N_λ, N_z, N_y, N_x)",
+    "Compute spatial sampling interval: Δl = c / f_s"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "begin_wavelength_loop",
+      "mathematical_description": "\\text{for } i_{\\lambda} = 0, \\ldots, N_{\\lambda} - 1",
+      "required_operators": ["loop_iterator"],
+      "inputs": ["N_λ"],
+      "outputs": ["i_λ"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "select_wavelength_data",
+      "mathematical_description": "y^{(i_{\\lambda})} = y[i_{\\lambda}, :, :] \\in \\mathbb{R}^{N_{\\text{det}} \\times N_t}",
+      "required_operators": ["array_indexing"],
+      "inputs": ["y", "i_λ"],
+      "outputs": ["y_wavelength"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "begin_detector_loop",
+      "mathematical_description": "\\text{for } i_d = 0, \\ldots, N_{\\text{det}} - 1",
+      "required_operators": ["loop_iterator"],
+      "inputs": ["N_det"],
+      "outputs": ["i_d"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "get_detector_position",
+      "mathematical_description": "\\mathbf{r}_d = \\text{geometry}[i_d, :] = (r_{d,x}, r_{d,y}, r_{d,z})",
+      "required_operators": ["array_indexing"],
+      "inputs": ["geometry", "i_d"],
+      "outputs": ["r_d"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "compute_distances",
+      "mathematical_description": "d(\\mathbf{r}) = \\sqrt{(X - r_{d,x})^2 + (Y - r_{d,y})^2 + (Z - r_{d,z})^2}",
+      "required_operators": ["subtraction", "element_square", "addition", "sqrt"],
+      "inputs": ["X", "Y", "Z", "r_d"],
+      "outputs": ["dist"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "compute_delay_indices",
+      "mathematical_description": "k(\\mathbf{r}) = \\left\\lfloor \\frac{d(\\mathbf{r})}{\\Delta l} \\right\\rfloor = \\left\\lfloor \\frac{d(\\mathbf{r}) \\cdot f_s}{c} \\right\\rfloor",
+      "required_operators": ["division", "floor"],
+      "inputs": ["dist", "Δl"],
+      "outputs": ["sample_idx"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "compute_validity_mask",
+      "mathematical_description": "M(\\mathbf{r}) = \\mathbb{1}[0 \\leq k(\\mathbf{r}) < N_t]",
+      "required_operators": ["comparison_geq", "comparison_lt", "logical_and"],
+      "inputs": ["sample_idx", "N_t"],
+      "outputs": ["valid_mask"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "backproject_detector",
+      "mathematical_description": "\\hat{p}_0^{(i_{\\lambda})}[\\mathbf{r}] \\mathrel{+}= M(\\mathbf{r}) \\cdot y^{(i_{\\lambda})}[i_d, k(\\mathbf{r})]",
+      "required_operators": ["array_indexing", "element_multiply", "accumulate"],
+      "inputs": ["y_wavelength", "i_d", "sample_idx", "valid_mask", "reconstruction"],
+      "outputs": ["reconstruction"]
+    },
+    {
+      "step_order": 9,
+      "step_name": "end_detector_loop",
+      "mathematical_description": "\\text{end for } i_d",
+      "required_operators": ["loop_end"],
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "step_order": 10,
+      "step_name": "end_wavelength_loop",
+      "mathematical_description": "\\text{end for } i_{\\lambda}",
+      "required_operators": ["loop_end"],
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "step_order": 11,
+      "step_name": "interpolate_hb_spectrum",
+      "mathematical_description": "\\epsilon_{\\text{Hb}}(\\lambda) = \\text{interp1d}(\\lambda_{\\text{ref}}, \\epsilon_{\\text{Hb,ref}}, \\text{linear})(\\boldsymbol{\\lambda})",
+      "required_operators": ["linear_interpolation"],
+      "inputs": ["λ_ref", "ε_Hb_ref", "λ"],
+      "outputs": ["hb_spectrum"]
+    },
+    {
+      "step_order": 12,
+      "step_name": "interpolate_hbo2_spectrum",
+      "mathematical_description": "\\epsilon_{\\text{HbO}_2}(\\lambda) = \\text{interp1d}(\\lambda_{\\text{ref}}, \\epsilon_{\\text{HbO}_2,\\text{ref}}, \\text{linear})(\\boldsymbol{\\lambda})",
+      "required_operators": ["linear_interpolation"],
+      "inputs": ["λ_ref", "ε_HbO2_ref", "λ"],
+      "outputs": ["hbo2_spectrum"]
+    },
+    {
+      "step_order": 13,
+      "step_name": "build_extinction_matrix",
+      "mathematical_description": "E = \\begin{bmatrix} \\epsilon_{\\text{Hb}}(\\lambda_1) & \\epsilon_{\\text{HbO}_2}(\\lambda_1) \\\\ \\vdots & \\vdots \\\\ \\epsilon_{\\text{Hb}}(\\lambda_{N_{\\lambda}}) & \\epsilon_{\\text{HbO}_2}(\\lambda_{N_{\\lambda}}) \\end{bmatrix} \\in \\mathbb{R}^{N_{\\lambda} \\times 2}",
+      "required_operators": ["column_stack"],
+      "inputs": ["hb_spectrum", "hbo2_spectrum"],
+      "outputs": ["E"]
+    },
+    {
+      "step_order": 14,
+      "step_name": "reshape_reconstruction",
+      "mathematical_description": "S = \\text{reshape}(\\hat{p}_0, (N_{\\lambda}, N_z \\cdot N_y \\cdot N_x))",
+      "required_operators": ["reshape"],
+      "inputs": ["reconstruction"],
+      "outputs": ["S"]
+    },
+    {
+      "step_order": 15,
+      "step_name": "compute_pseudoinverse_and_solve",
+      "mathematical_description": "C = E^{\\dagger} S = (E^T E)^{-1} E^T S",
+      "required_operators": ["transpose", "matrix_multiply", "matrix_inverse", "pseudoinverse"],
+      "inputs": ["E", "S"],
+      "outputs": ["C"]
+    },
+    {
+      "step_order": 16,
+      "step_name": "reshape_concentrations",
+      "mathematical_description": "\\text{concentrations} = \\text{reshape}(C, (2, N_z, N_y, N_x))",
+      "required_operators": ["reshape"],
+      "inputs": ["C", "N_z", "N_y", "N_x"],
+      "outputs": ["concentrations"]
+    },
+    {
+      "step_order": 17,
+      "step_name": "extract_hemoglobin_components",
+      "mathematical_description": "[\\text{Hb}] = \\text{concentrations}[0], \\quad [\\text{HbO}_2] = \\text{concentrations}[1]",
+      "required_operators": ["array_indexing"],
+      "inputs": ["concentrations"],
+      "outputs": ["Hb", "HbO2"]
+    },
+    {
+      "step_order": 18,
+      "step_name": "compute_total_hemoglobin",
+      "mathematical_description": "[\\text{Hb}]_{\\text{total}} = [\\text{Hb}] + [\\text{HbO}_2]",
+      "required_operators": ["addition"],
+      "inputs": ["Hb", "HbO2"],
+      "outputs": ["total_hb"]
+    },
+    {
+      "step_order": 19,
+      "step_name": "compute_so2_mask",
+      "mathematical_description": "M_{\\text{sO}_2} = \\mathbb{1}\\left[[\\text{Hb}]_{\\text{total}} > \\theta_{\\text{mask}} \\cdot \\max([\\text{Hb}]_{\\text{total}})\\right]",
+      "required_operators": ["max", "scalar_multiply", "comparison_gt"],
+      "inputs": ["total_hb", "θ_mask"],
+      "outputs": ["so2_mask"]
+    },
+    {
+      "step_order": 20,
+      "step_name": "initialize_so2",
+      "mathematical_description": "\\text{sO}_2 \\leftarrow \\mathbf{0} \\in \\mathbb{R}^{N_z \\times N_y \\times N_x}",
+      "required_operators": ["zeros_like"],
+      "inputs": ["HbO2"],
+      "outputs": ["sO2"]
+    },
+    {
+      "step_order": 21,
+      "step_name": "compute_oxygen_saturation",
+      "mathematical_description": "\\text{sO}_2[M_{\\text{sO}_2}] = \\frac{[\\text{HbO}_2][M_{\\text{sO}_2}]}{[\\text{Hb}]_{\\text{total}}[M_{\\text{sO}_2}]}",
+      "required_operators": ["masked_indexing", "element_divide"],
+      "inputs": ["HbO2", "total_hb", "so2_mask", "sO2"],
+      "outputs": ["sO2"]
+    },
+    {
+      "step_order": 22,
+      "step_name": "clip_so2_to_physical_bounds",
+      "mathematical_description": "\\text{sO}_2 = \\text{clip}(\\text{sO}_2, 0, 1)",
+      "required_operators": ["clip"],
+      "inputs": ["sO2"],
+      "outputs": ["sO2"]
+    }
+  ]
+}
+```

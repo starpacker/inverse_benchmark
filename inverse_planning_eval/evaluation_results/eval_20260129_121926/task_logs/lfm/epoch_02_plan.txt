@@ -1,0 +1,111 @@
+```json
+{
+  "algorithm_name": "Richardson-Lucy Deconvolution for Light Field Microscopy Volume Reconstruction",
+  "initialization": [
+    "Initialize reconstruction volume: $V^{(0)}_{i,j,k} = 1 \\quad \\forall (i,j,k) \\in \\{1,\\ldots,T_x\\} \\times \\{1,\\ldots,T_y\\} \\times \\{1,\\ldots,N_d\\}$",
+    "Initialize iteration counter: $n \\leftarrow 0$",
+    "Initialize error metrics storage: $\\mathcal{E} \\leftarrow []$ (empty list)",
+    "Precompute forward normalization: $P_{\\text{fwd}} = H(\\mathbf{1}_V)$ where $\\mathbf{1}_V$ is unit volume",
+    "Precompute backward normalization: $P_{\\text{bwd}} = H^T(P_{\\text{fwd}})$",
+    "Precompute Lanczos filter kernels: $K_j = \\mathcal{F}[L_j]$ for each depth $j \\in \\{1,\\ldots,N_d\\}$"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Forward Projection",
+      "mathematical_description": "$\\hat{I}^{(n)} = \\begin{cases} P_{\\text{fwd}} & \\text{if } n = 0 \\\\ H(V^{(n)}) & \\text{if } n > 0 \\end{cases}$",
+      "required_operators": ["forward_projection"],
+      "inputs": ["V^{(n)}", "H", "P_fwd"],
+      "outputs": ["I_hat^{(n)}"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Compute Ratio Image",
+      "mathematical_description": "$R^{(n)}_{i,j} = \\frac{I_{i,j}}{\\hat{I}^{(n)}_{i,j}}$",
+      "required_operators": ["elementwise_division"],
+      "inputs": ["I", "I_hat^{(n)}"],
+      "outputs": ["R^{(n)}"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Apply Forward Normalization Weighting",
+      "mathematical_description": "$E^{(n)}_{\\text{img}} = R^{(n)} \\odot P_{\\text{fwd}}$",
+      "required_operators": ["elementwise_multiplication"],
+      "inputs": ["R^{(n)}", "P_fwd"],
+      "outputs": ["E_img^{(n)}"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Sanitize Image Error",
+      "mathematical_description": "$(E^{(n)}_{\\text{img}})_{i,j} \\leftarrow \\begin{cases} 0 & \\text{if } (E^{(n)}_{\\text{img}})_{i,j} \\notin \\mathbb{R} \\\\ (E^{(n)}_{\\text{img}})_{i,j} & \\text{otherwise} \\end{cases}$",
+      "required_operators": ["nan_to_zero"],
+      "inputs": ["E_img^{(n)}"],
+      "outputs": ["E_img^{(n)}"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "Calculate Mean Absolute Error",
+      "mathematical_description": "$\\epsilon^{(n)} = \\frac{1}{N_x \\cdot N_y} \\sum_{i=1}^{N_x} \\sum_{j=1}^{N_y} |E^{(n)}_{\\text{img}, i,j} - P_{\\text{fwd}, i,j}|$",
+      "required_operators": ["mean_absolute_error"],
+      "inputs": ["E_img^{(n)}", "P_fwd"],
+      "outputs": ["epsilon^{(n)}"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Backward Projection",
+      "mathematical_description": "$E^{(n)}_{\\text{vol}} = H^T(E^{(n)}_{\\text{img}})$",
+      "required_operators": ["backward_projection"],
+      "inputs": ["E_img^{(n)}", "H^T"],
+      "outputs": ["E_vol^{(n)}"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "Apply Backward Normalization",
+      "mathematical_description": "$(\\tilde{E}^{(n)}_{\\text{vol}})_{i,j,k} = \\frac{(E^{(n)}_{\\text{vol}})_{i,j,k}}{(P_{\\text{bwd}})_{i,j,k}}$",
+      "required_operators": ["elementwise_division"],
+      "inputs": ["E_vol^{(n)}", "P_bwd"],
+      "outputs": ["E_vol_tilde^{(n)}"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "Sanitize Volume Error",
+      "mathematical_description": "$(\\tilde{E}^{(n)}_{\\text{vol}})_{i,j,k} \\leftarrow \\begin{cases} 0 & \\text{if } (\\tilde{E}^{(n)}_{\\text{vol}})_{i,j,k} \\notin \\mathbb{R} \\\\ (\\tilde{E}^{(n)}_{\\text{vol}})_{i,j,k} & \\text{otherwise} \\end{cases}$",
+      "required_operators": ["nan_to_zero"],
+      "inputs": ["E_vol_tilde^{(n)}"],
+      "outputs": ["E_vol_tilde^{(n)}"]
+    },
+    {
+      "step_order": 9,
+      "step_name": "Richardson-Lucy Multiplicative Update",
+      "mathematical_description": "$V^{(n+1)}_{i,j,k} = V^{(n)}_{i,j,k} \\cdot (\\tilde{E}^{(n)}_{\\text{vol}})_{i,j,k}$",
+      "required_operators": ["elementwise_multiplication"],
+      "inputs": ["V^{(n)}", "E_vol_tilde^{(n)}"],
+      "outputs": ["V^{(n+1)}"]
+    },
+    {
+      "step_order": 10,
+      "step_name": "Apply Depth-Adaptive Lanczos Filter",
+      "mathematical_description": "If filter_flag=True, for each depth $j$: $V^{(n+1)}_{:,:,j} \\leftarrow \\left| \\mathcal{F}^{-1}_{\\text{shift}}\\left[ K_j \\odot \\mathcal{F}[V^{(n+1)}_{:,:,j}] \\right] \\right|$",
+      "required_operators": ["fft2", "ifft2", "fftshift", "elementwise_multiplication", "absolute_value"],
+      "inputs": ["V^{(n+1)}", "K", "filter_flag"],
+      "outputs": ["V^{(n+1)}"]
+    },
+    {
+      "step_order": 11,
+      "step_name": "Final Non-Finite Value Handling",
+      "mathematical_description": "$V^{(n+1)}_{i,j,k} \\leftarrow \\begin{cases} 0 & \\text{if } V^{(n+1)}_{i,j,k} \\notin \\mathbb{R} \\\\ V^{(n+1)}_{i,j,k} & \\text{otherwise} \\end{cases}$",
+      "required_operators": ["nan_to_zero"],
+      "inputs": ["V^{(n+1)}"],
+      "outputs": ["V^{(n+1)}"]
+    },
+    {
+      "step_order": 12,
+      "step_name": "Increment Iteration Counter",
+      "mathematical_description": "$n \\leftarrow n + 1$",
+      "required_operators": ["scalar_addition"],
+      "inputs": ["n"],
+      "outputs": ["n"]
+    }
+  ]
+}
+```

@@ -1,0 +1,77 @@
+```json
+{
+  "algorithm_name": "Regularized Kaczmarz Algorithm for Magnetic Particle Imaging Reconstruction",
+  "initialization": [
+    "Initialize primal variable: $x^{(0)} = \\mathbf{0} \\in \\mathbb{C}^N$ where $N = x_n \\cdot y_n$",
+    "Initialize auxiliary residual: $r^{(0)} = \\mathbf{0} \\in \\mathbb{C}^M$",
+    "Compute row energy norms: $E_m = \\|\\mathbf{a}_m\\|_2 = \\sqrt{\\sum_{n=0}^{N-1} |A_{m,n}|^2}$ for $m = 0, \\ldots, M-1$",
+    "Build sequential row index cycle: $\\text{idx} = [0, 1, \\ldots, M-1]$"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Row Selection",
+      "mathematical_description": "$k = \\text{idx}[m]$",
+      "required_operators": ["indexing"],
+      "inputs": ["row_index_cycle", "m"],
+      "outputs": ["k"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Skip Zero Energy Rows",
+      "mathematical_description": "If $E_k = 0$: continue to next $m$",
+      "required_operators": ["comparison", "conditional_branch"],
+      "inputs": ["energy", "k"],
+      "outputs": []
+    },
+    {
+      "step_order": 3,
+      "step_name": "Forward Projection",
+      "mathematical_description": "$\\langle \\mathbf{a}_k, x \\rangle = \\sum_{n=0}^{N-1} A_{k,n} \\cdot x_n$",
+      "required_operators": ["inner_product", "row_extraction"],
+      "inputs": ["A", "x", "k"],
+      "outputs": ["dot_prod"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Augmented Residual Computation",
+      "mathematical_description": "$\\text{num} = b_k - \\langle \\mathbf{a}_k, x \\rangle - \\sqrt{\\lambda} \\cdot r_k$",
+      "required_operators": ["subtraction", "scalar_multiplication", "sqrt"],
+      "inputs": ["b", "k", "dot_prod", "residual", "lambda"],
+      "outputs": ["numerator"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "Normalization Factor Computation",
+      "mathematical_description": "$\\text{den} = E_k^2 + \\lambda$",
+      "required_operators": ["square", "addition"],
+      "inputs": ["energy", "k", "lambda"],
+      "outputs": ["denominator"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Step Size Computation",
+      "mathematical_description": "$\\beta = \\frac{\\text{num}}{\\text{den}}$",
+      "required_operators": ["division"],
+      "inputs": ["numerator", "denominator"],
+      "outputs": ["beta"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "Primal Variable Update",
+      "mathematical_description": "$x \\leftarrow x + \\beta \\cdot \\overline{\\mathbf{a}_k}$",
+      "required_operators": ["conjugate", "scalar_vector_multiplication", "vector_addition"],
+      "inputs": ["x", "beta", "A", "k"],
+      "outputs": ["x"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "Auxiliary Residual Update",
+      "mathematical_description": "$r_k \\leftarrow r_k + \\sqrt{\\lambda} \\cdot \\beta$",
+      "required_operators": ["sqrt", "scalar_multiplication", "addition"],
+      "inputs": ["residual", "k", "lambda", "beta"],
+      "outputs": ["residual"]
+    }
+  ]
+}
+```

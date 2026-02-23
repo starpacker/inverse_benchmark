@@ -1,0 +1,202 @@
+```json
+{
+  "algorithm_name": "FISTA-BPM Optical Diffraction Tomography",
+  "initialization": [
+    "Initialize refractive index perturbation: Δn⁽⁰⁾ = 0 ∈ ℝ^(N_z × N_y × N_x)",
+    "Initialize FISTA extrapolated point: s⁽⁰⁾ = Δn⁽⁰⁾",
+    "Initialize previous iterate: x⁽⁰⁾ = Δn⁽⁰⁾",
+    "Initialize FISTA momentum parameter: q₁ = 1.0",
+    "Compute phase modulation factor: φⱼ = k₀·Δz/cos(θⱼ) for each angle j",
+    "Expand propagation kernel: H_exp = H[newaxis, :, :]",
+    "Compute backpropagation kernel: H† = conj(H_exp)",
+    "Initialize gradient accumulator: grad = 0 ∈ ℝ^(N_z × N_y × N_x)",
+    "Initialize loss history: [] (empty list)"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Reset gradient accumulator",
+      "mathematical_description": "\\nabla_{\\Delta n} = \\mathbf{0}",
+      "required_operators": ["zeros"],
+      "inputs": ["domain_size"],
+      "outputs": ["grad"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Extract batch data",
+      "mathematical_description": "u_{\\text{in}}^{(b)} = u_{\\text{inlet}}[i_{\\text{start}}:i_{\\text{end}}], \\quad u_{\\text{out}}^{(b)} = u_{\\text{outlet}}[i_{\\text{start}}:i_{\\text{end}}], \\quad \\phi^{(b)} = \\phi[i_{\\text{start}}:i_{\\text{end}}]",
+      "required_operators": ["slice", "index"],
+      "inputs": ["u_inlet", "u_outlet", "ol_factor", "batch_index"],
+      "outputs": ["sub_u_in", "sub_u_out", "sub_ol_factor"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Initialize field storage for adjoint",
+      "mathematical_description": "S = \\mathbf{0} \\in \\mathbb{C}^{B \\times N_z \\times N_y \\times N_x}",
+      "required_operators": ["zeros_complex"],
+      "inputs": ["batch_size", "domain_size"],
+      "outputs": ["s_fields"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Initialize propagating field",
+      "mathematical_description": "u = u_{\\text{in}}^{(b)}",
+      "required_operators": ["clone"],
+      "inputs": ["sub_u_in"],
+      "outputs": ["u"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "Forward BPM: Angular spectrum propagation",
+      "mathematical_description": "u \\leftarrow \\mathcal{F}^{-1}\\left\\{\\mathcal{F}\\{u\\} \\odot H_{\\text{exp}}\\right\\}",
+      "required_operators": ["fft2", "ifft2", "hadamard_product"],
+      "inputs": ["u", "p_kernel_expanded"],
+      "outputs": ["u"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Store intermediate field",
+      "mathematical_description": "S[:, m, :, :] = u",
+      "required_operators": ["index_assign", "clone"],
+      "inputs": ["u", "s_fields", "m"],
+      "outputs": ["s_fields"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "Forward BPM: Phase modulation",
+      "mathematical_description": "u \\leftarrow u \\odot \\exp\\left(i \\cdot \\phi^{(b)} \\cdot s[m, :, :]\\right)",
+      "required_operators": ["hadamard_product", "exp_complex", "index"],
+      "inputs": ["u", "sub_ol_factor", "s", "m"],
+      "outputs": ["u"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "Compute residual",
+      "mathematical_description": "r = u - u_{\\text{out}}^{(b)}",
+      "required_operators": ["subtract"],
+      "inputs": ["u", "sub_u_out"],
+      "outputs": ["r"]
+    },
+    {
+      "step_order": 9,
+      "step_name": "Compute batch L1 loss",
+      "mathematical_description": "\\mathcal{L}_{\\text{batch}} = \\frac{1}{B \\cdot N_y \\cdot N_x} \\sum_{b,i,j} |r_{b,i,j}|",
+      "required_operators": ["abs", "mean"],
+      "inputs": ["r"],
+      "outputs": ["batch_loss"]
+    },
+    {
+      "step_order": 10,
+      "step_name": "Adjoint BPM: Phase modulation (reversed z-loop)",
+      "mathematical_description": "r \\leftarrow r \\odot \\exp\\left(-i \\cdot \\phi^{(b)} \\cdot s[m, :, :]\\right)",
+      "required_operators": ["hadamard_product", "exp_complex", "index"],
+      "inputs": ["r", "sub_ol_factor", "s", "m"],
+      "outputs": ["r"]
+    },
+    {
+      "step_order": 11,
+      "step_name": "Compute slice gradient via Wirtinger derivative",
+      "mathematical_description": "G_m^{(b)} = -i \\cdot \\phi^{(b)} \\cdot S[:, m, :, :]^* \\odot r",
+      "required_operators": ["hadamard_product", "conj", "scalar_multiply"],
+      "inputs": ["sub_ol_factor", "s_fields", "r", "m"],
+      "outputs": ["batch_grad"]
+    },
+    {
+      "step_order": 12,
+      "step_name": "Accumulate real gradient",
+      "mathematical_description": "\\nabla_{\\Delta n}[m, :, :] \\mathrel{+}= \\sum_{b=1}^{B} \\text{Re}(G_m^{(b)})",
+      "required_operators": ["real", "sum", "add_inplace"],
+      "inputs": ["grad", "batch_grad", "m"],
+      "outputs": ["grad"]
+    },
+    {
+      "step_order": 13,
+      "step_name": "Adjoint BPM: Angular spectrum backpropagation",
+      "mathematical_description": "r \\leftarrow \\mathcal{F}^{-1}\\left\\{\\mathcal{F}\\{r\\} \\odot H^{\\dagger}\\right\\}",
+      "required_operators": ["fft2", "ifft2", "hadamard_product"],
+      "inputs": ["r", "bp_kernel"],
+      "outputs": ["r"]
+    },
+    {
+      "step_order": 14,
+      "step_name": "Normalize gradient over angles",
+      "mathematical_description": "\\nabla_{\\Delta n} \\leftarrow \\frac{\\nabla_{\\Delta n}}{N_{\\text{angles}}}",
+      "required_operators": ["scalar_divide"],
+      "inputs": ["grad", "N_angles"],
+      "outputs": ["grad"]
+    },
+    {
+      "step_order": 15,
+      "step_name": "Gradient descent step",
+      "mathematical_description": "z = s - \\alpha \\cdot \\nabla_{\\Delta n}",
+      "required_operators": ["scalar_multiply", "subtract"],
+      "inputs": ["s", "grad", "step_size"],
+      "outputs": ["z"]
+    },
+    {
+      "step_order": 16,
+      "step_name": "TV-FISTA: Initialize dual variable",
+      "mathematical_description": "g^{(0)} = \\nabla z, \\quad d^{(0)} = g^{(0)}, \\quad q_1^{\\text{inner}} = 1",
+      "required_operators": ["gradient_3d", "clone"],
+      "inputs": ["z"],
+      "outputs": ["g", "d", "q1_inner"]
+    },
+    {
+      "step_order": 17,
+      "step_name": "TV-FISTA: Dual gradient ascent",
+      "mathematical_description": "g^{(k+1)} = \\text{proj}_{\\|\\cdot\\|_2 \\leq 1}\\left(d^{(k)} + \\gamma \\nabla(\\text{div}(d^{(k)}) - z/\\tau)\\right)",
+      "required_operators": ["divergence_3d", "gradient_3d", "project_unit_ball"],
+      "inputs": ["d", "z", "gamma", "tau"],
+      "outputs": ["g"]
+    },
+    {
+      "step_order": 18,
+      "step_name": "TV-FISTA: Momentum update",
+      "mathematical_description": "q_2 = \\frac{1 + \\sqrt{1 + 4q_1^2}}{2}, \\quad d^{(k+1)} = g^{(k+1)} + \\frac{q_1 - 1}{q_2}(g^{(k+1)} - g^{(k)}), \\quad q_1 \\leftarrow q_2",
+      "required_operators": ["sqrt", "scalar_multiply", "add", "subtract"],
+      "inputs": ["g", "g_prev", "q1_inner"],
+      "outputs": ["d", "q1_inner"]
+    },
+    {
+      "step_order": 19,
+      "step_name": "TV-FISTA: Primal recovery",
+      "mathematical_description": "x_{\\text{TV}} = z - \\tau \\cdot \\text{div}(g^{(N_{\\text{TV}})})",
+      "required_operators": ["divergence_3d", "scalar_multiply", "subtract"],
+      "inputs": ["z", "g", "tau"],
+      "outputs": ["x_tv"]
+    },
+    {
+      "step_order": 20,
+      "step_name": "Apply box constraint on ROI",
+      "mathematical_description": "x^{(k+1)}[s_0:e_0, s_1:e_1, s_2:e_2] = \\text{clamp}(x_{\\text{TV}}[\\text{ROI}], n_{\\min}, n_{\\max})",
+      "required_operators": ["clamp", "index_assign"],
+      "inputs": ["x_tv", "roi_bounds", "n_min", "n_max"],
+      "outputs": ["x_new"]
+    },
+    {
+      "step_order": 21,
+      "step_name": "Outer FISTA momentum update",
+      "mathematical_description": "q_2^{\\text{outer}} = \\frac{1 + \\sqrt{1 + 4(q_1^{\\text{outer}})^2}}{2}",
+      "required_operators": ["sqrt", "scalar_multiply", "add"],
+      "inputs": ["q1_outer"],
+      "outputs": ["q2_outer"]
+    },
+    {
+      "step_order": 22,
+      "step_name": "Outer FISTA extrapolation",
+      "mathematical_description": "s^{(k+1)} = x^{(k+1)} + \\frac{q_1^{\\text{outer}} - 1}{q_2^{\\text{outer}}}(x^{(k+1)} - x^{(k)})",
+      "required_operators": ["subtract", "scalar_multiply", "add"],
+      "inputs": ["x_new", "x_prev", "q1_outer", "q2_outer"],
+      "outputs": ["s"]
+    },
+    {
+      "step_order": 23,
+      "step_name": "Update outer FISTA variables",
+      "mathematical_description": "q_1^{\\text{outer}} \\leftarrow q_2^{\\text{outer}}, \\quad x^{(k)} \\leftarrow x^{(k+1)}",
+      "required_operators": ["assign", "clone"],
+      "inputs": ["q2_outer", "x_new"],
+      "outputs": ["q1_outer", "x_prev"]
+    }
+  ]
+}
+```

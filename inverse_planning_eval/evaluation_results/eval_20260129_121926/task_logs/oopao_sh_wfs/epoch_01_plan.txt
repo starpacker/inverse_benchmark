@@ -1,0 +1,178 @@
+```json
+{
+  "algorithm_name": "Adaptive Optics Closed-Loop Control with Shack-Hartmann Wavefront Sensing",
+  "initialization": [
+    "Initialize DM actuator commands: $\\mathbf{u}^{[0]} \\leftarrow \\mathbf{0} \\in \\mathbb{R}^{N_{\\text{act}}}$ where $N_{\\text{act}} = (N_{\\text{sub}}+1)^2 = 441$",
+    "Initialize Strehl history array: $\\mathcal{H} \\leftarrow []$",
+    "Initialize telescope with pupil function $P(\\mathbf{r})$ and diameter $D = 8.0$ m",
+    "Initialize natural guide star source at infinity",
+    "Initialize atmosphere with Kolmogorov phase screens: $r_0 = 0.15$ m, $L_0 = 25$ m, $v = 10$ m/s",
+    "Initialize deformable mirror with $N_{\\text{sub}} = 20$ subapertures and coupling $\\alpha = 0.35$",
+    "Initialize Shack-Hartmann WFS with illumination threshold $\\ell = 0.5$",
+    "Initialize science camera with resolution $2N_{\\text{pix}} \\times 2N_{\\text{pix}}$",
+    "Compute reference PSF: $\\text{PSF}_{\\text{ref}} = |\\mathcal{F}\\{P \\cdot e^{i \\cdot 0}\\}|^2$",
+    "Compute reference slopes with flat wavefront: $\\mathbf{s}_{\\text{ref}} = \\mathcal{S}_{\\text{WFS}}(\\phi = 0)$",
+    "Compute KL mode basis $\\mathbf{M}_{\\text{full}}$ and truncate to $\\mathbf{M} \\in \\mathbb{R}^{N_{\\text{act}} \\times N_{\\text{modes}}}$",
+    "Calibrate interaction matrix via push-pull: $\\mathbf{D}_{:,j} = \\frac{\\mathbf{s}^{(+)}_j - \\mathbf{s}^{(-)}_j}{2\\delta}$ for each mode $j$",
+    "Compute reconstructor via truncated SVD: $\\mathbf{R} = \\mathbf{M} \\cdot \\mathbf{V} \\boldsymbol{\\Sigma}^{-1}_{\\text{trunc}} \\mathbf{U}^T$ with threshold $\\tau = 10^{-3}$"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Evolve Atmosphere",
+      "mathematical_description": "$\\phi_{\\text{atm}}^{[k]} = \\text{atm.update}(\\phi_{\\text{atm}}^{[k-1]}, v, \\Delta t)$",
+      "required_operators": [
+        "atmosphere_temporal_evolution"
+      ],
+      "inputs": [
+        "phi_atm_prev",
+        "wind_speed_v",
+        "time_step_delta_t"
+      ],
+      "outputs": [
+        "phi_atm_k"
+      ]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Forward Propagation (Sensing Path)",
+      "mathematical_description": "$\\phi_{\\text{res}}^{[k]} = \\phi_{\\text{atm}}^{[k]} - \\phi_{\\text{DM}}(\\mathbf{u}^{[k-1]})$ where $\\phi_{\\text{DM}}(\\mathbf{u}) = \\sum_{j=1}^{N_{\\text{act}}} u_j \\cdot h_j(\\mathbf{r})$",
+      "required_operators": [
+        "dm_phase_computation",
+        "phase_subtraction"
+      ],
+      "inputs": [
+        "phi_atm_k",
+        "u_prev",
+        "influence_functions_h"
+      ],
+      "outputs": [
+        "phi_res_k"
+      ]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Wavefront Slope Measurement",
+      "mathematical_description": "$\\mathbf{s}^{[k]} = \\mathcal{S}_{\\text{WFS}}(\\phi_{\\text{res}}^{[k]})$ via CoG centroiding: $s_{x,i} = \\frac{\\sum_{p,q} I_i(p,q) \\cdot X(p,q)}{\\sum_{p,q} I_i(p,q)}$, $s_{y,i} = \\frac{\\sum_{p,q} I_i(p,q) \\cdot Y(p,q)}{\\sum_{p,q} I_i(p,q)}$ where $I_i = |\\mathcal{F}\\{E_i\\}|^2$",
+      "required_operators": [
+        "subaperture_field_extraction",
+        "fft_2d",
+        "intensity_computation",
+        "center_of_gravity_centroiding",
+        "slope_concatenation"
+      ],
+      "inputs": [
+        "phi_res_k",
+        "pupil_function_P",
+        "valid_subaperture_mask"
+      ],
+      "outputs": [
+        "s_k"
+      ]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Compute Residual Slopes",
+      "mathematical_description": "$\\Delta\\mathbf{s}^{[k]} = \\mathbf{s}^{[k]} - \\mathbf{s}_{\\text{ref}}$",
+      "required_operators": [
+        "vector_subtraction"
+      ],
+      "inputs": [
+        "s_k",
+        "s_ref"
+      ],
+      "outputs": [
+        "delta_s_k"
+      ]
+    },
+    {
+      "step_order": 5,
+      "step_name": "Reconstruct Command Update",
+      "mathematical_description": "$\\Delta\\mathbf{u}^{[k]} = \\mathbf{R} \\cdot \\Delta\\mathbf{s}^{[k]}$",
+      "required_operators": [
+        "matrix_vector_multiplication"
+      ],
+      "inputs": [
+        "R",
+        "delta_s_k"
+      ],
+      "outputs": [
+        "delta_u_k"
+      ]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Integral Control Update",
+      "mathematical_description": "$\\mathbf{u}^{[k]} = \\mathbf{u}^{[k-1]} - g \\cdot \\Delta\\mathbf{u}^{[k]}$",
+      "required_operators": [
+        "scalar_vector_multiplication",
+        "vector_subtraction"
+      ],
+      "inputs": [
+        "u_prev",
+        "gain_g",
+        "delta_u_k"
+      ],
+      "outputs": [
+        "u_k"
+      ]
+    },
+    {
+      "step_order": 7,
+      "step_name": "Forward Propagation (Science Path)",
+      "mathematical_description": "$\\text{PSF}^{[k]} = \\left|\\mathcal{F}\\left\\{P(\\mathbf{r}) \\cdot \\exp\\left(i\\left[\\phi_{\\text{atm}}^{[k]} - \\phi_{\\text{DM}}(\\mathbf{u}^{[k]})\\right]\\right)\\right\\}\\right|^2$",
+      "required_operators": [
+        "dm_phase_computation",
+        "phase_subtraction",
+        "complex_exponential",
+        "pupil_masking",
+        "fft_2d",
+        "intensity_computation"
+      ],
+      "inputs": [
+        "phi_atm_k",
+        "u_k",
+        "influence_functions_h",
+        "pupil_function_P"
+      ],
+      "outputs": [
+        "PSF_k"
+      ]
+    },
+    {
+      "step_order": 8,
+      "step_name": "Evaluate Strehl Ratio",
+      "mathematical_description": "$\\text{SR}^{[k]} = 100 \\times \\frac{\\sum_{p,q} |\\text{OTF}^{[k]}(p,q)|}{\\sum_{p,q} |\\text{OTF}_{\\text{ref}}(p,q)|}$ where $\\text{OTF} = |\\mathcal{F}_{\\text{shift}}\\{\\mathcal{F}\\{\\text{PSF}\\}\\}|$",
+      "required_operators": [
+        "fft_2d",
+        "fft_shift",
+        "absolute_value",
+        "array_summation",
+        "scalar_division"
+      ],
+      "inputs": [
+        "PSF_k",
+        "PSF_ref"
+      ],
+      "outputs": [
+        "SR_k"
+      ]
+    },
+    {
+      "step_order": 9,
+      "step_name": "Record History",
+      "mathematical_description": "$\\mathcal{H} \\leftarrow \\mathcal{H} \\cup \\{\\text{SR}^{[k]}\\}$",
+      "required_operators": [
+        "array_append"
+      ],
+      "inputs": [
+        "H",
+        "SR_k"
+      ],
+      "outputs": [
+        "H"
+      ]
+    }
+  ]
+}
+```

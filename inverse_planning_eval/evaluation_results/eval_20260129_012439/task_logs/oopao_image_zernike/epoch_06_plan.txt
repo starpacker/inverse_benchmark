@@ -1,0 +1,128 @@
+
+
+```json
+{
+  "algorithm_name": "Zernike Modal Decomposition with FFT-based PSF Forward Model",
+  "initialization": [
+    "rmse_history = [] (empty list, shape (0,), dtype float64)",
+    "all_coeffs = [] (empty list for storing coefficient vectors)",
+    "all_opd_original = [] (empty list for storing original OPD maps)",
+    "all_opd_reconstructed = [] (empty list for storing reconstructed OPD maps)",
+    "iteration_index i = 0 (scalar, dtype int)"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Update Atmosphere",
+      "mathematical_description": "\\boldsymbol{\\phi}_{\\text{atm}}^{(i)} = \\text{atm.update}()",
+      "required_operators": ["atmosphere_update"],
+      "inputs": ["atm_object", "i"],
+      "outputs": ["phi_atm_i"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Copy Current OPD",
+      "mathematical_description": "\\boldsymbol{\\phi}_{\\text{current}} = \\text{copy}(\\boldsymbol{\\phi}_{\\text{atm}}^{(i)})",
+      "required_operators": ["deep_copy"],
+      "inputs": ["phi_atm_i"],
+      "outputs": ["phi_current"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Extract Pupil Indices",
+      "mathematical_description": "\\mathcal{I} = \\{(i,j) : P_{i,j} = 1\\}",
+      "required_operators": ["where", "boolean_indexing"],
+      "inputs": ["P"],
+      "outputs": ["pupil_indices"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Mask OPD to Pupil",
+      "mathematical_description": "\\boldsymbol{\\phi}_{\\text{masked}} = \\boldsymbol{\\phi}_{\\text{current}}[\\mathcal{I}]",
+      "required_operators": ["array_indexing"],
+      "inputs": ["phi_current", "pupil_indices"],
+      "outputs": ["phi_masked"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "Zernike Projection (Forward)",
+      "mathematical_description": "\\mathbf{c}^{(i)} = \\mathbf{Z}^+ \\boldsymbol{\\phi}_{\\text{masked}}",
+      "required_operators": ["matrix_vector_multiply"],
+      "inputs": ["Z_pseudoinverse", "phi_masked"],
+      "outputs": ["c_i"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "OPD Reconstruction (Forward)",
+      "mathematical_description": "\\boldsymbol{\\phi}_{\\text{rec}}^{(i)} = \\text{reshape}(\\mathbf{Z}_{\\text{full}} \\mathbf{c}^{(i)}, (N, N))",
+      "required_operators": ["matrix_vector_multiply", "reshape"],
+      "inputs": ["Z_full", "c_i", "N"],
+      "outputs": ["phi_rec_i"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "Compute Residual Map",
+      "mathematical_description": "\\mathbf{R}^{(i)} = (\\boldsymbol{\\phi}_{\\text{current}} - \\boldsymbol{\\phi}_{\\text{rec}}^{(i)}) \\odot \\mathbf{P}",
+      "required_operators": ["elementwise_subtract", "elementwise_multiply"],
+      "inputs": ["phi_current", "phi_rec_i", "P"],
+      "outputs": ["R_i"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "Extract Residual in Pupil",
+      "mathematical_description": "\\mathbf{r}^{(i)} = \\mathbf{R}^{(i)}[\\mathcal{I}]",
+      "required_operators": ["array_indexing"],
+      "inputs": ["R_i", "pupil_indices"],
+      "outputs": ["r_i"]
+    },
+    {
+      "step_order": 9,
+      "step_name": "Compute RMSE",
+      "mathematical_description": "\\text{rmse}^{(i)} = \\sqrt{\\frac{1}{N_{\\text{pupil}}} \\sum_{p} (r_p^{(i)})^2}",
+      "required_operators": ["square", "sum", "divide", "sqrt"],
+      "inputs": ["r_i", "N_pupil"],
+      "outputs": ["rmse_i"]
+    },
+    {
+      "step_order": 10,
+      "step_name": "Append RMSE to History",
+      "mathematical_description": "\\text{rmse\\_history} \\leftarrow \\text{rmse\\_history} \\cup \\{\\text{rmse}^{(i)}\\}",
+      "required_operators": ["list_append"],
+      "inputs": ["rmse_history", "rmse_i"],
+      "outputs": ["rmse_history"]
+    },
+    {
+      "step_order": 11,
+      "step_name": "Store Coefficients",
+      "mathematical_description": "\\text{all\\_coeffs} \\leftarrow \\text{all\\_coeffs} \\cup \\{\\mathbf{c}^{(i)}\\}",
+      "required_operators": ["list_append", "deep_copy"],
+      "inputs": ["all_coeffs", "c_i"],
+      "outputs": ["all_coeffs"]
+    },
+    {
+      "step_order": 12,
+      "step_name": "Store Original OPD",
+      "mathematical_description": "\\text{all\\_opd\\_original} \\leftarrow \\text{all\\_opd\\_original} \\cup \\{\\boldsymbol{\\phi}_{\\text{current}}\\}",
+      "required_operators": ["list_append", "deep_copy"],
+      "inputs": ["all_opd_original", "phi_current"],
+      "outputs": ["all_opd_original"]
+    },
+    {
+      "step_order": 13,
+      "step_name": "Store Reconstructed OPD",
+      "mathematical_description": "\\text{all\\_opd\\_reconstructed} \\leftarrow \\text{all\\_opd\\_reconstructed} \\cup \\{\\boldsymbol{\\phi}_{\\text{rec}}^{(i)}\\}",
+      "required_operators": ["list_append", "deep_copy"],
+      "inputs": ["all_opd_reconstructed", "phi_rec_i"],
+      "outputs": ["all_opd_reconstructed"]
+    },
+    {
+      "step_order": 14,
+      "step_name": "Increment Iteration",
+      "mathematical_description": "i \\leftarrow i + 1",
+      "required_operators": ["scalar_add"],
+      "inputs": ["i"],
+      "outputs": ["i"]
+    }
+  ]
+}
+```

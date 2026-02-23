@@ -1,0 +1,40 @@
+# config/task_io_paths.yaml
+task_io_paths:
+  spectral_ct:
+    input_path: "/data/yjh/spectral_ct_examples-master_sandbox/io/input_noisy_projections.npy"
+    expected_output_path: "/data/yjh/spectral_ct_examples-master_sandbox/io/output_reconstruction.npy"
+    gt_code: "/data/yjh/spectral_ct_examples-master_sandbox/spectral_ct_code.py"
+
+  storm_analysis:
+    input_path: "/data/yjh/storm-analysis-master/storm_analysis/test/data/test.dax"
+    expected_output_path: "/data/yjh/storm-analysis-master_sandbox/io/output.npy"
+    gt_code: "/data/yjh/storm-analysis-master_sandbox/storm_code.py"
+
+  bpm:
+    input_path: "/home/yjh/bpm_sandbox/io/input.npz"
+    expected_output_path: "/home/yjh/bpm_sandbox/io/output.npy"
+    gt_code: "/home/yjh/bpm_sandbox/bpm_code.py"
+
+  insar:
+    input_path: "/home/yjh/insar_sandbox/20150328_20150409.int"
+    expected_output_path: "/home/yjh/insar_sandbox/result.npy"
+    gt_code: "/home/yjh/insar_sandbox/insar_code.py"
+  
+  sim:
+    input_path: "/home/yjh/sim_sandbox/001.tif"
+    expected_output_path: '/home/yjh/sim_sandbox/output.tif'
+    gt_code: "/home/yjh/sim_sandbox/sim_code.py"
+  
+  ptyrad:
+    input_path: '/home/yjh/ad_pty/code_2/sample_data_PrScO3.mat'
+    expected_output_path: '/home/yjh/ad_pty/code_2/output/PSO/20251208_full_N4096_dp256_sparse32_p4_1obj_21slice_dz10_plr1e-4_oalr5e-4_oplr5e-4_slr5e-4_dpblur1_orblur0.4_ozblur1_mamp0.03_4_oathr0.96_oposc_sng1.0_spr0.1/objp_zsum_crop_08bit_iter0020.tif'
+    gt_code: '/home/yjh/ad_pty/code_2/main.py'
+  
+  lfm:
+    input_path: '/home/yjh/lfm_sandbox/001.tif'
+    expected_output_path: '/home/yjh/lfm_sandbox/output.tif'
+    gt_code: '/home/yjh/lfm_sandbox/lfm_code.py'
+  oopao_sh_wfs:
+    input_path: '/home/yjh/oopao_sh_wfs_sandbox/001.tif'
+    expected_output_path: '/home/yjh/oopao_sh_wfs_sandbox/output.tif'
+    gt_code: '/home/yjh/oopao_sh_sandbox/main.py'

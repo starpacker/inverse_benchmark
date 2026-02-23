@@ -1,0 +1,115 @@
+```json
+{
+  "algorithm_name": "Adaptive Optics Zernike-Based Phase Decomposition and PSF Computation",
+  "initialization": [
+    "Initialize telescope object with parameters (N=120, D=8m, Δt=0.001s, ε_c=0.0) generating binary pupil mask A ∈ {0,1}^{N×N} and pixelSize = D/N",
+    "Initialize natural guide star source object with I-band wavelength λ and apparent magnitude m_v=10, then couple to telescope via ngs * tel",
+    "Generate coordinate grids (X, Y) where x_{ij} = (j - N/2) · pixelSize and y_{ij} = (i - N/2) · pixelSize for i,j ∈ {0,...,N-1}",
+    "Compute normalized polar coordinates: r = √(x² + y²)/(D/2) and θ = arctan2(y, x)",
+    "Generate explicit Zernike basis zernike_basis_2d ∈ ℝ^{6×N×N} for first 6 modes using Noll-to-(n,m) mapping with radial polynomial R_n^m(r) and angular functions",
+    "Compute OOPAO Zernike basis: Z.modes ∈ ℝ^{N_p × J} at valid pupil pixels and Z.modesFullRes ∈ ℝ^{N² × J} at full resolution for J=100 modes",
+    "Compute Moore-Penrose pseudoinverse: Z† = (Z^T Z)^{-1} Z^T ∈ ℝ^{J × N_p}",
+    "Initialize atmosphere object with von Kármán turbulence parameters (r_0=0.15m, L_0=25m, v=10m/s, θ_w=0°, h=0m)",
+    "Generate test phase map: φ_test = 0.5·Z_4 + 0.5·Z_6 (Defocus + Astigmatism) and convert to OPD_test = φ_test·λ/(2π)",
+    "Initialize empty storage lists: rmse_history ← [], all_coeffs ← [], all_opd_original ← [], all_opd_reconstructed ← []"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Atmosphere Update",
+      "mathematical_description": "\\text{atm.update}() \\rightarrow \\text{Evolve turbulence phase screen by } \\Delta t \\text{ with wind velocity } v",
+      "required_operators": ["atmosphere_evolution", "phase_screen_translation"],
+      "inputs": ["atm", "delta_t", "v", "theta_w"],
+      "outputs": ["atm"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Current OPD Extraction",
+      "mathematical_description": "\\boldsymbol{\\phi}_{\\text{obs}} = \\text{atm.OPD} \\in \\mathbb{R}^{N \\times N}",
+      "required_operators": ["attribute_access"],
+      "inputs": ["atm"],
+      "outputs": ["phi_obs"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Pupil Mask Extraction",
+      "mathematical_description": "\\boldsymbol{\\phi}_m = \\boldsymbol{\\phi}_{\\text{obs}}[A = 1] \\in \\mathbb{R}^{N_p}",
+      "required_operators": ["boolean_indexing", "array_flattening"],
+      "inputs": ["phi_obs", "A"],
+      "outputs": ["phi_masked"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Zernike Coefficient Estimation",
+      "mathematical_description": "\\mathbf{c} = \\mathbf{Z}^{\\dagger} \\boldsymbol{\\phi}_m \\in \\mathbb{R}^{J}",
+      "required_operators": ["matrix_vector_multiplication"],
+      "inputs": ["Z_pinv", "phi_masked"],
+      "outputs": ["c"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "OPD Reconstruction",
+      "mathematical_description": "\\boldsymbol{\\phi}_{\\text{rec}} = \\text{reshape}(\\mathbf{Z}_{\\text{full}} \\mathbf{c}, (N, N)) \\in \\mathbb{R}^{N \\times N}",
+      "required_operators": ["matrix_vector_multiplication", "array_reshape"],
+      "inputs": ["Z_full", "c", "N"],
+      "outputs": ["phi_rec"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Residual Computation",
+      "mathematical_description": "\\boldsymbol{\\epsilon} = (\\boldsymbol{\\phi}_{\\text{obs}} - \\boldsymbol{\\phi}_{\\text{rec}}) \\odot A \\in \\mathbb{R}^{N \\times N}",
+      "required_operators": ["element_wise_subtraction", "hadamard_product"],
+      "inputs": ["phi_obs", "phi_rec", "A"],
+      "outputs": ["epsilon"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "RMSE Calculation",
+      "mathematical_description": "\\text{RMSE}_i = \\text{std}(\\boldsymbol{\\epsilon}[A=1]) = \\sqrt{\\frac{1}{N_p} \\sum_{(x,y) \\in \\text{pupil}} \\epsilon(x,y)^2}",
+      "required_operators": ["boolean_indexing", "standard_deviation", "sqrt"],
+      "inputs": ["epsilon", "A"],
+      "outputs": ["rmse_i"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "Results Storage",
+      "mathematical_description": "\\text{rmse\\_history.append}(\\text{RMSE}_i), \\text{all\\_coeffs.append}(\\mathbf{c}), \\text{all\\_opd\\_original.append}(\\boldsymbol{\\phi}_{\\text{obs}}), \\text{all\\_opd\\_reconstructed.append}(\\boldsymbol{\\phi}_{\\text{rec}})",
+      "required_operators": ["list_append"],
+      "inputs": ["rmse_i", "c", "phi_obs", "phi_rec", "rmse_history", "all_coeffs", "all_opd_original", "all_opd_reconstructed"],
+      "outputs": ["rmse_history", "all_coeffs", "all_opd_original", "all_opd_reconstructed"]
+    },
+    {
+      "step_order": 9,
+      "step_name": "Forward Model - Complex Pupil Field",
+      "mathematical_description": "E_{\\text{pupil}} = A \\odot \\exp(i \\cdot \\phi) \\in \\mathbb{C}^{N \\times N}, \\quad \\phi = \\frac{2\\pi}{\\lambda} \\cdot \\text{OPD}",
+      "required_operators": ["hadamard_product", "complex_exponential", "scalar_multiplication"],
+      "inputs": ["A", "phi_rec", "lambda"],
+      "outputs": ["E_pupil"]
+    },
+    {
+      "step_order": 10,
+      "step_name": "Forward Model - Zero Padding",
+      "mathematical_description": "E_{\\text{padded}} = \\text{pad}(E_{\\text{pupil}}, p_w) \\in \\mathbb{C}^{pN \\times pN}, \\quad p_w = \\frac{N(p-1)}{2}, \\quad p=4",
+      "required_operators": ["zero_padding"],
+      "inputs": ["E_pupil", "p", "N"],
+      "outputs": ["E_padded"]
+    },
+    {
+      "step_order": 11,
+      "step_name": "Forward Model - Fourier Transform",
+      "mathematical_description": "E_{\\text{focal}} = \\text{fftshift}(\\text{fft2}(\\text{ifftshift}(E_{\\text{padded}}))) \\in \\mathbb{C}^{pN \\times pN}",
+      "required_operators": ["ifftshift", "fft2", "fftshift"],
+      "inputs": ["E_padded"],
+      "outputs": ["E_focal"]
+    },
+    {
+      "step_order": 12,
+      "step_name": "Forward Model - PSF Computation",
+      "mathematical_description": "\\text{PSF} = |E_{\\text{focal}}|^2, \\quad \\text{PSF}_{\\text{norm}} = \\frac{\\text{PSF}}{\\max(\\text{PSF})} \\in [0,1]^{pN \\times pN}",
+      "required_operators": ["complex_modulus_squared", "array_max", "element_wise_division"],
+      "inputs": ["E_focal"],
+      "outputs": ["PSF", "PSF_norm"]
+    }
+  ]
+}
+```

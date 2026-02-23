@@ -1,0 +1,48 @@
+
+
+```json
+{
+  "algorithm_name": "Minimum Norm Estimate with dSPM Normalization (MNE-dSPM)",
+  "initialization": [
+    "Compute regularization parameter: λ = 1/SNR² = 1/9",
+    "Scale noise covariance: C_scaled = C / n_ave",
+    "Project noise covariance: C_proj = P · C_scaled · P^T",
+    "Project gain matrix: G_proj = P · G",
+    "Eigendecomposition of projected covariance: C_proj = V_C · diag(λ_C) · V_C^T",
+    "Filter eigenvalues: retain only λ_C[i] > 1e-6 · max(λ_C) and corresponding eigenvectors",
+    "Compute whitening matrix: W = V_C · diag(λ_C^{-1/2}) · V_C^T",
+    "Whiten gain matrix: G̃_0 = W · G_proj",
+    "Compute gain scaling factor: g_scale = sqrt(n_rank / ||G̃_0||_F²)",
+    "Scale whitened gain: G̃ = g_scale · G̃_0",
+    "SVD of whitened gain: G̃ = U · diag(S) · V^T (economy SVD)",
+    "Compute Tikhonov filter factors: Γ_k = S_k / (S_k² + λ)",
+    "Assemble inverse operator: K = g_scale · (V ⊙ Γ^T) · U^T · W"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Apply Inverse Operator",
+      "mathematical_description": "\\hat{x} = K \\cdot y",
+      "required_operators": ["matrix_multiplication"],
+      "inputs": ["K", "y"],
+      "outputs": ["x_hat"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Noise Variance Computation",
+      "mathematical_description": "\\sigma_j^2 = g_{\\text{scale}}^2 \\sum_{k=1}^{n_{\\text{sv}}} (V_{jk} \\Gamma_k)^2",
+      "required_operators": ["elementwise_multiplication", "square", "sum_reduction", "scalar_multiplication"],
+      "inputs": ["V", "Gamma", "g_scale"],
+      "outputs": ["sigma_squared"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "dSPM Normalization",
+      "mathematical_description": "\\hat{x}_{\\text{dSPM},jt} = \\frac{\\hat{x}_{jt}}{\\sigma_j} = \\hat{x}_{jt} \\cdot (\\sigma_j^2)^{-1/2}",
+      "required_operators": ["sqrt", "elementwise_division", "broadcast_division"],
+      "inputs": ["x_hat", "sigma_squared"],
+      "outputs": ["x_hat_dSPM"]
+    }
+  ]
+}
+```

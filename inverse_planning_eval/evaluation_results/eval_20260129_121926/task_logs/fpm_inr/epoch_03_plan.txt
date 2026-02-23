@@ -1,0 +1,186 @@
+```json
+{
+  "algorithm_name": "FPM-INR (Fourier Ptychographic Microscopy via Implicit Neural Representations)",
+  "initialization": [
+    "Initialize XY feature tensors: D_xy^(r), D_xy^(i) ~ 2 * 1e-4 * U(0,1) - 1e-4, shape (x_mode, y_mode, n_f)",
+    "Initialize Z feature tensors: D_z^(r), D_z^(i) ~ N(0,1), shape (z_dim, n_f)",
+    "Initialize MLP weights with Kaiming uniform: W_k ~ U(-sqrt(k), sqrt(k)) where k = 1/fan_in",
+    "Setup Adam optimizer: m_0 = 0, v_0 = 0, beta_1 = 0.9, beta_2 = 0.999, epsilon = 1e-8, eta = 1e-3",
+    "Setup StepLR scheduler: step_size = 6, gamma = 0.1",
+    "Precompute pupil support: P[m,n] = 1 if (k_x^2 + k_y^2 <= k_max^2) else 0",
+    "Precompute wave vector z-component: k_z = sqrt(k_0^2 - k_x^2 - k_y^2)",
+    "Precompute bilinear interpolation indices and weights for XY grid",
+    "Sort LED positions by NA and compute LED positions in frequency space"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Zero Gradients",
+      "mathematical_description": "\\nabla_\\Theta \\mathcal{L} \\leftarrow 0",
+      "required_operators": ["gradient_zeroing"],
+      "inputs": ["model_parameters"],
+      "outputs": ["zeroed_gradients"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Compute Defocus Transfer Function",
+      "mathematical_description": "H_{dz}[m,n] = \\exp(i \\cdot k_z[m,n] \\cdot dz)",
+      "required_operators": ["complex_exponential"],
+      "inputs": ["k_z", "dz"],
+      "outputs": ["H_dz"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Compute Combined Spectrum Mask",
+      "mathematical_description": "S = P \\cdot |H_{dz}| \\cdot \\exp(i \\cdot P \\cdot \\angle H_{dz})",
+      "required_operators": ["element_wise_multiplication", "complex_exponential", "angle", "absolute_value"],
+      "inputs": ["P", "H_dz"],
+      "outputs": ["S"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Normalize Z Coordinate",
+      "mathematical_description": "\\tilde{z} = (z_{\\text{dim}} - 1) \\cdot \\frac{dz - z_{\\min}}{z_{\\max} - z_{\\min}}",
+      "required_operators": ["scalar_arithmetic"],
+      "inputs": ["dz", "z_min", "z_max", "z_dim"],
+      "outputs": ["z_normalized"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "Interpolate Z Features",
+      "mathematical_description": "z_0 = \\text{clamp}(\\lfloor \\tilde{z} \\rfloor, 0, z_{\\text{dim}}-1); \\quad \\mathbf{f}_z = (1-w_z) \\mathbf{D}_z[z_0] + w_z \\mathbf{D}_z[z_1]",
+      "required_operators": ["linear_interpolation", "indexing", "clamp"],
+      "inputs": ["D_z^(r)", "D_z^(i)", "z_normalized"],
+      "outputs": ["f_z^(r)", "f_z^(i)"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Interpolate XY Features",
+      "mathematical_description": "\\mathbf{f}_{xy} = (1-w_x)(1-w_y)\\mathbf{D}_{xy}[y_0, x_0] + w_x(1-w_y)\\mathbf{D}_{xy}[y_0, x_1] + (1-w_x)w_y\\mathbf{D}_{xy}[y_1, x_0] + w_x w_y \\mathbf{D}_{xy}[y_1, x_1]",
+      "required_operators": ["bilinear_interpolation", "indexing"],
+      "inputs": ["D_xy^(r)", "D_xy^(i)", "x0", "x1", "y0", "y1", "w_lerp"],
+      "outputs": ["f_xy^(r)", "f_xy^(i)"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "Combine Features via Hadamard Product",
+      "mathematical_description": "\\mathbf{f} = \\mathbf{f}_{xy} \\odot \\mathbf{f}_z",
+      "required_operators": ["element_wise_multiplication", "broadcasting"],
+      "inputs": ["f_xy^(r)", "f_xy^(i)", "f_z^(r)", "f_z^(i)"],
+      "outputs": ["f^(r)", "f^(i)"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "MLP Forward Pass",
+      "mathematical_description": "\\mathbf{h}_1 = \\text{ReLU}(\\mathbf{f} \\mathbf{W}_1 + \\mathbf{b}_1); \\quad \\mathbf{h}_2 = \\text{ReLU}(\\mathbf{h}_1 \\mathbf{W}_2 + \\mathbf{b}_2); \\quad \\mathbf{out} = \\mathbf{h}_2 \\mathbf{W}_3 + \\mathbf{b}_3",
+      "required_operators": ["matrix_multiplication", "bias_addition", "ReLU"],
+      "inputs": ["f^(r)", "f^(i)", "W_1", "b_1", "W_2", "b_2", "W_3", "b_3"],
+      "outputs": ["out^(r)", "out^(i)"]
+    },
+    {
+      "step_order": 9,
+      "step_name": "Reshape and Upsample",
+      "mathematical_description": "A = \\text{Upsample}(\\text{reshape}(\\mathbf{out}^{(r)}, (B, 1, w/d_s, h/d_s)), d_s); \\quad \\phi = \\text{Upsample}(\\text{reshape}(\\mathbf{out}^{(i)}, (B, 1, w/d_s, h/d_s)), d_s)",
+      "required_operators": ["reshape", "bilinear_upsample"],
+      "inputs": ["out^(r)", "out^(i)", "d_s"],
+      "outputs": ["A", "phi"]
+    },
+    {
+      "step_order": 10,
+      "step_name": "Form Complex High-Resolution Image",
+      "mathematical_description": "\\mathbf{E} = A \\cdot \\exp(i \\phi)",
+      "required_operators": ["complex_exponential", "element_wise_multiplication"],
+      "inputs": ["A", "phi"],
+      "outputs": ["E"]
+    },
+    {
+      "step_order": 11,
+      "step_name": "Compute High-Resolution Spectrum",
+      "mathematical_description": "\\mathbf{O} = \\text{fftshift}(\\text{FFT2}(\\mathbf{E}))",
+      "required_operators": ["FFT2", "fftshift"],
+      "inputs": ["E"],
+      "outputs": ["O"]
+    },
+    {
+      "step_order": 12,
+      "step_name": "Zero-Pad Spectrum",
+      "mathematical_description": "\\mathbf{O}_{\\text{pad}} = \\text{ZeroPad}(\\mathbf{O}, p_x, p_y) \\text{ where } p_x = p_y = \\frac{M \\cdot \\text{MAGimg}^2 - MM}{2}",
+      "required_operators": ["zero_padding"],
+      "inputs": ["O", "pad_size"],
+      "outputs": ["O_pad"]
+    },
+    {
+      "step_order": 13,
+      "step_name": "Extract Sub-Aperture Spectra",
+      "mathematical_description": "\\mathbf{O}^{(\\ell)}_{\\text{sub}} = \\mathbf{O}_{\\text{pad}}[:, v^{(\\ell)}-M/2:v^{(\\ell)}+M/2, u^{(\\ell)}-N/2:u^{(\\ell)}+N/2]",
+      "required_operators": ["crop", "indexing"],
+      "inputs": ["O_pad", "ledpos"],
+      "outputs": ["O_sub"]
+    },
+    {
+      "step_order": 14,
+      "step_name": "Apply Pupil and Defocus Mask",
+      "mathematical_description": "\\mathbf{O}'_{\\text{sub}} = \\mathbf{O}_{\\text{sub}} \\odot S",
+      "required_operators": ["element_wise_multiplication"],
+      "inputs": ["O_sub", "S"],
+      "outputs": ["O_sub_masked"]
+    },
+    {
+      "step_order": 15,
+      "step_name": "Inverse FFT to Low-Resolution Field",
+      "mathematical_description": "\\mathbf{o} = \\text{IFFT2}(\\text{ifftshift}(\\mathbf{O}'_{\\text{sub}}))",
+      "required_operators": ["ifftshift", "IFFT2"],
+      "inputs": ["O_sub_masked"],
+      "outputs": ["o"]
+    },
+    {
+      "step_order": 16,
+      "step_name": "Compute Predicted Amplitude",
+      "mathematical_description": "\\hat{I}^{1/2} = |\\mathbf{o}|",
+      "required_operators": ["complex_absolute_value"],
+      "inputs": ["o"],
+      "outputs": ["predicted_amplitude"]
+    },
+    {
+      "step_order": 17,
+      "step_name": "Prepare Target Amplitude",
+      "mathematical_description": "I^{1/2}_{\\text{cap}} = \\sqrt{\\mathbf{I}_{\\text{sum}}[:,:,\\ell_{\\text{batch}}]}",
+      "required_operators": ["square_root", "indexing", "permute"],
+      "inputs": ["I_sum", "led_batch_indices"],
+      "outputs": ["target_amplitude"]
+    },
+    {
+      "step_order": 18,
+      "step_name": "Compute SmoothL1 Loss",
+      "mathematical_description": "\\mathcal{L} = \\text{SmoothL1Loss}(I^{1/2}_{\\text{cap}}, \\hat{I}^{1/2}) = \\begin{cases} 0.5(y - \\hat{y})^2 / \\beta & \\text{if } |y - \\hat{y}| < \\beta \\\\ |y - \\hat{y}| - 0.5\\beta & \\text{otherwise} \\end{cases}",
+      "required_operators": ["smooth_l1_loss"],
+      "inputs": ["target_amplitude", "predicted_amplitude"],
+      "outputs": ["loss"]
+    },
+    {
+      "step_order": 19,
+      "step_name": "Backpropagation",
+      "mathematical_description": "\\nabla_\\Theta \\mathcal{L} = \\text{autograd}(\\mathcal{L}, \\Theta)",
+      "required_operators": ["automatic_differentiation"],
+      "inputs": ["loss", "model_parameters"],
+      "outputs": ["gradients"]
+    },
+    {
+      "step_order": 20,
+      "step_name": "Adam Parameter Update",
+      "mathematical_description": "m_t = \\beta_1 m_{t-1} + (1-\\beta_1) g_t; \\quad v_t = \\beta_2 v_{t-1} + (1-\\beta_2) g_t^2; \\quad \\hat{m}_t = \\frac{m_t}{1-\\beta_1^t}; \\quad \\hat{v}_t = \\frac{v_t}{1-\\beta_2^t}; \\quad \\theta_t = \\theta_{t-1} - \\eta \\frac{\\hat{m}_t}{\\sqrt{\\hat{v}_t} + \\epsilon}",
+      "required_operators": ["adam_optimizer"],
+      "inputs": ["gradients", "m_prev", "v_prev", "eta", "beta_1", "beta_2", "epsilon", "t"],
+      "outputs": ["theta_updated", "m_t", "v_t"]
+    },
+    {
+      "step_order": 21,
+      "step_name": "Learning Rate Scheduler Step",
+      "mathematical_description": "\\eta_{\\text{new}} = \\eta \\cdot \\gamma^{\\lfloor \\text{epoch}/T_{\\text{decay}} \\rfloor}",
+      "required_operators": ["step_lr_scheduler"],
+      "inputs": ["eta", "gamma", "epoch", "T_decay"],
+      "outputs": ["eta_new"]
+    }
+  ]
+}
+```

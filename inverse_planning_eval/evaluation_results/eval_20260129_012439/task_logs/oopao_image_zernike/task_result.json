@@ -1,0 +1,23 @@
+{
+  "task_name": "oopao_image_zernike",
+  "golden_rating": 1016.0,
+  "epoch_ratings": {
+    "epoch_06": 984.0,
+    "epoch_01": 884.0,
+    "epoch_02": 884.0,
+    "epoch_03": 884.0,
+    "epoch_04": 884.0,
+    "epoch_05": 884.0
+  },
+  "similarity_scores": {
+    "epoch_06": {
+      "embedding_similarity": 0.589953601360321,
+      "structural_similarity": 0.0,
+      "combined_score": 0.2949768006801605
+    }
+  },
+  "plans_summary": {
+    "epoch_06": "\n\n```json\n{\n  \"algorithm_name\": \"Zernike Modal Decomposition with FFT-based PSF Forward Model\",\n  \"i..."
+  },
+  "timestamp": "2026-01-29T03:07:01.764520"
+}

@@ -1,0 +1,191 @@
+```json
+{
+  "algorithm_name": "Deep Probabilistic Imaging (DPI) for MRI Reconstruction",
+  "initialization": [
+    "Initialize RealNVP normalizing flow generator: $G_\\theta \\leftarrow \\text{RealNVP}(n^2, n_{\\text{flow}}, \\text{affine}=\\text{True})$",
+    "Initialize learnable log-scale: $\\log s \\leftarrow \\log\\left(\\frac{\\Phi}{0.8 \\cdot n^2}\\right)$",
+    "Compute normalized weights: $w_{L1} = \\frac{\\lambda_{L1}}{\\Phi}$, $w_{TV} = \\frac{\\lambda_{TV} \\cdot n}{\\Phi}$, $w_{\\text{logdet}} = \\frac{\\lambda_{\\text{logdet}}}{0.5 \\sum M}$",
+    "Compute mask mean: $\\bar{M} = \\frac{1}{n \\cdot n \\cdot 2} \\sum_{i,j,c} M_{i,j,c}$",
+    "Initialize Adam optimizer: $\\text{opt} \\leftarrow \\text{Adam}(\\{\\theta, \\log s\\}, \\eta)$",
+    "Initialize epoch counter: $k \\leftarrow 0$"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Sample Latent Codes",
+      "mathematical_description": "$z^{(b)} \\sim \\mathcal{N}(0, I_{n^2}) \\quad \\forall b \\in \\{1, \\ldots, B\\}$",
+      "required_operators": ["random_normal_sampling"],
+      "inputs": ["B", "n"],
+      "outputs": ["z"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Generate via Flow (Reverse Mapping)",
+      "mathematical_description": "$(u, \\log|J_{\\text{flow}}|) = G_\\theta^{-1}(z)$",
+      "required_operators": ["normalizing_flow_inverse", "log_determinant_jacobian"],
+      "inputs": ["z", "theta"],
+      "outputs": ["u", "log_J_flow"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Reshape to Image",
+      "mathematical_description": "$u^{\\text{img}}_{b,i,j} = u_{b, i \\cdot n + j}$",
+      "required_operators": ["reshape"],
+      "inputs": ["u", "n"],
+      "outputs": ["u_img"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Compute Scale Factor",
+      "mathematical_description": "$s = \\exp(\\log s)$",
+      "required_operators": ["exponential"],
+      "inputs": ["log_s"],
+      "outputs": ["s"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "Apply Softplus Activation",
+      "mathematical_description": "$\\tilde{x}_{b,i,j} = \\log(1 + \\exp(u^{\\text{img}}_{b,i,j}))$",
+      "required_operators": ["softplus"],
+      "inputs": ["u_img"],
+      "outputs": ["x_tilde"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Apply Scale",
+      "mathematical_description": "$x_{b,i,j} = s \\cdot \\tilde{x}_{b,i,j}$",
+      "required_operators": ["scalar_multiplication"],
+      "inputs": ["x_tilde", "s"],
+      "outputs": ["x"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "Softplus Jacobian Correction",
+      "mathematical_description": "$\\Delta_{\\text{sp},b} = \\sum_{i,j} \\left( u^{\\text{img}}_{b,i,j} - \\log(1 + \\exp(u^{\\text{img}}_{b,i,j})) \\right)$",
+      "required_operators": ["softplus", "logarithm", "summation"],
+      "inputs": ["u_img"],
+      "outputs": ["Delta_sp"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "Scale Jacobian Correction",
+      "mathematical_description": "$\\Delta_{\\text{scale}} = n^2 \\cdot \\log s$",
+      "required_operators": ["scalar_multiplication"],
+      "inputs": ["log_s", "n"],
+      "outputs": ["Delta_scale"]
+    },
+    {
+      "step_order": 9,
+      "step_name": "Total Log-Determinant",
+      "mathematical_description": "$\\log|J|_b = \\log|J_{\\text{flow}}|_b + \\Delta_{\\text{sp},b} + \\Delta_{\\text{scale}}$",
+      "required_operators": ["addition"],
+      "inputs": ["log_J_flow", "Delta_sp", "Delta_scale"],
+      "outputs": ["log_J"]
+    },
+    {
+      "step_order": 10,
+      "step_name": "Forward FFT (Orthonormal)",
+      "mathematical_description": "$\\tilde{k}^{(b)}_{u,v} = \\frac{1}{n} \\sum_{i,j} x_{b,i,j} \\exp\\left(-2\\pi\\imath\\left(\\frac{ui}{n} + \\frac{vj}{n}\\right)\\right)$",
+      "required_operators": ["fft2d_orthonormal"],
+      "inputs": ["x"],
+      "outputs": ["k_complex"]
+    },
+    {
+      "step_order": 11,
+      "step_name": "Complex to Real Representation",
+      "mathematical_description": "$k^{\\text{pred}}_{b,i,j,0} = \\text{Re}(\\tilde{k}^{(b)}_{i,j}), \\quad k^{\\text{pred}}_{b,i,j,1} = \\text{Im}(\\tilde{k}^{(b)}_{i,j})$",
+      "required_operators": ["complex_to_real_stack"],
+      "inputs": ["k_complex"],
+      "outputs": ["k_pred"]
+    },
+    {
+      "step_order": 12,
+      "step_name": "Apply Mask to Prediction",
+      "mathematical_description": "$\\hat{k}_{b,i,j,c} = M_{i,j,c} \\cdot k^{\\text{pred}}_{b,i,j,c}$",
+      "required_operators": ["elementwise_multiplication", "broadcasting"],
+      "inputs": ["k_pred", "M"],
+      "outputs": ["k_hat"]
+    },
+    {
+      "step_order": 13,
+      "step_name": "Data Fidelity Loss",
+      "mathematical_description": "$\\ell^{\\text{data}}_b = \\frac{1}{\\sigma^2 \\cdot \\bar{M}} \\cdot \\frac{1}{n \\cdot n \\cdot 2} \\sum_{i,j,c} (\\hat{k}_{b,i,j,c} - y_{i,j,c})^2$",
+      "required_operators": ["subtraction", "square", "mean", "scalar_division"],
+      "inputs": ["k_hat", "y", "sigma", "M_bar", "n"],
+      "outputs": ["loss_data"]
+    },
+    {
+      "step_order": 14,
+      "step_name": "L1 Loss",
+      "mathematical_description": "$\\ell^{L1}_b = \\frac{1}{n^2} \\sum_{i,j} |x_{b,i,j}|$",
+      "required_operators": ["absolute_value", "mean"],
+      "inputs": ["x", "n"],
+      "outputs": ["loss_L1"]
+    },
+    {
+      "step_order": 15,
+      "step_name": "TV Loss",
+      "mathematical_description": "$\\ell^{TV}_b = \\frac{1}{n(n-1)} \\sum_{i=0}^{n-2} \\sum_j |x_{b,i+1,j} - x_{b,i,j}| + \\frac{1}{n(n-1)} \\sum_i \\sum_{j=0}^{n-2} |x_{b,i,j+1} - x_{b,i,j}|$",
+      "required_operators": ["finite_difference", "absolute_value", "summation", "scalar_division"],
+      "inputs": ["x", "n"],
+      "outputs": ["loss_TV"]
+    },
+    {
+      "step_order": 16,
+      "step_name": "Prior Loss",
+      "mathematical_description": "$\\ell^{\\text{prior}}_b = w_{TV} \\cdot \\ell^{TV}_b + w_{L1} \\cdot \\ell^{L1}_b$",
+      "required_operators": ["scalar_multiplication", "addition"],
+      "inputs": ["loss_TV", "loss_L1", "w_TV", "w_L1"],
+      "outputs": ["loss_prior"]
+    },
+    {
+      "step_order": 17,
+      "step_name": "Total Loss",
+      "mathematical_description": "$\\mathcal{L} = \\frac{1}{B} \\sum_b \\left( \\ell^{\\text{data}}_b + \\ell^{\\text{prior}}_b - w_{\\text{logdet}} \\cdot \\log|J|_b \\right)$",
+      "required_operators": ["addition", "subtraction", "scalar_multiplication", "mean"],
+      "inputs": ["loss_data", "loss_prior", "log_J", "w_logdet", "B"],
+      "outputs": ["L"]
+    },
+    {
+      "step_order": 18,
+      "step_name": "Compute Gradients",
+      "mathematical_description": "$g_\\theta = \\nabla_\\theta \\mathcal{L}, \\quad g_{\\log s} = \\nabla_{\\log s} \\mathcal{L}$",
+      "required_operators": ["backpropagation", "automatic_differentiation"],
+      "inputs": ["L", "theta", "log_s"],
+      "outputs": ["g_theta", "g_log_s"]
+    },
+    {
+      "step_order": 19,
+      "step_name": "Gradient Clipping",
+      "mathematical_description": "$g \\leftarrow g \\cdot \\min\\left(1, \\frac{0.01}{\\|g\\|_2}\\right)$",
+      "required_operators": ["l2_norm", "minimum", "scalar_multiplication"],
+      "inputs": ["g_theta", "g_log_s"],
+      "outputs": ["g_theta_clipped", "g_log_s_clipped"]
+    },
+    {
+      "step_order": 20,
+      "step_name": "Adam Update",
+      "mathematical_description": "$\\theta \\leftarrow \\theta - \\eta \\cdot \\text{Adam}(g_\\theta), \\quad \\log s \\leftarrow \\log s - \\eta \\cdot \\text{Adam}(g_{\\log s})$",
+      "required_operators": ["adam_optimizer_step"],
+      "inputs": ["g_theta_clipped", "g_log_s_clipped", "eta", "optimizer_state"],
+      "outputs": ["theta", "log_s", "optimizer_state"]
+    },
+    {
+      "step_order": 21,
+      "step_name": "Increment Counter",
+      "mathematical_description": "$k \\leftarrow k + 1$",
+      "required_operators": ["increment"],
+      "inputs": ["k"],
+      "outputs": ["k"]
+    },
+    {
+      "step_order": 22,
+      "step_name": "Check Stopping Criterion",
+      "mathematical_description": "$\\text{continue if } k < K$",
+      "required_operators": ["comparison"],
+      "inputs": ["k", "K"],
+      "outputs": ["continue_flag"]
+    }
+  ]
+}
+```

@@ -1,0 +1,31 @@
+global:
+  default_settings:
+    max_rounds: 10
+    model_name: gemini-3-pro-preview
+  sandbox_root: /data/yjh/react_inverse_problem_sandboxes
+tasks:
+- expected_output_path: null
+  gt_code_path: /home/yjh/dpi_task3_sandbox/dpi_task3.py
+  input_path: null
+  name: dpi_task3
+  working_folder: /home/yjh/dpi_task3_sandbox/
+- expected_output_path: null
+  gt_code_path: /data/yjh/AMICO-master_sandbox/amico_code.py
+  input_path: null
+  name: AMICO-master
+  working_folder: /data/yjh/AMICO-master_sandbox
+- expected_output_path: null
+  gt_code_path: /data/yjh/carspy-main_sandbox/carspy_code.py
+  input_path: null
+  name: carspy-main
+  working_folder: /data/yjh/carspy-main_sandbox
+- expected_output_path: null
+  gt_code_path: /data/yjh/caustics-main_sandbox/caustics_code.py
+  input_path: null
+  name: caustics-main
+  working_folder: /data/yjh/caustics-main_sandbox
+- expected_output_path: null
+  gt_code_path: /data/yjh/CT-and-MR-Perfusion-Tool-main_sandbox/ct_mr_perfusion_code.py
+  input_path: null
+  name: CT-and-MR-Perfusion-Tool-main
+  working_folder: /data/yjh/CT-and-MR-Perfusion-Tool-main_sandbox

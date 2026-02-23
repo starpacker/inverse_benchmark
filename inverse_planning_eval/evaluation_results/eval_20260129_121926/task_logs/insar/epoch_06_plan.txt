@@ -1,0 +1,215 @@
+```json
+{
+  "algorithm_name": "ADMM Phase Unwrapping",
+  "initialization": [
+    "Initialize dual variable Lambda_x to zeros with shape (N_r, N_c)",
+    "Initialize dual variable Lambda_y to zeros with shape (N_r, N_c)",
+    "Initialize auxiliary variable w_x to zeros with shape (N_r, N_c)",
+    "Initialize auxiliary variable w_y to zeros with shape (N_r, N_c)",
+    "Initialize F_old to zeros with shape (N_r, N_c) for convergence tracking",
+    "Initialize primal variable F (unwrapped phase) to zeros with shape (N_r, N_c)"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Compute x-residual vector",
+      "mathematical_description": "r_x = \\text{vec}(w_x) + \\text{vec}(\\phi_x) - \\text{vec}(\\Lambda_x)",
+      "required_operators": ["VECTORIZE", "ELEMENTWISE_ADD", "ELEMENTWISE_SUBTRACT"],
+      "inputs": ["w_x", "phi_x", "Lambda_x"],
+      "outputs": ["r_x"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Compute y-residual vector",
+      "mathematical_description": "r_y = \\text{vec}(w_y) + \\text{vec}(\\phi_y) - \\text{vec}(\\Lambda_y)",
+      "required_operators": ["VECTORIZE", "ELEMENTWISE_ADD", "ELEMENTWISE_SUBTRACT"],
+      "inputs": ["w_y", "phi_y", "Lambda_y"],
+      "outputs": ["r_y"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Apply adjoint x-operator",
+      "mathematical_description": "\\text{RHS}_x = D_x^T r_x",
+      "required_operators": ["ADJOINT_DIFF_X", "SPARSE_MATVEC"],
+      "inputs": ["D_x", "r_x"],
+      "outputs": ["RHS_x"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Apply adjoint y-operator",
+      "mathematical_description": "\\text{RHS}_y = D_y^T r_y",
+      "required_operators": ["ADJOINT_DIFF_Y", "SPARSE_MATVEC"],
+      "inputs": ["D_y", "r_y"],
+      "outputs": ["RHS_y"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "Sum RHS components",
+      "mathematical_description": "\\text{RHS} = \\text{RHS}_x + \\text{RHS}_y",
+      "required_operators": ["ELEMENTWISE_ADD"],
+      "inputs": ["RHS_x", "RHS_y"],
+      "outputs": ["RHS"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Reshape RHS to 2D",
+      "mathematical_description": "\\text{RHS}_{2D} = \\text{reshape}(\\text{RHS}, (N_r, N_c))",
+      "required_operators": ["RESHAPE"],
+      "inputs": ["RHS", "N_r", "N_c"],
+      "outputs": ["RHS_2D"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "Forward DCT-II",
+      "mathematical_description": "\\hat{\\rho} = \\text{DCT-II}(\\text{RHS}_{2D}, \\text{norm}='\\text{ortho}')",
+      "required_operators": ["DCT_2D"],
+      "inputs": ["RHS_2D"],
+      "outputs": ["rho_hat"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "Apply inverse Laplacian in DCT domain",
+      "mathematical_description": "\\hat{F} = \\hat{\\rho} \\odot K",
+      "required_operators": ["ELEMENTWISE_MULTIPLY"],
+      "inputs": ["rho_hat", "K"],
+      "outputs": ["F_hat"]
+    },
+    {
+      "step_order": 9,
+      "step_name": "Inverse DCT-II",
+      "mathematical_description": "F = \\text{IDCT-II}(\\hat{F}, \\text{norm}='\\text{ortho}')",
+      "required_operators": ["IDCT_2D"],
+      "inputs": ["F_hat"],
+      "outputs": ["F"]
+    },
+    {
+      "step_order": 10,
+      "step_name": "Compute x-gradient of F",
+      "mathematical_description": "F_x = \\text{reshape}(D_x \\cdot \\text{vec}(F), (N_r, N_c))",
+      "required_operators": ["FORWARD_DIFF_X", "VECTORIZE", "SPARSE_MATVEC", "RESHAPE"],
+      "inputs": ["D_x", "F"],
+      "outputs": ["F_x"]
+    },
+    {
+      "step_order": 11,
+      "step_name": "Compute y-gradient of F",
+      "mathematical_description": "F_y = \\text{reshape}(D_y \\cdot \\text{vec}(F), (N_r, N_c))",
+      "required_operators": ["FORWARD_DIFF_Y", "VECTORIZE", "SPARSE_MATVEC", "RESHAPE"],
+      "inputs": ["D_y", "F"],
+      "outputs": ["F_y"]
+    },
+    {
+      "step_order": 12,
+      "step_name": "Compute shrinkage input x",
+      "mathematical_description": "\\text{input}_x = F_x - \\phi_x + \\Lambda_x",
+      "required_operators": ["ELEMENTWISE_SUBTRACT", "ELEMENTWISE_ADD"],
+      "inputs": ["F_x", "phi_x", "Lambda_x"],
+      "outputs": ["input_x"]
+    },
+    {
+      "step_order": 13,
+      "step_name": "Compute shrinkage input y",
+      "mathematical_description": "\\text{input}_y = F_y - \\phi_y + \\Lambda_y",
+      "required_operators": ["ELEMENTWISE_SUBTRACT", "ELEMENTWISE_ADD"],
+      "inputs": ["F_y", "phi_y", "Lambda_y"],
+      "outputs": ["input_y"]
+    },
+    {
+      "step_order": 14,
+      "step_name": "Stack inputs for vector shrinkage",
+      "mathematical_description": "X = \\text{stack}([\\text{input}_x, \\text{input}_y], \\text{axis}=0)",
+      "required_operators": ["STACK"],
+      "inputs": ["input_x", "input_y"],
+      "outputs": ["X"]
+    },
+    {
+      "step_order": 15,
+      "step_name": "Compute vector magnitude",
+      "mathematical_description": "\\text{mag}[i,j] = \\sqrt{X[0,i,j]^2 + X[1,i,j]^2}",
+      "required_operators": ["ELEMENTWISE_SQUARE", "ELEMENTWISE_ADD", "ELEMENTWISE_SQRT"],
+      "inputs": ["X"],
+      "outputs": ["mag"]
+    },
+    {
+      "step_order": 16,
+      "step_name": "Handle zero magnitudes",
+      "mathematical_description": "\\text{nonzero}[i,j] = \\begin{cases} 1 & \\text{if } \\text{mag}[i,j] = 0 \\\\ \\text{mag}[i,j] & \\text{otherwise} \\end{cases}",
+      "required_operators": ["WHERE", "COMPARISON"],
+      "inputs": ["mag"],
+      "outputs": ["nonzero"]
+    },
+    {
+      "step_order": 17,
+      "step_name": "Compute p-shrinkage scale",
+      "mathematical_description": "\\text{scale}[i,j] = \\frac{\\max\\left(\\text{mag}[i,j] - \\lambda^{2-p} (\\text{nonzero}[i,j]^2 + \\epsilon)^{p/2 - 0.5}, 0\\right)}{\\text{nonzero}[i,j]}",
+      "required_operators": ["ELEMENTWISE_POWER", "ELEMENTWISE_MULTIPLY", "ELEMENTWISE_SUBTRACT", "MAXIMUM", "ELEMENTWISE_DIVIDE"],
+      "inputs": ["mag", "nonzero", "lambda", "p", "epsilon"],
+      "outputs": ["scale"]
+    },
+    {
+      "step_order": 18,
+      "step_name": "Apply scale to x-input",
+      "mathematical_description": "w_x = \\text{scale} \\odot \\text{input}_x",
+      "required_operators": ["ELEMENTWISE_MULTIPLY"],
+      "inputs": ["scale", "input_x"],
+      "outputs": ["w_x"]
+    },
+    {
+      "step_order": 19,
+      "step_name": "Apply scale to y-input",
+      "mathematical_description": "w_y = \\text{scale} \\odot \\text{input}_y",
+      "required_operators": ["ELEMENTWISE_MULTIPLY"],
+      "inputs": ["scale", "input_y"],
+      "outputs": ["w_y"]
+    },
+    {
+      "step_order": 20,
+      "step_name": "Compute x-constraint residual",
+      "mathematical_description": "\\Delta_x = F_x - \\phi_x - w_x",
+      "required_operators": ["ELEMENTWISE_SUBTRACT"],
+      "inputs": ["F_x", "phi_x", "w_x"],
+      "outputs": ["Delta_x"]
+    },
+    {
+      "step_order": 21,
+      "step_name": "Compute y-constraint residual",
+      "mathematical_description": "\\Delta_y = F_y - \\phi_y - w_y",
+      "required_operators": ["ELEMENTWISE_SUBTRACT"],
+      "inputs": ["F_y", "phi_y", "w_y"],
+      "outputs": ["Delta_y"]
+    },
+    {
+      "step_order": 22,
+      "step_name": "Update x dual variable",
+      "mathematical_description": "\\Lambda_x \\leftarrow \\Lambda_x + c \\cdot \\Delta_x",
+      "required_operators": ["SCALAR_MULTIPLY", "ELEMENTWISE_ADD"],
+      "inputs": ["Lambda_x", "c", "Delta_x"],
+      "outputs": ["Lambda_x"]
+    },
+    {
+      "step_order": 23,
+      "step_name": "Update y dual variable",
+      "mathematical_description": "\\Lambda_y \\leftarrow \\Lambda_y + c \\cdot \\Delta_y",
+      "required_operators": ["SCALAR_MULTIPLY", "ELEMENTWISE_ADD"],
+      "inputs": ["Lambda_y", "c", "Delta_y"],
+      "outputs": ["Lambda_y"]
+    },
+    {
+      "step_order": 24,
+      "step_name": "Compute convergence metric",
+      "mathematical_description": "\\text{change} = \\max_{i,j} |F[i,j] - F_{\\text{old}}[i,j]|",
+      "required_operators": ["ELEMENTWISE_SUBTRACT", "ELEMENTWISE_ABS", "MAX_REDUCE"],
+      "inputs": ["F", "F_old"],
+      "outputs": ["change"]
+    },
+    {
+      "step_order": 25,
+      "step_name": "Store current solution for next iteration",
+      "mathematical_description": "F_{\\text{old}} \\leftarrow F",
+      "required_operators": ["COPY"],
+      "inputs": ["F"],
+      "outputs": ["F_old"]
+    }
+  ]
+}
+```

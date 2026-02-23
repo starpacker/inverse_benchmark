@@ -1,0 +1,102 @@
+```json
+{
+  "algorithm_name": "Richardson-Lucy Deconvolution",
+  "initialization": [
+    "Compute mean of observation: y_bar = (1 / (n_y * n_x)) * sum(y)",
+    "Initialize 3D volume estimate: x^{(0)}_{z,i,j} = y_bar for all z, i, j",
+    "Initialize iteration counter: k = 0",
+    "Precompute PSF FFT: H_hat = rfft2(h) for each z-slice",
+    "Precompute adjoint PSF FFT: H_hat_T = rfft2(flip(h)) for each z-slice"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Forward: Compute estimate FFT",
+      "mathematical_description": "\\hat{X}^{(k)}_z = \\mathcal{F}[x^{(k)}_z] \\quad \\forall z",
+      "required_operators": ["rfft2"],
+      "inputs": ["x^{(k)}"],
+      "outputs": ["X_hat^{(k)}"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Forward: Frequency-domain convolution",
+      "mathematical_description": "P^{(k)}_{z,i,j} = \\hat{X}^{(k)}_{z,i,j} \\cdot \\hat{H}_{z,i,j}",
+      "required_operators": ["element_wise_multiply"],
+      "inputs": ["X_hat^{(k)}", "H_hat"],
+      "outputs": ["P^{(k)}"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Forward: Inverse FFT to spatial domain",
+      "mathematical_description": "L^{(k)}_z = \\mathcal{F}^{-1}[P^{(k)}_z] \\quad \\forall z",
+      "required_operators": ["irfft2"],
+      "inputs": ["P^{(k)}"],
+      "outputs": ["L^{(k)}"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Forward: Sum over z-dimension",
+      "mathematical_description": "p^{(k)}_{i,j} = \\sum_{z=0}^{n_z-1} L^{(k)}_{z,i,j}",
+      "required_operators": ["sum_along_axis"],
+      "inputs": ["L^{(k)}"],
+      "outputs": ["p^{(k)}"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "Compute stabilized ratio",
+      "mathematical_description": "r^{(k)}_{i,j} = \\frac{y_{i,j}}{p^{(k)}_{i,j} + \\epsilon}",
+      "required_operators": ["element_wise_divide", "add_scalar"],
+      "inputs": ["y", "p^{(k)}", "epsilon"],
+      "outputs": ["r^{(k)}"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Adjoint: Compute ratio FFT",
+      "mathematical_description": "\\hat{R}^{(k)} = \\mathcal{F}[r^{(k)}]",
+      "required_operators": ["rfft2"],
+      "inputs": ["r^{(k)}"],
+      "outputs": ["R_hat^{(k)}"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "Adjoint: Broadcast ratio to 3D",
+      "mathematical_description": "\\hat{R}^{(k)}_{3D} = \\text{unsqueeze}_0(\\hat{R}^{(k)})",
+      "required_operators": ["unsqueeze"],
+      "inputs": ["R_hat^{(k)}"],
+      "outputs": ["R_hat_3D^{(k)}"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "Adjoint: Frequency-domain correlation",
+      "mathematical_description": "Q^{(k)}_{z,i,j} = \\hat{R}^{(k)}_{3D,0,i,j} \\cdot \\hat{H}^T_{z,i,j}",
+      "required_operators": ["element_wise_multiply", "broadcast"],
+      "inputs": ["R_hat_3D^{(k)}", "H_hat_T"],
+      "outputs": ["Q^{(k)}"]
+    },
+    {
+      "step_order": 9,
+      "step_name": "Adjoint: Inverse FFT for update factor",
+      "mathematical_description": "u^{(k)}_z = \\mathcal{F}^{-1}[Q^{(k)}_z] \\quad \\forall z",
+      "required_operators": ["irfft2"],
+      "inputs": ["Q^{(k)}"],
+      "outputs": ["u^{(k)}"]
+    },
+    {
+      "step_order": 10,
+      "step_name": "Multiplicative update",
+      "mathematical_description": "\\tilde{x}^{(k+1)}_{z,i,j} = x^{(k)}_{z,i,j} \\cdot u^{(k)}_{z,i,j}",
+      "required_operators": ["element_wise_multiply"],
+      "inputs": ["x^{(k)}", "u^{(k)}"],
+      "outputs": ["x_tilde^{(k+1)}"]
+    },
+    {
+      "step_order": 11,
+      "step_name": "Non-negativity projection",
+      "mathematical_description": "x^{(k+1)}_{z,i,j} = \\max(0, \\tilde{x}^{(k+1)}_{z,i,j})",
+      "required_operators": ["relu"],
+      "inputs": ["x_tilde^{(k+1)}"],
+      "outputs": ["x^{(k+1)}"]
+    }
+  ]
+}
+```

@@ -1,0 +1,192 @@
+```json
+{
+  "algorithm_name": "Deep Probabilistic Imaging with RealNVP Normalizing Flow",
+  "initialization": [
+    "Assign computation device (CUDA if available, else CPU)",
+    "Instantiate geometric model converter with parameter ranges: D = 4 + 6*N_gauss + 2",
+    "Instantiate RealNVP flow with N_flow blocks, each containing 2 ActNorm + 2 AffineCoupling layers",
+    "Initialize random permutations for each flow block: π_i = RandomState(i).permutation(D)",
+    "Initialize Adam optimizer with lr = 10^{-4}",
+    "Compute alpha-divergence parameter: α = α_divergence if β=0, else α = 1 - β*s_f",
+    "Precompute DFT matrix, closure phase/amplitude index mappings, and pixel grids"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Annealing Weight Computation",
+      "mathematical_description": "$w(k) = \\min(10^{-\\text{start\\_order} + k/\\text{decay\\_rate}}, 1)$",
+      "required_operators": ["power", "minimum"],
+      "inputs": ["start_order", "decay_rate", "k"],
+      "outputs": ["data_weight"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Latent Sampling",
+      "mathematical_description": "$z \\sim \\mathcal{N}(0, I_D)$, shape $(N_{\\text{batch}}, D)$",
+      "required_operators": ["random_normal"],
+      "inputs": ["n_batch", "nparams"],
+      "outputs": ["z"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "RealNVP Reverse Pass",
+      "mathematical_description": "For $i = N_{\\text{flow}}-1, \\ldots, 0$: Apply inverse permutation $\\tilde{z} = z[:, \\pi_i^{-1}]$, then reverse flow block (ActNorm inverse, AffineCoupling inverse) accumulating $\\Delta\\log|\\det J|$",
+      "required_operators": ["index_select", "split", "neural_network_forward", "tanh", "exp", "subtract", "divide", "concatenate", "sum"],
+      "inputs": ["z", "inverse_orders", "flow_parameters"],
+      "outputs": ["theta_samp", "logdet"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Sigmoid Transform",
+      "mathematical_description": "$\\theta = \\sigma(\\theta_{\\text{samp}}) = \\frac{1}{1 + e^{-\\theta_{\\text{samp}}}}$",
+      "required_operators": ["sigmoid"],
+      "inputs": ["theta_samp"],
+      "outputs": ["theta"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "Sigmoid Log-Determinant",
+      "mathematical_description": "$\\log|\\det J_\\sigma| = \\sum_{d=1}^{D} \\left( -\\theta_{\\text{samp},d} - 2 \\log(1 + e^{-\\theta_{\\text{samp},d}}) \\right)$",
+      "required_operators": ["negate", "exp", "add", "log", "multiply", "sum"],
+      "inputs": ["theta_samp"],
+      "outputs": ["det_sigmoid"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Total Log-Determinant Accumulation",
+      "mathematical_description": "$\\log|\\det J| \\leftarrow \\log|\\det J| + \\log|\\det J_\\sigma|$",
+      "required_operators": ["add"],
+      "inputs": ["logdet", "det_sigmoid"],
+      "outputs": ["logdet"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "Parameter Scaling",
+      "mathematical_description": "$r = r_{\\min}/(\\text{fov}/2) + \\theta_0 \\cdot (r_{\\max} - r_{\\min})/(\\text{fov}/2)$; similarly for width, asymmetry $s$, orientation $\\eta = \\frac{181\\pi}{180}(2\\theta_3 - 1)$, floor, fluxes, Gaussian parameters",
+      "required_operators": ["multiply", "add", "subtract", "divide"],
+      "inputs": ["theta", "parameter_ranges", "fov"],
+      "outputs": ["scaled_params"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "Geometric Image Generation",
+      "mathematical_description": "$\\text{ring} = \\exp\\left(-\\frac{(r^{\\text{grid}} - r)^2}{2\\sigma_w^2}\\right)$; $\\text{crescent} = (1 + s\\cos(\\theta^{\\text{grid}} - \\eta)) \\odot \\text{ring}$; $\\text{disk} = \\frac{1}{2}(1 + \\text{erf}(...))$; $\\text{img} = F_{\\text{crescent}}((1-f)\\cdot\\text{crescent} + f\\cdot\\text{disk}) + \\sum_k \\alpha_k G_k$",
+      "required_operators": ["subtract", "square", "divide", "exp", "cos", "multiply", "add", "erf", "normalize", "gaussian_2d"],
+      "inputs": ["scaled_params", "grid_r", "grid_theta", "grid_x", "grid_y"],
+      "outputs": ["img"]
+    },
+    {
+      "step_order": 9,
+      "step_name": "Image Flatten",
+      "mathematical_description": "$x = \\text{reshape}(\\text{img}, (N_{\\text{batch}}, N_{\\text{pix}}^2))$",
+      "required_operators": ["reshape"],
+      "inputs": ["img"],
+      "outputs": ["x"]
+    },
+    {
+      "step_order": 10,
+      "step_name": "DFT Forward",
+      "mathematical_description": "$V^{\\Re} = x \\cdot F^{\\Re}$; $V^{\\Im} = x \\cdot F^{\\Im}$",
+      "required_operators": ["matrix_multiply"],
+      "inputs": ["x", "dft_mat"],
+      "outputs": ["V"]
+    },
+    {
+      "step_order": 11,
+      "step_name": "Visibility Amplitude",
+      "mathematical_description": "$|V_k| = \\sqrt{(V_k^{\\Re})^2 + (V_k^{\\Im})^2 + \\epsilon}$",
+      "required_operators": ["square", "add", "sqrt"],
+      "inputs": ["V"],
+      "outputs": ["vis_amp"]
+    },
+    {
+      "step_order": 12,
+      "step_name": "Closure Phase Computation",
+      "mathematical_description": "$\\psi_j = (\\text{sign}_1 \\cdot \\arctan2(V^{\\Im}_{i_1}, V^{\\Re}_{i_1}) + \\text{sign}_2 \\cdot \\arctan2(V^{\\Im}_{i_2}, V^{\\Re}_{i_2}) + \\text{sign}_3 \\cdot \\arctan2(V^{\\Im}_{i_3}, V^{\\Re}_{i_3})) \\cdot 180/\\pi$",
+      "required_operators": ["index_select", "atan2", "multiply", "add"],
+      "inputs": ["V", "cphase_ind_list", "cphase_sign_list"],
+      "outputs": ["cphase"]
+    },
+    {
+      "step_order": 13,
+      "step_name": "Log Closure Amplitude Computation",
+      "mathematical_description": "$\\log C_m = \\log|V_{i_{12}}| + \\log|V_{i_{34}}| - \\log|V_{i_{14}}| - \\log|V_{i_{23}}|$",
+      "required_operators": ["index_select", "log", "add", "subtract"],
+      "inputs": ["vis_amp", "camp_ind_list"],
+      "outputs": ["logcamp"]
+    },
+    {
+      "step_order": 14,
+      "step_name": "Closure Phase Loss",
+      "mathematical_description": "$\\ell_{\\text{cphase}} = \\frac{2}{N_{\\text{cphase}}} \\sum_j \\frac{1 - \\cos((\\psi_j^{\\text{true}} - \\psi_j) \\cdot \\pi/180)}{(\\sigma_{\\text{cphase},j} \\cdot \\pi/180)^2}$",
+      "required_operators": ["subtract", "multiply", "cos", "divide", "square", "sum", "mean"],
+      "inputs": ["cphase", "cphase_true", "sigma_cphase"],
+      "outputs": ["loss_cphase"]
+    },
+    {
+      "step_order": 15,
+      "step_name": "Log Closure Amplitude Loss",
+      "mathematical_description": "$\\ell_{\\text{camp}} = \\frac{1}{N_{\\text{camp}}} \\sum_m \\frac{(\\log C_m^{\\text{true}} - \\log C_m)^2}{\\sigma_{\\text{camp},m}^2}$",
+      "required_operators": ["subtract", "square", "divide", "mean"],
+      "inputs": ["logcamp", "logcamp_true", "sigma_logcamp"],
+      "outputs": ["loss_camp"]
+    },
+    {
+      "step_order": 16,
+      "step_name": "Combined Data Loss",
+      "mathematical_description": "$\\mathcal{L}_{\\text{data}} = \\frac{0.5}{s_f}(\\lambda_{\\text{camp}} \\cdot \\ell_{\\text{camp}} + \\lambda_{\\text{cphase}} \\cdot \\ell_{\\text{cphase}})$",
+      "required_operators": ["multiply", "add", "divide"],
+      "inputs": ["loss_camp", "loss_cphase", "camp_weight", "cphase_weight", "scale_factor"],
+      "outputs": ["loss_data"]
+    },
+    {
+      "step_order": 17,
+      "step_name": "Log-Probability Computation",
+      "mathematical_description": "$\\log p = -\\log|\\det J| - \\frac{1}{2}\\sum_d z_d^2$",
+      "required_operators": ["negate", "square", "sum", "multiply", "subtract"],
+      "inputs": ["logdet", "z"],
+      "outputs": ["logprob"]
+    },
+    {
+      "step_order": 18,
+      "step_name": "Per-Sample Total Loss",
+      "mathematical_description": "$L_n = w(k) \\cdot \\mathcal{L}_{\\text{data},n} + \\log p_n$",
+      "required_operators": ["multiply", "add"],
+      "inputs": ["data_weight", "loss_data", "logprob"],
+      "outputs": ["loss_per_sample"]
+    },
+    {
+      "step_order": 19,
+      "step_name": "Loss Aggregation",
+      "mathematical_description": "If $\\alpha=1$: $\\mathcal{L} = s_f \\cdot \\frac{1}{N_{\\text{batch}}} \\sum_n L_n$; else $w_n = \\text{softmax}(-(1-\\alpha) \\cdot L)_n$, $\\mathcal{L} = s_f \\cdot \\sum_n w_n \\cdot L_n$",
+      "required_operators": ["mean", "softmax", "multiply", "sum"],
+      "inputs": ["loss_per_sample", "alpha_div", "scale_factor"],
+      "outputs": ["loss"]
+    },
+    {
+      "step_order": 20,
+      "step_name": "Gradient Computation",
+      "mathematical_description": "$\\nabla_\\phi \\mathcal{L}$ via backpropagation",
+      "required_operators": ["backward"],
+      "inputs": ["loss"],
+      "outputs": ["gradients"]
+    },
+    {
+      "step_order": 21,
+      "step_name": "Gradient Clipping",
+      "mathematical_description": "$\\nabla_\\phi \\leftarrow \\text{clip\\_norm}(\\nabla_\\phi, \\text{max\\_norm}=10^{-4})$",
+      "required_operators": ["clip_grad_norm"],
+      "inputs": ["gradients", "clip"],
+      "outputs": ["gradients"]
+    },
+    {
+      "step_order": 22,
+      "step_name": "Parameter Update",
+      "mathematical_description": "$\\phi \\leftarrow \\text{Adam\\_step}(\\phi, \\nabla_\\phi)$",
+      "required_operators": ["adam_step"],
+      "inputs": ["phi", "gradients", "optimizer_state"],
+      "outputs": ["phi"]
+    }
+  ]
+}
+```

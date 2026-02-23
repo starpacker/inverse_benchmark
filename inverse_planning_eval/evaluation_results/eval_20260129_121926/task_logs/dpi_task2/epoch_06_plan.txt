@@ -1,0 +1,216 @@
+```json
+{
+  "algorithm_name": "Deep Probabilistic Imaging for MRI Reconstruction",
+  "initialization": [
+    "Initialize RealNVP network parameters θ with Xavier/Kaiming initialization: θ ← RealNVP(N², n_flow, affine=True)",
+    "Initialize log-scale parameter: s⁽⁰⁾ = log(Φ / (0.8 · N²))",
+    "Convert undersampling mask M and measurements y to PyTorch tensors on device",
+    "Compute normalized weights: w_L1^norm = w_L1/Φ, w_TV^norm = w_TV·N/Φ, w_logdet^norm = w_logdet/(0.5·ΣM)",
+    "Compute mask mean: M̄ = mean(M)",
+    "Initialize Adam optimizer with learning rate η=10⁻⁵, β₁=0.9, β₂=0.999 for parameters {θ, s}",
+    "Set epoch counter k = 0"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Sample latent codes",
+      "mathematical_description": "$z^{(k)} \\sim \\mathcal{N}(0, I_{N^2})$, i.e., $z^{(k)}_{b,j} \\sim \\mathcal{N}(0,1)$ independently for $b=1,\\ldots,B$ and $j=1,\\ldots,N^2$",
+      "required_operators": ["gaussian_sampling"],
+      "inputs": ["B", "N"],
+      "outputs": ["z"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "RealNVP reverse pass (generation)",
+      "mathematical_description": "$(x_{\\text{raw}}^{(k)}, \\text{logdet}_{\\text{flow}}^{(k)}) = f_\\theta^{-1}(z^{(k)})$, where $f_\\theta$ is the RealNVP normalizing flow with affine coupling layers",
+      "required_operators": ["realnvp_inverse"],
+      "inputs": ["z", "θ"],
+      "outputs": ["x_raw", "logdet_flow"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Reshape to image",
+      "mathematical_description": "$x_{\\text{samp}}^{(k)} = \\text{reshape}(x_{\\text{raw}}^{(k)}, (B, N, N))$",
+      "required_operators": ["reshape"],
+      "inputs": ["x_raw"],
+      "outputs": ["x_samp"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Compute scale factor",
+      "mathematical_description": "$\\alpha^{(k)} = \\exp(s^{(k)})$",
+      "required_operators": ["exp"],
+      "inputs": ["s"],
+      "outputs": ["α"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "Apply Softplus activation and scaling",
+      "mathematical_description": "$x^{(k)} = \\text{Softplus}(x_{\\text{samp}}^{(k)}) \\cdot \\alpha^{(k)} = \\log(1 + e^{x_{\\text{samp}}^{(k)}}) \\cdot e^{s^{(k)}}$",
+      "required_operators": ["softplus", "elementwise_multiply"],
+      "inputs": ["x_samp", "α"],
+      "outputs": ["x"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Compute Softplus Jacobian correction",
+      "mathematical_description": "$\\text{det}_{\\text{softplus}}^{(k)}_b = \\sum_{i,j} \\left[ (x_{\\text{samp}}^{(k)})_{b,i,j} - \\log(1 + \\exp((x_{\\text{samp}}^{(k)})_{b,i,j})) \\right]$ using identity $\\log(\\sigma(t)) = t - \\text{Softplus}(t)$",
+      "required_operators": ["softplus", "subtract", "sum_reduction"],
+      "inputs": ["x_samp"],
+      "outputs": ["det_softplus"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "Compute scale Jacobian correction",
+      "mathematical_description": "$\\text{det}_{\\text{scale}}^{(k)} = s^{(k)} \\cdot N^2$",
+      "required_operators": ["scalar_multiply"],
+      "inputs": ["s", "N"],
+      "outputs": ["det_scale"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "Combine log determinants",
+      "mathematical_description": "$\\text{logdet}_{\\text{total}}^{(k)} = \\text{logdet}_{\\text{flow}}^{(k)} + \\text{det}_{\\text{softplus}}^{(k)} + \\text{det}_{\\text{scale}}^{(k)}$",
+      "required_operators": ["add"],
+      "inputs": ["logdet_flow", "det_softplus", "det_scale"],
+      "outputs": ["logdet_total"]
+    },
+    {
+      "step_order": 9,
+      "step_name": "Create complex tensor for FFT",
+      "mathematical_description": "$x_{\\text{complex}}^{(k)} = x^{(k)} + 0i$",
+      "required_operators": ["real_to_complex"],
+      "inputs": ["x"],
+      "outputs": ["x_complex"]
+    },
+    {
+      "step_order": 10,
+      "step_name": "Compute 2D orthonormalized FFT",
+      "mathematical_description": "$\\hat{k}_{\\text{full}}^{(k)} = \\mathcal{F}_{\\text{ortho}}(x_{\\text{complex}}^{(k)})$, where $(\\mathcal{F}_{\\text{ortho}})_{u,v} = \\frac{1}{N}\\sum_{i,j} x_{i,j} e^{-2\\pi i(ui/N + vj/N)}$",
+      "required_operators": ["fft2d_ortho"],
+      "inputs": ["x_complex"],
+      "outputs": ["k_hat_full"]
+    },
+    {
+      "step_order": 11,
+      "step_name": "Convert complex k-space to real representation",
+      "mathematical_description": "$\\hat{k}_{\\text{stacked}}^{(k)} = [\\text{Re}(\\hat{k}_{\\text{full}}^{(k)}), \\text{Im}(\\hat{k}_{\\text{full}}^{(k)})]$, stacked along last dimension",
+      "required_operators": ["view_as_real"],
+      "inputs": ["k_hat_full"],
+      "outputs": ["k_hat_stacked"]
+    },
+    {
+      "step_order": 12,
+      "step_name": "Apply undersampling mask",
+      "mathematical_description": "$\\hat{k}^{(k)} = \\hat{k}_{\\text{stacked}}^{(k)} \\odot M$",
+      "required_operators": ["elementwise_multiply"],
+      "inputs": ["k_hat_stacked", "M"],
+      "outputs": ["k_hat"]
+    },
+    {
+      "step_order": 13,
+      "step_name": "Compute k-space residual",
+      "mathematical_description": "$r^{(k)} = \\hat{k}^{(k)} - y$",
+      "required_operators": ["subtract"],
+      "inputs": ["k_hat", "y"],
+      "outputs": ["r"]
+    },
+    {
+      "step_order": 14,
+      "step_name": "Compute squared residual",
+      "mathematical_description": "$(r^2)^{(k)} = (r^{(k)})^2$",
+      "required_operators": ["elementwise_square"],
+      "inputs": ["r"],
+      "outputs": ["r_squared"]
+    },
+    {
+      "step_order": 15,
+      "step_name": "Compute per-sample MSE",
+      "mathematical_description": "$\\text{MSE}^{(k)}_b = \\frac{1}{N \\cdot N \\cdot 2} \\sum_{i,j,c} (r^2)^{(k)}_{b,i,j,c}$",
+      "required_operators": ["mean_reduction"],
+      "inputs": ["r_squared"],
+      "outputs": ["MSE"]
+    },
+    {
+      "step_order": 16,
+      "step_name": "Compute data fidelity loss",
+      "mathematical_description": "$\\mathcal{L}_{\\text{data}}^{(k)} = \\frac{\\text{MSE}^{(k)}}{\\sigma^2 \\cdot \\bar{M}}$",
+      "required_operators": ["scalar_divide"],
+      "inputs": ["MSE", "σ", "M_bar"],
+      "outputs": ["L_data"]
+    },
+    {
+      "step_order": 17,
+      "step_name": "Compute L1 sparsity loss",
+      "mathematical_description": "$\\mathcal{L}_{L1}^{(k)}_b = \\frac{1}{N^2} \\sum_{i,j} |x^{(k)}_{b,i,j}|$ if $w_{L1}^{\\text{norm}} > 0$, else $0$",
+      "required_operators": ["abs", "mean_reduction"],
+      "inputs": ["x", "w_L1_norm"],
+      "outputs": ["L_L1"]
+    },
+    {
+      "step_order": 18,
+      "step_name": "Compute TV horizontal differences",
+      "mathematical_description": "$\\Delta_h^{(k)} = x^{(k)}_{:,1:,:} - x^{(k)}_{:,:-1,:}$",
+      "required_operators": ["slice", "subtract"],
+      "inputs": ["x"],
+      "outputs": ["delta_h"]
+    },
+    {
+      "step_order": 19,
+      "step_name": "Compute TV vertical differences",
+      "mathematical_description": "$\\Delta_v^{(k)} = x^{(k)}_{:,:,1:} - x^{(k)}_{:,:,:-1}$",
+      "required_operators": ["slice", "subtract"],
+      "inputs": ["x"],
+      "outputs": ["delta_v"]
+    },
+    {
+      "step_order": 20,
+      "step_name": "Compute Total Variation loss",
+      "mathematical_description": "$\\mathcal{L}_{TV}^{(k)}_b = \\frac{1}{N(N-1)}\\sum_{i,j}|\\Delta_h^{(k)}_{b,i,j}| + \\frac{1}{N(N-1)}\\sum_{i,j}|\\Delta_v^{(k)}_{b,i,j}|$ if $w_{TV}^{\\text{norm}} > 0$, else $0$",
+      "required_operators": ["abs", "sum_reduction", "scalar_divide", "add"],
+      "inputs": ["delta_h", "delta_v", "N", "w_TV_norm"],
+      "outputs": ["L_TV"]
+    },
+    {
+      "step_order": 21,
+      "step_name": "Compute combined prior loss",
+      "mathematical_description": "$\\mathcal{L}_{\\text{prior}}^{(k)} = w_{TV}^{\\text{norm}} \\cdot \\mathcal{L}_{TV}^{(k)} + w_{L1}^{\\text{norm}} \\cdot \\mathcal{L}_{L1}^{(k)}$",
+      "required_operators": ["scalar_multiply", "add"],
+      "inputs": ["L_TV", "L_L1", "w_TV_norm", "w_L1_norm"],
+      "outputs": ["L_prior"]
+    },
+    {
+      "step_order": 22,
+      "step_name": "Compute total loss (ELBO)",
+      "mathematical_description": "$\\mathcal{L}^{(k)} = \\frac{1}{B}\\sum_b \\mathcal{L}_{\\text{data},b}^{(k)} + \\frac{1}{B}\\sum_b \\mathcal{L}_{\\text{prior},b}^{(k)} - w_{\\text{logdet}}^{\\text{norm}} \\cdot \\frac{1}{B}\\sum_b \\text{logdet}_{\\text{total},b}^{(k)}$",
+      "required_operators": ["mean_reduction", "scalar_multiply", "add", "subtract"],
+      "inputs": ["L_data", "L_prior", "logdet_total", "w_logdet_norm", "B"],
+      "outputs": ["L_total"]
+    },
+    {
+      "step_order": 23,
+      "step_name": "Compute gradients via backpropagation",
+      "mathematical_description": "$g_\\theta^{(k)} = \\nabla_\\theta \\mathcal{L}^{(k)}$, $g_s^{(k)} = \\nabla_s \\mathcal{L}^{(k)}$",
+      "required_operators": ["backward", "autograd"],
+      "inputs": ["L_total", "θ", "s"],
+      "outputs": ["g_θ", "g_s"]
+    },
+    {
+      "step_order": 24,
+      "step_name": "Clip gradients",
+      "mathematical_description": "$\\tilde{g} = \\begin{cases} g & \\text{if } \\|g\\| \\leq \\gamma_{\\text{clip}} \\\\ \\gamma_{\\text{clip}} \\cdot \\frac{g}{\\|g\\|} & \\text{otherwise} \\end{cases}$ with $\\gamma_{\\text{clip}} = 10^{-2}$",
+      "required_operators": ["clip_grad_norm"],
+      "inputs": ["g_θ", "g_s", "γ_clip"],
+      "outputs": ["g_θ_clipped", "g_s_clipped"]
+    },
+    {
+      "step_order": 25,
+      "step_name": "Adam optimizer update",
+      "mathematical_description": "$m_t = \\beta_1 m_{t-1} + (1-\\beta_1)g$, $v_t = \\beta_2 v_{t-1} + (1-\\beta_2)g^2$, $\\hat{m}_t = m_t/(1-\\beta_1^t)$, $\\hat{v}_t = v_t/(1-\\beta_2^t)$, $\\theta^{(k+1)} = \\theta^{(k)} - \\eta \\hat{m}_t/(\\sqrt{\\hat{v}_t}+\\epsilon)$, $s^{(k+1)} = s^{(k)} - \\eta \\hat{m}_t/(\\sqrt{\\hat{v}_t}+\\epsilon)$",
+      "required_operators": ["adam_step"],
+      "inputs": ["θ", "s", "g_θ_clipped", "g_s_clipped", "η", "optimizer_state"],
+      "outputs": ["θ_updated", "s_updated", "optimizer_state_updated"]
+    }
+  ]
+}
+```

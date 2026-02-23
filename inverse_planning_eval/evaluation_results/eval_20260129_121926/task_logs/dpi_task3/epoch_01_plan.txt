@@ -1,0 +1,119 @@
+```json
+{
+  "algorithm_name": "Deep Probabilistic Imaging for Interferometry via Normalizing Flow Variational Inference",
+  "initialization": [
+    "Initialize pixel grid: x_j = -1 + (2j+1)/N_pix for j=0,...,N_pix-1; compute G_x, G_y coordinate meshes; compute G_r = sqrt(G_x^2 + G_y^2) and G_phi = atan2(G_y, G_x)",
+    "Initialize flow permutations: For each block l=1,...,L, generate random permutation pi_l with seed l and compute inverse permutation pi_l^{-1}",
+    "Initialize ActNorm parameters: loc=0, log_scale_inv=0 (data-dependent initialization on first batch)",
+    "Initialize ZeroFC layers: all weights, biases, and scales set to zero",
+    "Initialize AffineCoupling hidden layers: weights ~ N(0, 0.05), biases = 0",
+    "Initialize Adam optimizer with learning rate eta=1e-4, beta_1=0.9, beta_2=0.999"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Compute Annealing Weight",
+      "mathematical_description": "w(k) = \\min\\left(10^{-k_0 + k/\\tau}, 1\\right)",
+      "required_operators": ["power", "minimum"],
+      "inputs": ["k", "k_0", "tau"],
+      "outputs": ["w_k"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Sample Latent Variables",
+      "mathematical_description": "z^{(b)} \\sim \\mathcal{N}(\\mathbf{0}, \\mathbf{I}_{n_\\theta}), \\quad b = 1, \\ldots, B",
+      "required_operators": ["random_normal"],
+      "inputs": ["B", "n_theta"],
+      "outputs": ["Z"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Apply Inverse Flow (Generative Direction)",
+      "mathematical_description": "For \\ell = L, \\ldots, 1: Apply inverse permutation h^{(\\ell)} = h^{(\\ell+1)}[:, \\pi_\\ell^{-1}]; Apply inverse affine coupling: (\\log s, t) = \\text{NN}_{\\ell}(h_a), h_b' = h_b \\cdot e^{-\\tanh(\\log s)} - t; Apply inverse ActNorm: h = h \\cdot e^{\\gamma_\\ell} - \\mu_\\ell; Accumulate \\log|\\det J| = \\sum_\\ell (\\Delta_{\\ell,1} + \\Delta_{\\ell,1}' + \\Delta_{\\ell,2} + \\Delta_{\\ell,2}')",
+      "required_operators": ["indexing_permutation", "split", "concat", "reverse", "neural_network_forward", "tanh", "exp", "multiply", "subtract", "sum"],
+      "inputs": ["Z", "phi", "pi_inv"],
+      "outputs": ["theta_tilde", "log_det_J"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Apply Sigmoid Transform",
+      "mathematical_description": "\\boldsymbol{\\Theta} = \\sigma(\\tilde{\\boldsymbol{\\Theta}}) = \\frac{1}{1 + e^{-\\tilde{\\boldsymbol{\\Theta}}}}; \\quad \\Delta_\\sigma^{(b)} = \\sum_{i=1}^{n_\\theta} \\left( -\\tilde{\\theta}_i^{(b)} - 2\\log(1 + e^{-\\tilde{\\theta}_i^{(b)}}) \\right); \\quad \\log|\\det J|_{\\text{total}} = \\log|\\det J| + \\Delta_\\sigma",
+      "required_operators": ["sigmoid", "log", "exp", "sum", "add", "negate"],
+      "inputs": ["theta_tilde", "log_det_J"],
+      "outputs": ["Theta", "log_det_J_total"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "Map Parameters to Physical Units",
+      "mathematical_description": "r = r_{\\min} + \\theta_1 (r_{\\max} - r_{\\min}); \\quad \\sigma_r = \\sigma_{r,\\min} + \\theta_2 (\\sigma_{r,\\max} - \\sigma_{r,\\min}); \\quad s = s_{\\min} + \\theta_3 (s_{\\max} - s_{\\min}); \\quad \\eta = \\frac{181\\pi}{180}(2\\theta_4 - 1)",
+      "required_operators": ["multiply", "add", "subtract"],
+      "inputs": ["Theta", "param_ranges"],
+      "outputs": ["r", "sigma_r", "s", "eta", "gaussian_params", "f_floor", "f_c"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Generate Images from Geometric Model",
+      "mathematical_description": "R_{jk} = \\exp\\left( -\\frac{((G_r)_{jk} - r)^2}{2\\sigma_r^2} \\right); \\quad S_{jk} = 1 + s \\cos((G_\\phi)_{jk} - \\eta); \\quad C = S \\odot R; \\quad D_{jk} = \\frac{1}{2}\\left(1 + \\text{erf}\\left(\\frac{r - (G_r)_{jk}}{\\sqrt{2}\\sigma_r}\\right)\\right); \\quad I_{\\text{crescent}} = f_c \\left( (1 - f_{\\text{floor}}) \\tilde{C} + f_{\\text{floor}} \\tilde{D} \\right); \\quad G_g = \\frac{1}{2\\pi\\sigma_{x,g}\\sigma_{y,g}} \\exp(-\\delta); \\quad I = \\frac{I_{\\text{crescent}} + \\sum_g a_g \\tilde{G}_g}{\\sum_{jk} I_{jk} + \\epsilon}",
+      "required_operators": ["exp", "cos", "sin", "erf", "sqrt", "multiply", "add", "subtract", "divide", "sum", "atan2", "normalize"],
+      "inputs": ["r", "sigma_r", "s", "eta", "gaussian_params", "f_floor", "f_c", "G_x", "G_y", "G_r", "G_phi"],
+      "outputs": ["I"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "Compute Forward Model (Visibilities)",
+      "mathematical_description": "\\mathbf{x}^{(b)} = \\text{vec}(I^{(b)}); \\quad V_{\\text{re}}^{(b)} = \\mathbf{x}^{(b)T} \\mathbf{F}_{:,:,0}; \\quad V_{\\text{im}}^{(b)} = \\mathbf{x}^{(b)T} \\mathbf{F}_{:,:,1}; \\quad |V_j|^{(b)} = \\sqrt{(V_{\\text{re},j}^{(b)})^2 + (V_{\\text{im},j}^{(b)})^2 + \\epsilon}",
+      "required_operators": ["flatten", "matmul", "sqrt", "add", "power"],
+      "inputs": ["I", "F"],
+      "outputs": ["V_re", "V_im", "V_amp"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "Compute Closure Phases",
+      "mathematical_description": "\\psi_m = \\text{atan2}(V_{\\text{im}, j_m}, V_{\\text{re}, j_m}); \\quad \\phi_i^{\\text{pred}} = \\frac{180}{\\pi}(s_1 \\psi_1 + s_2 \\psi_2 + s_3 \\psi_3)",
+      "required_operators": ["atan2", "indexing", "multiply", "add", "rad2deg"],
+      "inputs": ["V_re", "V_im", "I_cp", "S_cp"],
+      "outputs": ["phi_pred"]
+    },
+    {
+      "step_order": 9,
+      "step_name": "Compute Log Closure Amplitudes",
+      "mathematical_description": "\\log A_i^{\\text{pred}} = \\log |V_{j_{12}}| + \\log |V_{j_{34}}| - \\log |V_{j_{14}}| - \\log |V_{j_{23}}|",
+      "required_operators": ["log", "indexing", "add", "subtract"],
+      "inputs": ["V_amp", "I_ca"],
+      "outputs": ["logA_pred"]
+    },
+    {
+      "step_order": 10,
+      "step_name": "Compute Data Loss",
+      "mathematical_description": "\\mathcal{L}_{cp}^{(b)} = \\frac{2}{N_{cp}} \\sum_{i=1}^{N_{cp}} \\frac{1 - \\cos\\left(\\frac{\\pi}{180}(\\phi_i^{\\text{obs}} - \\phi_i^{(b),\\text{pred}})\\right)}{\\left(\\frac{\\pi}{180}\\sigma_{cp,i}\\right)^2}; \\quad \\mathcal{L}_{lca}^{(b)} = \\frac{1}{N_{ca}} \\sum_{i=1}^{N_{ca}} \\frac{(\\log A_i^{\\text{obs}} - \\log A_i^{(b),\\text{pred}})^2}{\\sigma_{lca,i}^2}; \\quad \\mathcal{L}_{\\text{data}}^{(b)} = \\frac{N_{ca}}{2} \\left( w_{ca} \\cdot \\mathcal{L}_{lca}^{(b)} + w_{cp} \\cdot \\mathcal{L}_{cp}^{(b)} \\right)",
+      "required_operators": ["subtract", "cos", "deg2rad", "power", "divide", "sum", "mean", "multiply", "add"],
+      "inputs": ["phi_pred", "phi_obs", "sigma_cp", "logA_pred", "logA_obs", "sigma_lca", "w_cp", "w_ca", "N_cp", "N_ca"],
+      "outputs": ["L_data"]
+    },
+    {
+      "step_order": 11,
+      "step_name": "Compute Log Probability Under Flow",
+      "mathematical_description": "\\log q_\\phi^{(b)} = -\\log |\\det J|_{\\text{total}}^{(b)} - \\frac{1}{2}\\|\\mathbf{z}^{(b)}\\|_2^2 - \\frac{n_\\theta}{2}\\log(2\\pi)",
+      "required_operators": ["norm_squared", "multiply", "add", "negate", "log"],
+      "inputs": ["log_det_J_total", "Z", "n_theta"],
+      "outputs": ["log_q"]
+    },
+    {
+      "step_order": 12,
+      "step_name": "Compute Total Loss with Alpha-Divergence",
+      "mathematical_description": "\\ell_b = w(k) \\cdot \\mathcal{L}_{\\text{data}}^{(b)} - \\log q_\\phi^{(b)}; \\quad \\omega_b = \\text{softmax}\\left( -(1-\\alpha) \\cdot \\boldsymbol{\\ell} \\right)_b; \\quad \\mathcal{L}_\\alpha = \\sum_{b=1}^{B} \\omega_b \\cdot \\ell_b \\quad (\\alpha \\neq 1); \\quad \\mathcal{L} = \\frac{1}{B}\\sum_{b=1}^{B} \\ell_b \\quad (\\alpha = 1)",
+      "required_operators": ["multiply", "subtract", "softmax", "sum", "mean"],
+      "inputs": ["w_k", "L_data", "log_q", "alpha", "B"],
+      "outputs": ["L_total"]
+    },
+    {
+      "step_order": 13,
+      "step_name": "Compute Gradients and Update Parameters",
+      "mathematical_description": "\\mathbf{g} = \\nabla_\\phi \\mathcal{L}; \\quad \\mathbf{g}_{\\text{clipped}} = \\mathbf{g} \\cdot \\min\\left(1, \\frac{\\gamma_{\\text{clip}}}{\\|\\mathbf{g}\\|_2}\\right); \\quad \\phi \\leftarrow \\text{Adam}(\\phi, \\mathbf{g}_{\\text{clipped}})",
+      "required_operators": ["backward", "gradient_clipping", "adam_update"],
+      "inputs": ["L_total", "phi", "gamma_clip", "eta", "optimizer_state"],
+      "outputs": ["phi", "optimizer_state"]
+    }
+  ]
+}
+```

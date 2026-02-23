@@ -1,0 +1,152 @@
+```json
+{
+  "algorithm_name": "APGD_FISTA_Image_Deconvolution",
+  "initialization": [
+    "Initialize primal variable: x^{(0)} = 0 \\in \\mathbb{R}^{D \\times H \\times W \\times C}",
+    "Initialize extrapolation variable: z^{(0)} = x^{(0)}",
+    "Initialize momentum parameter: t^{(0)} = 1.0",
+    "Compute step size: \\alpha = 1/L (where L is Lipschitz constant from preprocessing)",
+    "Precompute PSF frequency response: \\mathbf{H} = \\mathcal{F}_{2D}[\\texttt{pad}(h)]",
+    "Precompute conjugate: \\mathbf{H}^* = \\overline{\\mathbf{H}}",
+    "Compute padding indices: s_0 = \\lfloor(H_p - H)/2\\rfloor, s_1 = \\lfloor(W_p - W)/2\\rfloor"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Pad extrapolation variable",
+      "mathematical_description": "z^{(k)}_{\\text{pad}}[d,i,j,c] = \\begin{cases} z^{(k)}[d, i-s_0, j-s_1, c] & \\text{if } s_0 \\leq i < e_0, s_1 \\leq j < e_1 \\\\ 0 & \\text{otherwise} \\end{cases}",
+      "required_operators": ["zero_padding"],
+      "inputs": ["z^{(k)}", "padding_indices"],
+      "outputs": ["z^{(k)}_{pad}"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Forward FFT of extrapolation",
+      "mathematical_description": "\\hat{z}^{(k)} = \\mathcal{F}_{2D}[z^{(k)}_{\\text{pad}}] = \\frac{1}{\\sqrt{H_p W_p}} \\sum_{m,n} z^{(k)}_{\\text{pad},d,m,n,c} \\cdot e^{-2\\pi i (um/H_p + vn/W_p)}",
+      "required_operators": ["rfft2_orthonormal"],
+      "inputs": ["z^{(k)}_{pad}"],
+      "outputs": ["z_hat^{(k)}"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Frequency-domain multiplication (forward)",
+      "mathematical_description": "\\hat{w}^{(k)} = \\hat{z}^{(k)} \\odot \\mathbf{H}",
+      "required_operators": ["elementwise_complex_multiply"],
+      "inputs": ["z_hat^{(k)}", "H"],
+      "outputs": ["w_hat^{(k)}"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Inverse FFT for forward model",
+      "mathematical_description": "w^{(k)}_{\\text{pad}} = \\texttt{ifftshift}\\left(\\mathcal{F}^{-1}_{2D}[\\hat{w}^{(k)}]\\right)",
+      "required_operators": ["irfft2_orthonormal", "ifftshift"],
+      "inputs": ["w_hat^{(k)}", "padded_shape"],
+      "outputs": ["w^{(k)}_{pad}"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "Crop forward result",
+      "mathematical_description": "(\\mathbf{A}z^{(k)})[d,i,j,c] = w^{(k)}_{\\text{pad}}[d, i+s_0, j+s_1, c] \\quad \\text{for } i \\in [0,H), j \\in [0,W)",
+      "required_operators": ["crop", "real_part"],
+      "inputs": ["w^{(k)}_{pad}", "crop_indices"],
+      "outputs": ["Az^{(k)}"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Compute data residual",
+      "mathematical_description": "r^{(k)} = \\mathbf{A}z^{(k)} - y",
+      "required_operators": ["elementwise_subtract"],
+      "inputs": ["Az^{(k)}", "y"],
+      "outputs": ["r^{(k)}"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "Pad residual",
+      "mathematical_description": "r^{(k)}_{\\text{pad}}[d,i,j,c] = \\begin{cases} r^{(k)}[d, i-s_0, j-s_1, c] & \\text{if } s_0 \\leq i < e_0, s_1 \\leq j < e_1 \\\\ 0 & \\text{otherwise} \\end{cases}",
+      "required_operators": ["zero_padding"],
+      "inputs": ["r^{(k)}", "padding_indices"],
+      "outputs": ["r^{(k)}_{pad}"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "Forward FFT of residual",
+      "mathematical_description": "\\hat{r}^{(k)} = \\mathcal{F}_{2D}[r^{(k)}_{\\text{pad}}]",
+      "required_operators": ["rfft2_orthonormal"],
+      "inputs": ["r^{(k)}_{pad}"],
+      "outputs": ["r_hat^{(k)}"]
+    },
+    {
+      "step_order": 9,
+      "step_name": "Frequency-domain multiplication (adjoint)",
+      "mathematical_description": "\\hat{g}^{(k)} = \\hat{r}^{(k)} \\odot \\mathbf{H}^* = \\hat{r}^{(k)} \\odot \\overline{\\mathbf{H}}",
+      "required_operators": ["elementwise_complex_multiply", "complex_conjugate"],
+      "inputs": ["r_hat^{(k)}", "H_conj"],
+      "outputs": ["g_hat^{(k)}"]
+    },
+    {
+      "step_order": 10,
+      "step_name": "Inverse FFT for gradient",
+      "mathematical_description": "g^{(k)}_{\\text{pad}} = \\texttt{ifftshift}\\left(\\mathcal{F}^{-1}_{2D}[\\hat{g}^{(k)}]\\right)",
+      "required_operators": ["irfft2_orthonormal", "ifftshift"],
+      "inputs": ["g_hat^{(k)}", "padded_shape"],
+      "outputs": ["g^{(k)}_{pad}"]
+    },
+    {
+      "step_order": 11,
+      "step_name": "Crop gradient",
+      "mathematical_description": "\\nabla f(z^{(k)}) = \\mathbf{A}^T(\\mathbf{A}z^{(k)} - y), \\quad \\nabla f(z^{(k)})[d,i,j,c] = g^{(k)}_{\\text{pad}}[d, i+s_0, j+s_1, c]",
+      "required_operators": ["crop", "real_part"],
+      "inputs": ["g^{(k)}_{pad}", "crop_indices"],
+      "outputs": ["grad_f^{(k)}"]
+    },
+    {
+      "step_order": 12,
+      "step_name": "Gradient descent step",
+      "mathematical_description": "\\tilde{x}^{(k+1)} = z^{(k)} - \\alpha \\cdot \\nabla f(z^{(k)})",
+      "required_operators": ["scalar_multiply", "elementwise_subtract"],
+      "inputs": ["z^{(k)}", "grad_f^{(k)}", "alpha"],
+      "outputs": ["x_tilde^{(k+1)}"]
+    },
+    {
+      "step_order": 13,
+      "step_name": "Proximal operator (non-negativity projection)",
+      "mathematical_description": "x^{(k+1)} = \\text{prox}_{\\mathbb{R}_+}(\\tilde{x}^{(k+1)}) = \\max(\\tilde{x}^{(k+1)}, 0)",
+      "required_operators": ["elementwise_maximum"],
+      "inputs": ["x_tilde^{(k+1)}", "zero"],
+      "outputs": ["x^{(k+1)}"]
+    },
+    {
+      "step_order": 14,
+      "step_name": "Update momentum parameter",
+      "mathematical_description": "t^{(k+1)} = \\frac{1 + \\sqrt{1 + 4(t^{(k)})^2}}{2}",
+      "required_operators": ["scalar_sqrt", "scalar_add", "scalar_multiply", "scalar_divide"],
+      "inputs": ["t^{(k)}"],
+      "outputs": ["t^{(k+1)}"]
+    },
+    {
+      "step_order": 15,
+      "step_name": "Compute extrapolation coefficient",
+      "mathematical_description": "\\beta^{(k)} = \\frac{t^{(k)} - 1}{t^{(k+1)}}",
+      "required_operators": ["scalar_subtract", "scalar_divide"],
+      "inputs": ["t^{(k)}", "t^{(k+1)}"],
+      "outputs": ["beta^{(k)}"]
+    },
+    {
+      "step_order": 16,
+      "step_name": "Extrapolation step (Nesterov momentum)",
+      "mathematical_description": "z^{(k+1)} = x^{(k+1)} + \\beta^{(k)} \\cdot (x^{(k+1)} - x^{(k)})",
+      "required_operators": ["elementwise_subtract", "scalar_multiply", "elementwise_add"],
+      "inputs": ["x^{(k+1)}", "x^{(k)}", "beta^{(k)}"],
+      "outputs": ["z^{(k+1)}"]
+    },
+    {
+      "step_order": 17,
+      "step_name": "Convergence check",
+      "mathematical_description": "\\text{terminate if } k + 1 \\geq N_{\\text{iter}}",
+      "required_operators": ["comparison"],
+      "inputs": ["k", "N_iter"],
+      "outputs": ["converged_flag"]
+    }
+  ]
+}
+```

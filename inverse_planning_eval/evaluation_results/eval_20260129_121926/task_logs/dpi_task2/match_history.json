@@ -1,0 +1,233 @@
+[
+  {
+    "model_a": "Golden",
+    "model_b": "epoch_01",
+    "score_a": 1.0,
+    "judges": [
+      "claude-opus-4-5-20251101-thinking",
+      "gemini-3-pro-preview"
+    ],
+    "rating_change_a": 16.0,
+    "rating_change_b": -16.0
+  },
+  {
+    "model_a": "Golden",
+    "model_b": "epoch_02",
+    "score_a": 1.0,
+    "judges": [
+      "claude-opus-4-5-20251101-thinking",
+      "gemini-3-pro-preview"
+    ],
+    "rating_change_a": 15.26369320647791,
+    "rating_change_b": -15.263693206478024
+  },
+  {
+    "model_a": "Golden",
+    "model_b": "epoch_03",
+    "score_a": 1.0,
+    "judges": [
+      "claude-opus-4-5-20251101-thinking",
+      "gemini-3-pro-preview"
+    ],
+    "rating_change_a": 14.564127121723686,
+    "rating_change_b": -14.564127121723686
+  },
+  {
+    "model_a": "Golden",
+    "model_b": "epoch_04",
+    "score_a": 0.5,
+    "judges": [
+      "claude-opus-4-5-20251101-thinking",
+      "gemini-3-pro-preview"
+    ],
+    "rating_change_a": -2.0982942088476193,
+    "rating_change_b": 2.0982942088476193
+  },
+  {
+    "model_a": "Golden",
+    "model_b": "epoch_05",
+    "score_a": 1.0,
+    "judges": [
+      "claude-opus-4-5-20251101-thinking",
+      "gemini-3-pro-preview"
+    ],
+    "rating_change_a": 13.99674803079597,
+    "rating_change_b": -13.996748030796084
+  },
+  {
+    "model_a": "Golden",
+    "model_b": "epoch_06",
+    "score_a": 1.0,
+    "judges": [
+      "claude-opus-4-5-20251101-thinking",
+      "gemini-3-pro-preview"
+    ],
+    "rating_change_a": 13.365801950237483,
+    "rating_change_b": -13.365801950237483
+  },
+  {
+    "model_a": "epoch_01",
+    "model_b": "epoch_02",
+    "score_a": 0.5,
+    "judges": [
+      "claude-opus-4-5-20251101-thinking",
+      "gemini-3-pro-preview"
+    ],
+    "rating_change_a": 0.03390813016915217,
+    "rating_change_b": -0.03390813016915217
+  },
+  {
+    "model_a": "epoch_01",
+    "model_b": "epoch_03",
+    "score_a": 1.0,
+    "judges": [
+      "claude-opus-4-5-20251101-thinking",
+      "gemini-3-pro-preview"
+    ],
+    "rating_change_a": 16.064562512181624,
+    "rating_change_b": -16.064562512181624
+  },
+  {
+    "model_a": "epoch_01",
+    "model_b": "epoch_04",
+    "score_a": 0.0,
+    "judges": [
+      "claude-opus-4-5-20251101-thinking",
+      "gemini-3-pro-preview"
+    ],
+    "rating_change_a": -15.907905738399904,
+    "rating_change_b": 15.907905738399904
+  },
+  {
+    "model_a": "epoch_01",
+    "model_b": "epoch_05",
+    "score_a": 0.75,
+    "judges": [
+      "claude-opus-4-5-20251101-thinking",
+      "gemini-3-pro-preview"
+    ],
+    "rating_change_a": 8.083476566869308,
+    "rating_change_b": -8.083476566869308
+  },
+  {
+    "model_a": "epoch_01",
+    "model_b": "epoch_06",
+    "score_a": 0.25,
+    "judges": [
+      "claude-opus-4-5-20251101-thinking",
+      "gemini-3-pro-preview"
+    ],
+    "rating_change_a": -8.259701577452233,
+    "rating_change_b": 8.259701577452233
+  },
+  {
+    "model_a": "epoch_02",
+    "model_b": "epoch_03",
+    "score_a": 1.0,
+    "judges": [
+      "claude-opus-4-5-20251101-thinking",
+      "gemini-3-pro-preview"
+    ],
+    "rating_change_a": 15.294435177813853,
+    "rating_change_b": -15.294435177813853
+  },
+  {
+    "model_a": "epoch_02",
+    "model_b": "epoch_04",
+    "score_a": 0.5,
+    "judges": [
+      "claude-opus-4-5-20251101-thinking",
+      "gemini-3-pro-preview"
+    ],
+    "rating_change_a": 0.8286199573966542,
+    "rating_change_b": -0.8286199573966542
+  },
+  {
+    "model_a": "epoch_02",
+    "model_b": "epoch_05",
+    "score_a": 0.25,
+    "judges": [
+      "claude-opus-4-5-20251101-thinking",
+      "gemini-3-pro-preview"
+    ],
+    "rating_change_a": -9.053319836431115,
+    "rating_change_b": 9.053319836431115
+  },
+  {
+    "model_a": "epoch_02",
+    "model_b": "epoch_06",
+    "score_a": 0.0,
+    "judges": [
+      "claude-opus-4-5-20251101-thinking",
+      "gemini-3-pro-preview"
+    ],
+    "rating_change_a": -15.856241246994273,
+    "rating_change_b": 15.856241246994273
+  },
+  {
+    "model_a": "epoch_03",
+    "model_b": "epoch_04",
+    "score_a": 0.0,
+    "judges": [
+      "claude-opus-4-5-20251101-thinking",
+      "gemini-3-pro-preview"
+    ],
+    "rating_change_a": -13.12563970966687,
+    "rating_change_b": 13.12563970966687
+  },
+  {
+    "model_a": "epoch_03",
+    "model_b": "epoch_05",
+    "score_a": 1.0,
+    "judges": [
+      "claude-opus-4-5-20251101-thinking",
+      "gemini-3-pro-preview"
+    ],
+    "rating_change_a": 18.10707572688807,
+    "rating_change_b": -18.10707572688807
+  },
+  {
+    "model_a": "epoch_03",
+    "model_b": "epoch_06",
+    "score_a": 0.0,
+    "judges": [
+      "claude-opus-4-5-20251101-thinking",
+      "gemini-3-pro-preview"
+    ],
+    "rating_change_a": -13.636913861577682,
+    "rating_change_b": 13.636913861577682
+  },
+  {
+    "model_a": "epoch_04",
+    "model_b": "epoch_05",
+    "score_a": 1.0,
+    "judges": [
+      "claude-opus-4-5-20251101-thinking",
+      "gemini-3-pro-preview"
+    ],
+    "rating_change_a": 13.199837819789536,
+    "rating_change_b": -13.199837819789423
+  },
+  {
+    "model_a": "epoch_04",
+    "model_b": "epoch_06",
+    "score_a": 0.75,
+    "judges": [
+      "claude-opus-4-5-20251101-thinking",
+      "gemini-3-pro-preview"
+    ],
+    "rating_change_a": 7.120562779912461,
+    "rating_change_b": -7.120562779912461
+  },
+  {
+    "model_a": "epoch_05",
+    "model_b": "epoch_06",
+    "score_a": 0.5,
+    "judges": [
+      "claude-opus-4-5-20251101-thinking",
+      "gemini-3-pro-preview"
+    ],
+    "rating_change_a": 2.807443011834266,
+    "rating_change_b": -2.807443011834266
+  }
+]

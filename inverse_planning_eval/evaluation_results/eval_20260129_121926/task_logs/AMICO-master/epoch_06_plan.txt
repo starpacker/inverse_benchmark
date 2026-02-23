@@ -1,0 +1,252 @@
+```json
+{
+  "algorithm_name": "AMICO-NODDI",
+  "initialization": [
+    "Compute orientation dispersion parameters: IC_KAPPAs[k] = 1 / tan(IC_ODs[k] * π/2) for k = 0,...,11",
+    "Initialize empty kernel lookup table: kernels_lut = []",
+    "Initialize KERNELS['wm'] = zeros(144, 500, n_S) for white matter dictionary atoms",
+    "Initialize KERNELS['iso'] = zeros(n_S) for isotropic kernel",
+    "Initialize KERNELS['icvf'] = zeros(144) for intracellular volume fraction labels",
+    "Initialize KERNELS['kappa'] = zeros(144) for orientation dispersion labels",
+    "Initialize KERNELS['norms'] = zeros(n_dwi, 144) for normalization factors",
+    "Initialize results = zeros(n_voxels, 3) for output parameters [NDI, ODI, FWF]",
+    "Build KDTree from GRAD_500 for fast direction lookup",
+    "Precompute SH rotation matrices: Y_inv = (Y_SH^T Y_SH)^{-1} Y_SH^T from real spherical harmonics on 500-point sphere",
+    "Precompute resampling matrix Ylm_out for mapping SH to acquisition directions"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "BEGIN_LOOP: Orientation Dispersion",
+      "mathematical_description": "\\text{for } k = 0 \\text{ to } N_{OD} - 1, \\quad \\kappa_k = \\text{IC\\_KAPPAs}[k]",
+      "required_operators": [],
+      "inputs": ["IC_KAPPAs", "N_OD"],
+      "outputs": ["k", "kappa_k"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Compute Intracellular Signal (Watson-distributed cylinders)",
+      "mathematical_description": "\\mathbf{S}_{IC}^{(k)} = \\frac{1}{2} \\sum_{l=0,2,4,6} \\text{lgi}_l(q, \\tau, d_{\\parallel}) \\cdot c_l(\\kappa_k) \\cdot \\sqrt{\\frac{l + 0.25}{\\pi}} P_l^0(\\cos\\theta)",
+      "required_operators": ["spherical_harmonic_basis", "legendre_polynomial", "watson_sh_coefficients", "exp"],
+      "inputs": ["kappa_k", "d_par", "scheme_hr"],
+      "outputs": ["S_IC"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "BEGIN_LOOP: Volume Fraction",
+      "mathematical_description": "\\text{for } j = 0 \\text{ to } N_{VF} - 1, \\quad v_{ic}^{(j)} = \\text{IC\\_VFs}[j]",
+      "required_operators": [],
+      "inputs": ["IC_VFs", "N_VF"],
+      "outputs": ["j", "v_ic_j"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Compute Extracellular Signal (Tortuosity model)",
+      "mathematical_description": "\\mathbf{S}_{EC}^{(k,j)} = \\exp\\left(-b \\left[(d_\\parallel - d_\\perp) \\cos^2\\theta + d_\\perp\\right]\\right), \\quad d_\\perp = d_\\parallel(1 - v_{ic}^{(j)})",
+      "required_operators": ["exp", "dot_product"],
+      "inputs": ["d_par", "v_ic_j", "scheme_hr"],
+      "outputs": ["S_EC"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "Combine IC and EC Compartments",
+      "mathematical_description": "\\mathbf{S}^{(k,j)} = v_{ic}^{(j)} \\cdot \\mathbf{S}_{IC}^{(k)} + (1 - v_{ic}^{(j)}) \\cdot \\mathbf{S}_{EC}^{(k,j)}",
+      "required_operators": ["scalar_multiply", "vector_add"],
+      "inputs": ["S_IC", "S_EC", "v_ic_j"],
+      "outputs": ["S_combined"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Rotate Kernel to SH Basis via Spherical Convolution",
+      "mathematical_description": "\\mathbf{K}_{lm}^{(s)} = \\mathbf{Y}_{inv} \\mathbf{S}^{(k,j)}[\\text{shell}_s], \\quad \\mathbf{KR}_{lm}[i, :] = \\sum_{l,m} c_l \\cdot K_{l,0} \\cdot Y_{lm}(\\theta_i, \\phi_i)",
+      "required_operators": ["matrix_vector_multiply", "sh_rotation"],
+      "inputs": ["S_combined", "AUX['fit']", "AUX['Ylm_rot']", "AUX['const']"],
+      "outputs": ["KRlm"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "Store Kernel in LUT",
+      "mathematical_description": "\\text{kernels\\_lut}[k \\cdot N_{VF} + j] = \\mathbf{KR}_{lm}",
+      "required_operators": ["list_append"],
+      "inputs": ["KRlm", "k", "j", "N_VF"],
+      "outputs": ["kernels_lut"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "END_LOOP: Volume Fraction",
+      "mathematical_description": "\\text{end for } j",
+      "required_operators": [],
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "step_order": 9,
+      "step_name": "END_LOOP: Orientation Dispersion",
+      "mathematical_description": "\\text{end for } k \\quad (\\text{kernels\\_lut has } 144 \\text{ WM atoms})",
+      "required_operators": [],
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "step_order": 10,
+      "step_name": "Compute and Store Isotropic Kernel",
+      "mathematical_description": "\\mathbf{S}_{iso} = \\exp(-b \\cdot d_{iso}), \\quad \\text{kernels\\_lut}[144] = \\mathbf{Y}_{inv} \\mathbf{S}_{iso}",
+      "required_operators": ["exp", "matrix_vector_multiply"],
+      "inputs": ["d_iso", "scheme_hr", "AUX"],
+      "outputs": ["kernels_lut"]
+    },
+    {
+      "step_order": 11,
+      "step_name": "BEGIN_LOOP: Resample WM Atoms to Acquisition Scheme",
+      "mathematical_description": "\\text{for } \\text{idx} = 0 \\text{ to } 143:",
+      "required_operators": [],
+      "inputs": ["kernels_lut"],
+      "outputs": ["idx"]
+    },
+    {
+      "step_order": 12,
+      "step_name": "Resample Kernel via SH Evaluation",
+      "mathematical_description": "\\text{KERNELS}['\\text{wm}'][\\text{idx}, i, :] = \\mathbf{Y}_{out} \\cdot \\text{kernels\\_lut}[\\text{idx}][i, :] \\quad \\forall i \\in [0, 499]",
+      "required_operators": ["matrix_vector_multiply", "sh_evaluation"],
+      "inputs": ["kernels_lut[idx]", "Ylm_out", "idx_out_res"],
+      "outputs": ["KERNELS['wm'][idx]"]
+    },
+    {
+      "step_order": 13,
+      "step_name": "Store Atom Parameters and Compute Normalization",
+      "mathematical_description": "\\text{KERNELS}['\\kappa'][\\text{idx}] = \\kappa_{\\lfloor\\text{idx}/12\\rfloor}, \\quad \\text{KERNELS}['\\text{icvf}'][\\text{idx}] = v_{ic}^{(\\text{idx} \\mod 12)}, \\quad n_{\\text{idx}} = \\|\\mathbf{K}[\\text{idx}, 0, \\text{dwi}]\\|_2",
+      "required_operators": ["norm", "indexing"],
+      "inputs": ["IC_KAPPAs", "IC_VFs", "idx", "KERNELS['wm']", "dwi_idx"],
+      "outputs": ["KERNELS['kappa']", "KERNELS['icvf']", "KERNELS['norms']"]
+    },
+    {
+      "step_order": 14,
+      "step_name": "END_LOOP: Resample WM Atoms",
+      "mathematical_description": "\\text{end for idx}",
+      "required_operators": [],
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "step_order": 15,
+      "step_name": "Resample Isotropic Kernel",
+      "mathematical_description": "\\text{KERNELS}['\\text{iso}'] = \\mathbf{Y}_{out} \\cdot \\text{kernels\\_lut}[144]",
+      "required_operators": ["matrix_vector_multiply"],
+      "inputs": ["kernels_lut[144]", "Ylm_out"],
+      "outputs": ["KERNELS['iso']"]
+    },
+    {
+      "step_order": 16,
+      "step_name": "Extract Masked Voxels",
+      "mathematical_description": "\\mathbf{y}_{\\text{data}} = \\mathbf{Y}[\\mathbf{M}], \\quad \\mathbf{d}_{\\text{dirs}} = \\mathbf{D}[\\mathbf{M}]",
+      "required_operators": ["boolean_indexing"],
+      "inputs": ["Y", "D", "M"],
+      "outputs": ["y_data", "d_dirs"]
+    },
+    {
+      "step_order": 17,
+      "step_name": "BEGIN_LOOP: Voxel-wise Reconstruction",
+      "mathematical_description": "\\text{for } i = 0 \\text{ to } n_{\\text{voxels}} - 1:",
+      "required_operators": [],
+      "inputs": ["n_voxels"],
+      "outputs": ["i"]
+    },
+    {
+      "step_order": 18,
+      "step_name": "Extract and Normalize Voxel Data",
+      "mathematical_description": "\\mathbf{y} = \\mathbf{y}_{\\text{data}}[i, :], \\quad \\mathbf{d} = \\frac{\\mathbf{d}_{\\text{dirs}}[i, :]}{\\|\\mathbf{d}_{\\text{dirs}}[i, :]\\|_2 + 10^{-16}}",
+      "required_operators": ["indexing", "norm", "scalar_divide"],
+      "inputs": ["y_data", "d_dirs", "i"],
+      "outputs": ["y", "d"]
+    },
+    {
+      "step_order": 19,
+      "step_name": "Find Closest Dictionary Direction",
+      "mathematical_description": "\\text{idx}_{\\text{dir}} = \\arg\\min_{j} \\min\\left(\\|\\mathbf{d} - \\mathbf{g}_j\\|_2, \\|\\mathbf{d} + \\mathbf{g}_j\\|_2\\right), \\quad \\mathbf{g}_j \\in \\text{GRAD\\_500}",
+      "required_operators": ["kdtree_query", "norm"],
+      "inputs": ["d", "GRAD_500", "KDTree"],
+      "outputs": ["idx_dir"]
+    },
+    {
+      "step_order": 20,
+      "step_name": "Build Direction-specific Dictionary",
+      "mathematical_description": "\\mathbf{A}_{\\text{wm}} = \\text{KERNELS}['\\text{wm}'][:, \\text{idx}_{\\text{dir}}, :]^T \\in \\mathbb{R}^{n_S \\times 144}, \\quad \\mathbf{a}_{\\text{iso}} = \\text{KERNELS}['\\text{iso}']",
+      "required_operators": ["indexing", "transpose"],
+      "inputs": ["KERNELS['wm']", "KERNELS['iso']", "idx_dir"],
+      "outputs": ["A_wm", "a_iso"]
+    },
+    {
+      "step_order": 21,
+      "step_name": "Solve for Isotropic Coefficient (NNLS)",
+      "mathematical_description": "x_{\\text{iso}} = \\arg\\min_{x \\geq 0} \\|\\mathbf{y} - x \\cdot \\mathbf{a}_{\\text{iso}}\\|_2^2 = \\frac{\\max(0, \\mathbf{a}_{\\text{iso}}^T \\mathbf{y})}{\\|\\mathbf{a}_{\\text{iso}}\\|_2^2}",
+      "required_operators": ["nnls", "dot_product", "norm"],
+      "inputs": ["y", "a_iso"],
+      "outputs": ["x_iso"]
+    },
+    {
+      "step_order": 22,
+      "step_name": "Subtract Isotropic Contribution",
+      "mathematical_description": "\\mathbf{y}_{\\text{wm}} = \\mathbf{y} - x_{\\text{iso}} \\cdot \\mathbf{a}_{\\text{iso}}",
+      "required_operators": ["scalar_multiply", "vector_subtract"],
+      "inputs": ["y", "x_iso", "a_iso"],
+      "outputs": ["y_wm"]
+    },
+    {
+      "step_order": 23,
+      "step_name": "Solve LASSO for WM Coefficients",
+      "mathematical_description": "\\mathbf{x}_{\\text{wm}} = \\arg\\min_{\\mathbf{x} \\geq 0} \\frac{1}{2n}\\|\\mathbf{y}_{\\text{wm}} - \\mathbf{A}_{\\text{wm}} \\mathbf{x}\\|_2^2 + \\frac{\\lambda_1}{n} \\|\\mathbf{x}\\|_1, \\quad \\lambda_1 = 0.5",
+      "required_operators": ["lasso_coordinate_descent", "soft_thresholding"],
+      "inputs": ["y_wm", "A_wm", "lambda_1"],
+      "outputs": ["x_wm"]
+    },
+    {
+      "step_order": 24,
+      "step_name": "Rescale WM Coefficients by Norms",
+      "mathematical_description": "\\mathbf{x}_{\\text{wm,scaled}} = \\mathbf{x}_{\\text{wm}} \\odot \\text{KERNELS}['\\text{norms}'][\\text{idx}_{\\text{dir}}, :]",
+      "required_operators": ["element_wise_multiply"],
+      "inputs": ["x_wm", "KERNELS['norms']", "idx_dir"],
+      "outputs": ["x_wm_scaled"]
+    },
+    {
+      "step_order": 25,
+      "step_name": "Compute Neurite Density Index (NDI)",
+      "mathematical_description": "\\text{NDI} = \\frac{\\sum_{j=0}^{143} x_{\\text{wm},j} \\cdot \\text{KERNELS}['\\text{icvf}'][j]}{\\sum_{j=0}^{143} x_{\\text{wm},j} + \\epsilon}",
+      "required_operators": ["weighted_sum", "scalar_divide"],
+      "inputs": ["x_wm_scaled", "KERNELS['icvf']"],
+      "outputs": ["NDI"]
+    },
+    {
+      "step_order": 26,
+      "step_name": "Compute Orientation Dispersion Index (ODI)",
+      "mathematical_description": "\\bar{\\kappa} = \\frac{\\sum_{j=0}^{143} x_{\\text{wm},j} \\cdot \\text{KERNELS}['\\kappa'][j]}{\\sum_{j=0}^{143} x_{\\text{wm},j} + \\epsilon}, \\quad \\text{ODI} = \\frac{2}{\\pi} \\arctan\\left(\\frac{1}{\\bar{\\kappa}}\\right)",
+      "required_operators": ["weighted_sum", "scalar_divide", "arctan"],
+      "inputs": ["x_wm_scaled", "KERNELS['kappa']"],
+      "outputs": ["ODI"]
+    },
+    {
+      "step_order": 27,
+      "step_name": "Compute Free Water Fraction (FWF)",
+      "mathematical_description": "\\text{FWF} = \\frac{x_{\\text{iso}}}{\\sum_{j=0}^{143} x_{\\text{wm},j} + x_{\\text{iso}} + \\epsilon}",
+      "required_operators": ["sum", "scalar_divide"],
+      "inputs": ["x_iso", "x_wm_scaled"],
+      "outputs": ["FWF"]
+    },
+    {
+      "step_order": 28,
+      "step_name": "Store Results",
+      "mathematical_description": "\\text{results}[i, :] = [\\text{NDI}, \\text{ODI}, \\text{FWF}]",
+      "required_operators": ["assignment"],
+      "inputs": ["NDI", "ODI", "FWF", "i"],
+      "outputs": ["results"]
+    },
+    {
+      "step_order": 29,
+      "step_name": "END_LOOP: Voxel-wise Reconstruction",
+      "mathematical_description": "\\text{end for } i",
+      "required_operators": [],
+      "inputs": [],
+      "outputs": ["results"]
+    }
+  ]
+}
+```

@@ -1,0 +1,54 @@
+```json
+{
+  "algorithm_name": "3D EIT Jacobian-Based Inversion",
+  "initialization": [
+    "Assemble baseline global stiffness matrix: K_{ij}(\\boldsymbol{\\sigma}_0) = \\sum_{e: i,j \\in \\mathbf{T}_e} \\sigma_{0,e} S^{(e)}_{\\text{local}(i), \\text{local}(j)} with Dirichlet BC at reference node n_{ref}",
+    "Solve forward problem for all excitations: \\mathbf{u}^{(k)} = \\mathbf{K}_0^{-1}\\mathbf{b}^{(k)} for k = 0, \\ldots, n_{el}-1, storing results in \\mathbf{F} \\in \\mathbb{R}^{n_{el} \\times N}",
+    "Compute electrode-restricted inverse stiffness: \\mathbf{R}_{el} = (\\mathbf{K}_0^{-1})[\\mathbf{e}_{pos}, :] \\in \\mathbb{R}^{n_{el} \\times N}",
+    "Compute differential response matrix: for measurement m with pattern [n_m, m_m, k_m], compute \\mathbf{r}_m = (\\mathbf{R}_{el})_{n_m, :} - (\\mathbf{R}_{el})_{m_m, :}, yielding \\mathbf{R}_i \\in \\mathbb{R}^{M \\times N}",
+    "Assemble Jacobian using sensitivity theorem: J_{me} = (\\mathbf{r}_m[\\mathbf{T}_e])^\\top \\mathbf{S}^{(e)} (\\mathbf{f}_{k_m}[\\mathbf{T}_e]), yielding \\mathbf{J} \\in \\mathbb{R}^{M \\times E}",
+    "Compute Gram matrix: \\mathbf{G} = \\mathbf{J}^\\top \\mathbf{J}",
+    "Build diagonal regularization matrix based on method: R_{ii} = G_{ii}^p for kotre, R_{ii} = G_{ii} for lm, R_{ii} = 1 for dgn; R_{ij} = 0 for i \\neq j",
+    "Compute reconstruction matrix: \\mathbf{H} = (\\mathbf{J}^\\top\\mathbf{J} + \\lambda\\mathbf{R})^{-1}\\mathbf{J}^\\top \\in \\mathbb{R}^{E \\times M}"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Compute Data Difference",
+      "mathematical_description": "\\Delta\\mathbf{v} = \\mathbf{v}^{(1)} - \\mathbf{v}^{(0)} \\quad \\text{(standard)} \\quad \\text{or} \\quad \\Delta v_m = \\ln\\left(\\frac{|v^{(1)}_m|}{|v^{(0)}_m|}\\right) \\cdot \\mathrm{sign}(\\Re(v^{(0)}_m)) \\quad \\text{(normalized)}",
+      "required_operators": [
+        "vector_subtraction",
+        "element_wise_absolute_value",
+        "element_wise_division",
+        "element_wise_logarithm",
+        "element_wise_sign",
+        "element_wise_product"
+      ],
+      "inputs": [
+        "v^{(0)}",
+        "v^{(1)}",
+        "normalize_flag"
+      ],
+      "outputs": [
+        "\\Delta\\mathbf{v}"
+      ]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Apply Reconstruction Operator",
+      "mathematical_description": "\\Delta\\boldsymbol{\\sigma} = -\\mathbf{H}\\Delta\\mathbf{v}",
+      "required_operators": [
+        "matrix_vector_product",
+        "scalar_vector_product"
+      ],
+      "inputs": [
+        "\\mathbf{H}",
+        "\\Delta\\mathbf{v}"
+      ],
+      "outputs": [
+        "\\Delta\\boldsymbol{\\sigma}"
+      ]
+    }
+  ]
+}
+```

@@ -1,0 +1,53 @@
+{
+  "task_name": "AMICO-master",
+  "golden_rating": 1085.692249845601,
+  "epoch_ratings": {
+    "epoch_01": 1042.8633995235587,
+    "epoch_02": 910.1578636616579,
+    "epoch_03": 955.8520921669766,
+    "epoch_04": 992.1458031674339,
+    "epoch_05": 979.8657398121238,
+    "epoch_06": 1033.4228518226482
+  },
+  "similarity_scores": {
+    "epoch_01": {
+      "embedding_similarity": 0.8006814122200012,
+      "structural_similarity": 0.0,
+      "combined_score": 0.4003407061100006
+    },
+    "epoch_02": {
+      "embedding_similarity": 0.6425877809524536,
+      "structural_similarity": 0.0,
+      "combined_score": 0.3212938904762268
+    },
+    "epoch_03": {
+      "embedding_similarity": 0.6611011624336243,
+      "structural_similarity": 0.0,
+      "combined_score": 0.33055058121681213
+    },
+    "epoch_04": {
+      "embedding_similarity": 0.6138874292373657,
+      "structural_similarity": 0.0,
+      "combined_score": 0.30694371461868286
+    },
+    "epoch_05": {
+      "embedding_similarity": 0.6101065278053284,
+      "structural_similarity": 0.0,
+      "combined_score": 0.3050532639026642
+    },
+    "epoch_06": {
+      "embedding_similarity": 0.5554455518722534,
+      "structural_similarity": 0.0,
+      "combined_score": 0.2777227759361267
+    }
+  },
+  "plans_summary": {
+    "epoch_01": "```json\n{\n  \"algorithm_name\": \"AMICO-NODDI Microstructure Imaging\",\n  \"initialization\": [\n    \"Load ...",
+    "epoch_02": "```json\n{\n  \"algorithm_name\": \"NODDI-AMICO\",\n  \"initialization\": [\n    \"Load DWI data: D ← NIfTI_loa...",
+    "epoch_03": "```json\n{\n  \"algorithm_name\": \"AMICO-NODDI (Accelerated Microstructure Imaging via Convex Optimizati...",
+    "epoch_04": "```json\n{\n  \"algorithm_name\": \"AMICO-NODDI (Accelerated Microstructure Imaging via Convex Optimizati...",
+    "epoch_05": "```json\n{\n  \"algorithm_name\": \"AMICO-NODDI (Accelerated Microstructure Imaging via Convex Optimizati...",
+    "epoch_06": "```json\n{\n  \"algorithm_name\": \"AMICO-NODDI\",\n  \"initialization\": [\n    \"Compute orientation dispersi..."
+  },
+  "timestamp": "2026-01-30T06:31:26.634235"
+}

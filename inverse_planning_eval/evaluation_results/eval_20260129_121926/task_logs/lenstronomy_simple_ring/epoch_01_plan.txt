@@ -1,0 +1,177 @@
+```json
+{
+  "algorithm_name": "Gravitational Lens Modeling and Parameter Inference via PSO-MCMC",
+  "initialization": [
+    "Set random seed for reproducibility: np.random.seed(42)",
+    "Define coordinate transformation matrix T with pixel scale Δθ = 0.05 arcsec/pix for N_x = N_y = 60 grid",
+    "Compute reference point (RA_0, Dec_0) from transformation matrix and image center",
+    "Construct Gaussian PSF kernel P with FWHM = 0.05 arcsec, σ_PSF = FWHM/(2√(2ln2)), truncated at 3×FWHM",
+    "Build composite lens model from SIE and SHEAR deflector components",
+    "Build source light model using SERSIC_ELLIPSE profile",
+    "Build lens light model using SERSIC_ELLIPSE profile",
+    "Generate noise-free model image M^true by evaluating forward model with true parameters",
+    "Convert to photon counts C = max(M^true · t_exp, 0) and apply Poisson noise: C' ~ Poisson(C)",
+    "Add Gaussian background noise: D = C'/t_exp + N(0, σ_bg²) to create observed data D",
+    "Define parameter bounds Θ^lower, Θ^upper for all 21 optimization variables",
+    "Set initial parameter vector Θ^(0) and proposal widths σ for each parameter",
+    "Initialize PSO swarm: x_i^(0) ~ N(Θ^(0), σ_scale² · σ²) clipped to bounds, for i = 1,...,N_p particles",
+    "Initialize particle velocities v_i^(0) = 0 for all particles",
+    "Evaluate initial fitness f_i = (1/2)χ²(x_i^(0)) for all particles",
+    "Set personal bests p_i = x_i^(0) and global best g = argmin_i(f_i)"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "PSO Velocity Update",
+      "mathematical_description": "$\\mathbf{v}_i^{(k)} = \\omega \\mathbf{v}_i^{(k-1)} + c_1 r_1 (\\mathbf{p}_i - \\mathbf{x}_i^{(k-1)}) + c_2 r_2 (\\mathbf{g} - \\mathbf{x}_i^{(k-1)})$ where $r_1, r_2 \\sim U(0,1)$, $\\omega$ is inertia weight, $c_1, c_2$ are cognitive/social coefficients",
+      "required_operators": ["random_uniform_sampling", "vector_subtraction", "scalar_vector_multiplication", "vector_addition"],
+      "inputs": ["v_i^(k-1)", "x_i^(k-1)", "p_i", "g", "omega", "c_1", "c_2"],
+      "outputs": ["v_i^(k)"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "PSO Position Update with Bounds Clipping",
+      "mathematical_description": "$\\mathbf{x}_i^{(k)} = \\text{clip}(\\mathbf{x}_i^{(k-1)} + \\mathbf{v}_i^{(k)}, \\boldsymbol{\\Theta}^{\\text{lower}}, \\boldsymbol{\\Theta}^{\\text{upper}})$",
+      "required_operators": ["vector_addition", "elementwise_clip"],
+      "inputs": ["x_i^(k-1)", "v_i^(k)", "Theta_lower", "Theta_upper"],
+      "outputs": ["x_i^(k)"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Compute Deflection Field",
+      "mathematical_description": "$\\boldsymbol{\\alpha}_{\\text{SIE}} = \\theta_E \\frac{q}{\\sqrt{1-q^2}} \\begin{pmatrix} \\arctan\\left(\\frac{\\sqrt{1-q^2}\\tilde{\\theta}_1}{\\psi + q^2 s}\\right) \\\\ \\text{arctanh}\\left(\\frac{\\sqrt{1-q^2}\\tilde{\\theta}_2}{\\psi + s}\\right) \\end{pmatrix}$, $\\boldsymbol{\\alpha}_{\\text{shear}} = \\begin{pmatrix} \\gamma_1 & \\gamma_2 \\\\ \\gamma_2 & -\\gamma_1 \\end{pmatrix} (\\boldsymbol{\\theta} - \\boldsymbol{\\theta}_0)$, $\\boldsymbol{\\alpha}_{\\text{total}} = \\boldsymbol{\\alpha}_{\\text{SIE}} + \\boldsymbol{\\alpha}_{\\text{shear}}$",
+      "required_operators": ["coordinate_rotation", "SIE_deflection_computation", "shear_deflection_computation", "vector_field_addition"],
+      "inputs": ["x_i^(k)", "theta_grid", "theta_E", "e1_lens", "e2_lens", "x_c_lens", "y_c_lens", "gamma_1", "gamma_2"],
+      "outputs": ["alpha_total"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Ray Tracing via Lens Equation",
+      "mathematical_description": "$\\boldsymbol{\\beta}_{ij} = \\boldsymbol{\\theta}_{ij} - \\boldsymbol{\\alpha}_{\\text{total}}(\\boldsymbol{\\theta}_{ij})$",
+      "required_operators": ["vector_field_subtraction"],
+      "inputs": ["theta_grid", "alpha_total"],
+      "outputs": ["beta_grid"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "Evaluate Source Light Profile",
+      "mathematical_description": "$I_{\\text{source}}(\\boldsymbol{\\beta}) = A_s \\exp\\left[-b_n \\left(\\left(\\frac{r_{\\text{eff}}}{R_s^{\\text{src}}}\\right)^{1/n_s^{\\text{src}}} - 1\\right)\\right]$ where $r_{\\text{eff}} = \\sqrt{q_L \\tilde{r}_1^2 + \\tilde{r}_2^2/q_L}$, $b_n \\approx 2n - 1/3 + 4/(405n)$",
+      "required_operators": ["elliptical_radius_computation", "sersic_profile_evaluation", "coordinate_rotation"],
+      "inputs": ["beta_grid", "A_s", "R_s_src", "n_s_src", "e1_src", "e2_src", "x_c_src", "y_c_src"],
+      "outputs": ["I_source"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Evaluate Lens Light Profile",
+      "mathematical_description": "$I_{\\text{lens}}(\\boldsymbol{\\theta}) = A_\\ell \\exp\\left[-b_n \\left(\\left(\\frac{r_{\\text{eff}}}{R_s^\\ell}\\right)^{1/n_s^\\ell} - 1\\right)\\right]$",
+      "required_operators": ["elliptical_radius_computation", "sersic_profile_evaluation", "coordinate_rotation"],
+      "inputs": ["theta_grid", "A_ell", "R_s_ell", "n_s_ell", "e1_ell", "e2_ell", "x_c_ell", "y_c_ell"],
+      "outputs": ["I_lens"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "PSF Convolution",
+      "mathematical_description": "$M_{ij} = \\sum_{k,l} \\left[I_{\\text{source}}(\\boldsymbol{\\beta}_{kl}) + I_{\\text{lens}}(\\boldsymbol{\\theta}_{kl})\\right] \\cdot P_{i-k,j-l}$",
+      "required_operators": ["image_addition", "2D_convolution"],
+      "inputs": ["I_source", "I_lens", "P"],
+      "outputs": ["M"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "Compute Chi-Squared Fitness",
+      "mathematical_description": "$f_i^{(k)} = \\frac{1}{2}\\chi^2(\\mathbf{x}_i^{(k)}) = \\frac{1}{2}\\sum_{i,j} \\frac{(D_{ij} - M_{ij})^2}{\\sigma_{ij}^2}$",
+      "required_operators": ["image_subtraction", "elementwise_square", "elementwise_division", "summation"],
+      "inputs": ["D", "M", "sigma"],
+      "outputs": ["f_i^(k)"]
+    },
+    {
+      "step_order": 9,
+      "step_name": "Update Personal Best",
+      "mathematical_description": "If $f_i^{(k)} < f_i^{\\text{pbest}}$: $\\mathbf{p}_i \\leftarrow \\mathbf{x}_i^{(k)}$, $f_i^{\\text{pbest}} \\leftarrow f_i^{(k)}$",
+      "required_operators": ["scalar_comparison", "conditional_assignment"],
+      "inputs": ["x_i^(k)", "f_i^(k)", "p_i", "f_i_pbest"],
+      "outputs": ["p_i", "f_i_pbest"]
+    },
+    {
+      "step_order": 10,
+      "step_name": "Update Global Best",
+      "mathematical_description": "If $\\min_i f_i^{(k)} < f^{\\text{gbest}}$: $\\mathbf{g} \\leftarrow \\arg\\min_i \\mathbf{x}_i^{(k)}$, $f^{\\text{gbest}} \\leftarrow \\min_i f_i^{(k)}$",
+      "required_operators": ["array_minimum", "argmin", "conditional_assignment"],
+      "inputs": ["all_x_i^(k)", "all_f_i^(k)", "g", "f_gbest"],
+      "outputs": ["g", "f_gbest"]
+    },
+    {
+      "step_order": 11,
+      "step_name": "Initialize MCMC Walkers from PSO Result",
+      "mathematical_description": "$\\mathbf{w}_j^{(0)} \\sim \\mathcal{N}(\\boldsymbol{\\Theta}^{\\text{PSO}}, (0.1 \\cdot \\boldsymbol{\\sigma})^2)$ for $j = 1, \\ldots, N_w$, clipped to parameter bounds",
+      "required_operators": ["gaussian_sampling", "elementwise_clip"],
+      "inputs": ["Theta_PSO", "sigma", "N_w", "Theta_lower", "Theta_upper"],
+      "outputs": ["w_j^(0)"]
+    },
+    {
+      "step_order": 12,
+      "step_name": "Evaluate Initial Log-Posterior for Walkers",
+      "mathematical_description": "$\\ln p_j^{(0)} = -\\frac{1}{2}\\chi^2(\\mathbf{w}_j^{(0)}) + \\ln\\pi(\\mathbf{w}_j^{(0)})$ where $\\ln\\pi = 0$ if within bounds, $-\\infty$ otherwise",
+      "required_operators": ["chi_squared_computation", "bounds_check", "log_prior_evaluation"],
+      "inputs": ["w_j^(0)", "D", "sigma", "Theta_lower", "Theta_upper"],
+      "outputs": ["ln_p_j^(0)"]
+    },
+    {
+      "step_order": 13,
+      "step_name": "Select Complementary Walker",
+      "mathematical_description": "For walker $j$, select $\\mathbf{w}_\\ell$ uniformly at random from $\\{\\mathbf{w}_m : m \\neq j\\}$",
+      "required_operators": ["random_integer_sampling", "array_indexing"],
+      "inputs": ["walker_ensemble", "j"],
+      "outputs": ["w_ell"]
+    },
+    {
+      "step_order": 14,
+      "step_name": "Draw Stretch Factor",
+      "mathematical_description": "$z \\sim g(z)$ where $g(z) \\propto \\frac{1}{\\sqrt{z}}$ for $z \\in [1/a, a]$ with $a = 2$",
+      "required_operators": ["stretch_factor_sampling"],
+      "inputs": ["a"],
+      "outputs": ["z"]
+    },
+    {
+      "step_order": 15,
+      "step_name": "Propose New Walker Position",
+      "mathematical_description": "$\\mathbf{w}_j' = \\mathbf{w}_\\ell + z(\\mathbf{w}_j^{(k-1)} - \\mathbf{w}_\\ell)$",
+      "required_operators": ["vector_subtraction", "scalar_vector_multiplication", "vector_addition"],
+      "inputs": ["w_j^(k-1)", "w_ell", "z"],
+      "outputs": ["w_j_proposed"]
+    },
+    {
+      "step_order": 16,
+      "step_name": "Evaluate Proposed Log-Posterior",
+      "mathematical_description": "$\\ln p(\\mathbf{w}_j') = -\\frac{1}{2}\\chi^2(\\mathbf{w}_j') + \\ln\\pi(\\mathbf{w}_j')$",
+      "required_operators": ["forward_model_evaluation", "chi_squared_computation", "log_prior_evaluation"],
+      "inputs": ["w_j_proposed", "D", "sigma", "Theta_lower", "Theta_upper"],
+      "outputs": ["ln_p_proposed"]
+    },
+    {
+      "step_order": 17,
+      "step_name": "Compute Acceptance Probability",
+      "mathematical_description": "$\\alpha = \\min\\left(1, z^{d-1} \\exp\\left(\\ln p(\\mathbf{w}_j') - \\ln p(\\mathbf{w}_j^{(k-1)})\\right)\\right)$ where $d = 21$",
+      "required_operators": ["log_subtraction", "exponential", "power", "scalar_multiplication", "minimum"],
+      "inputs": ["z", "d", "ln_p_proposed", "ln_p_j^(k-1)"],
+      "outputs": ["alpha"]
+    },
+    {
+      "step_order": 18,
+      "step_name": "Metropolis-Hastings Accept/Reject",
+      "mathematical_description": "Draw $u \\sim U(0,1)$; if $u < \\alpha$: $\\mathbf{w}_j^{(k)} = \\mathbf{w}_j'$, $\\ln p_j^{(k)} = \\ln p(\\mathbf{w}_j')$; else: $\\mathbf{w}_j^{(k)} = \\mathbf{w}_j^{(k-1)}$, $\\ln p_j^{(k)} = \\ln p_j^{(k-1)}$",
+      "required_operators": ["random_uniform_sampling", "scalar_comparison", "conditional_assignment"],
+      "inputs": ["alpha", "w_j_proposed", "w_j^(k-1)", "ln_p_proposed", "ln_p_j^(k-1)"],
+      "outputs": ["w_j^(k)", "ln_p_j^(k)"]
+    },
+    {
+      "step_order": 19,
+      "step_name": "Store Chain Sample",
+      "mathematical_description": "If $k > K_{\\text{burn}}$: append $\\mathbf{w}_j^{(k)}$ to posterior chain storage",
+      "required_operators": ["iteration_comparison", "array_append"],
+      "inputs": ["k", "K_burn", "w_j^(k)", "chain_storage"],
+      "outputs": ["chain_storage"]
+    }
+  ]
+}
+```

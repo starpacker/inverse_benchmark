@@ -1,0 +1,28 @@
+======================================================================
+ELO RATINGS MULTI-TASK ANALYSIS REPORT
+======================================================================
+
+Total Tasks Analyzed: 52
+Total Models Evaluated: 7
+
+----------------------------------------------------------------------
+TOP 5 MODELS BY AVERAGE ELO RATING
+----------------------------------------------------------------------
+1. glm-4.7                             | Mean: 1001.71 | Std:  4.75 | Range: [991.39, 1012.40] | Tasks: 52
+2. gemini-3-pro-preview                | Mean: 1001.37 | Std:  5.68 | Range: [988.82, 1014.29] | Tasks: 52
+3. gpt-5.2-thinking                    | Mean: 1000.89 | Std:  5.14 | Range: [986.29, 1009.10] | Tasks: 52
+4. qwen3-max                           | Mean: 1000.59 | Std:  6.07 | Range: [985.35, 1012.69] | Tasks: 52
+5. claude-opus-4-5-20251101-thinking   | Mean: 1000.49 | Std:  6.03 | Range: [986.73, 1009.16] | Tasks: 52
+
+----------------------------------------------------------------------
+MODEL STABILITY ANALYSIS (Low Std = Consistent Performance)
+----------------------------------------------------------------------
+1. glm-4.7                             | Std:  4.75 | Mean: 1001.71
+2. gpt-5.2-thinking                    | Std:  5.14 | Mean: 1000.89
+3. kimi-k2-250905                      | Std:  5.24 | Mean: 1000.48
+4. gemini-3-pro-preview                | Std:  5.68 | Mean: 1001.37
+5. claude-opus-4-5-20251101-thinking   | Std:  6.03 | Mean: 1000.49
+
+======================================================================
+Full results saved to: /home/yjh/inverse_planning_eval/elo_analysis_results
+======================================================================

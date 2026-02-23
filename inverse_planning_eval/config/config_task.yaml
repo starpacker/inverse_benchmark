@@ -1,0 +1,31 @@
+# config/task_io_paths.yaml
+task_io_paths:
+  spectral_ct_examples-master:
+    input_path: "/data/yjh/spectral_ct_examples-master_sandbox/io/input_noisy_projections.npy"
+    expected_output_path: "/data/yjh/spectral_ct_examples-master_sandbox/io/output_reconstruction.npy"
+    gt_code: "/data/yjh/spectral_ct_examples-master_sandbox/spectral_ct_code.py"
+  
+  # sim:
+  #   gt_code: "/home/yjh/sim_sandbox/sim_code.py"
+  #   input_path: ""
+  #   expected_output_path: ""
+
+  # pyeit:
+  #   gt_code: "/home/yjh/pyeit_sandbox/examples/eit_dynamic_jac3d.py"
+  #   input_path: ""
+  #   expected_output_path: ""
+
+  storm-analysis-master:
+    input_path: "/data/yjh/storm-analysis-master/storm_analysis/test/data/test.dax"
+    expected_output_path: "/data/yjh/storm-analysis-master_sandbox/io/output.npy"
+    gt_code: "/data/yjh/storm-analysis-master_sandbox/storm_code.py"
+
+  bpm:
+    input_path: "/home/yjh/bpm_sandbox/io/input.npz"
+    expected_output_path: "/home/yjh/bpm_sandbox/io/output.npy"
+    gt_code: "/home/yjh/bpm_sandbox/bpm_code.py"
+
+  insar:
+    input_path: "/home/yjh/insar_sandbox/20150328_20150409.int"
+    expected_output_path: "/home/yjh/insar_sandbox/result.npy"
+    gt_code: "/home/yjh/insar_sandbox/insar_code.py"

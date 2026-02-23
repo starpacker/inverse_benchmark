@@ -1,0 +1,177 @@
+```json
+{
+  "algorithm_name": "Deep Probabilistic Imaging via RealNVP",
+  "initialization": [
+    "Initialize ActNorm parameters: loc ← 0, log_scale_inv ← 0 for each flow block",
+    "Initialize ZeroFC layers: weight ← 0, bias ← 0, scale ← 0",
+    "Initialize coupling network weights: W_ij ~ N(0, 0.05²), biases ← 0",
+    "Generate random permutation orders: π_i = RandomState(i).permutation(d) for i=0,...,N_flow-1",
+    "Compute inverse permutation orders: π_i⁻¹ such that π_i⁻¹[π_i[j]] = j",
+    "Initialize Adam optimizer state with η=10⁻⁴, β₁=0.9, β₂=0.999",
+    "Set epoch counter k ← 0",
+    "Precompute DFT matrix F, image grids (G_x, G_y, G_r, G_θ), and closure index maps"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Compute Annealed Data Weight",
+      "mathematical_description": "\\lambda_{\\text{data}} = \\min\\left(10^{-\\lambda_{\\text{start}} + k/\\tau}, 1.0\\right)",
+      "required_operators": ["power", "minimum"],
+      "inputs": ["k", "λ_start", "τ"],
+      "outputs": ["λ_data"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Sample Latent Variables",
+      "mathematical_description": "z \\sim \\mathcal{N}(0, I_d), \\quad z \\in \\mathbb{R}^{N_{\\text{batch}} \\times d}",
+      "required_operators": ["random_normal"],
+      "inputs": ["N_batch", "d"],
+      "outputs": ["z"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "RealNVP Inverse Transform",
+      "mathematical_description": "\\text{For } i = N_{\\text{flow}}-1, \\ldots, 0: \\quad h \\leftarrow h[:,\\pi_i^{-1}]; \\quad h_a, h_b = \\text{split}(h); \\quad [\\log s, t] = \\text{Net}(h_a); \\quad h_b \\leftarrow h_b / e^{\\tanh(\\log s)} - t; \\quad h \\leftarrow \\text{ActNorm}^{-1}([h_a, h_b])",
+      "required_operators": ["indexing", "split", "neural_network_forward", "tanh", "exp", "division", "subtraction", "concatenation"],
+      "inputs": ["z", "π_inverse", "flow_parameters_φ"],
+      "outputs": ["θ_raw", "log_det_J_flow"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Apply Sigmoid Transform",
+      "mathematical_description": "\\theta = \\sigma(\\theta_{\\text{raw}}) = \\frac{1}{1 + e^{-\\theta_{\\text{raw}}}}",
+      "required_operators": ["sigmoid"],
+      "inputs": ["θ_raw"],
+      "outputs": ["θ"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "Compute Sigmoid Log-Determinant",
+      "mathematical_description": "\\log|\\det J_\\sigma| = \\sum_j \\left( -\\theta_{\\text{raw},j} - 2\\log(1 + e^{-\\theta_{\\text{raw},j}}) \\right)",
+      "required_operators": ["sum", "log", "exp", "negation"],
+      "inputs": ["θ_raw"],
+      "outputs": ["log_det_J_σ"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Compute Total Log-Determinant",
+      "mathematical_description": "\\log|\\det J| = \\log|\\det J_{\\text{flow}}| + \\log|\\det J_\\sigma|",
+      "required_operators": ["addition"],
+      "inputs": ["log_det_J_flow", "log_det_J_σ"],
+      "outputs": ["log_det_J"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "Map Parameters to Physical Ranges",
+      "mathematical_description": "r = \\frac{r_{\\min} + \\theta_0(r_{\\max} - r_{\\min})}{0.5 \\cdot \\text{fov}}, \\quad \\sigma_r = \\frac{w_{\\min} + \\theta_1(w_{\\max} - w_{\\min})}{0.5 \\cdot \\text{fov}}, \\quad s = s_{\\min} + \\theta_2(s_{\\max} - s_{\\min}), \\quad \\eta = \\frac{181\\pi}{180}(2\\theta_3 - 1)",
+      "required_operators": ["linear_interpolation", "scalar_multiply"],
+      "inputs": ["θ", "parameter_ranges"],
+      "outputs": ["r", "σ_r", "s", "η", "f", "φ_c", "gaussian_params"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "Generate Crescent Image",
+      "mathematical_description": "R = \\exp\\left(-\\frac{(G_r - r)^2}{2\\sigma_r^2}\\right), \\quad S = 1 + s\\cos(G_\\theta - \\eta), \\quad C = S \\odot R, \\quad D = \\frac{1}{2}\\left(1 + \\text{erf}\\left(\\frac{r - G_r}{\\sqrt{2}\\sigma_r}\\right)\\right), \\quad I_c = \\phi_c\\left((1-f)\\tilde{C} + f\\tilde{D}\\right)",
+      "required_operators": ["exp", "cos", "erf", "element_wise_multiply", "sum", "division", "addition"],
+      "inputs": ["G_r", "G_θ", "r", "σ_r", "s", "η", "f", "φ_c", "ε_img"],
+      "outputs": ["I_c"]
+    },
+    {
+      "step_order": 9,
+      "step_name": "Add Nuisance Gaussians",
+      "mathematical_description": "\\text{For } g = 0, \\ldots, N_{\\text{gauss}}-1: \\quad \\mathcal{G}_g = \\frac{1}{2\\pi\\sigma_{x,g}\\sigma_{y,g}}\\exp\\left(-\\frac{x'^2}{2\\sigma_{x,g}^2} - \\frac{y'^2}{2\\sigma_{y,g}^2}\\right), \\quad I \\leftarrow I_c + \\sum_g \\alpha_g \\tilde{\\mathcal{G}}_g",
+      "required_operators": ["rotation", "exp", "sum", "normalization", "addition"],
+      "inputs": ["I_c", "G_x", "G_y", "gaussian_params", "ε_img"],
+      "outputs": ["I"]
+    },
+    {
+      "step_order": 10,
+      "step_name": "Compute Visibilities via DFT",
+      "mathematical_description": "\\mathcal{V} = F^T \\cdot \\text{flatten}(I), \\quad \\mathcal{V} \\in \\mathbb{C}^{N_{\\text{batch}} \\times N_{\\text{vis}}}",
+      "required_operators": ["matrix_multiply", "flatten", "complex_construct"],
+      "inputs": ["I", "F"],
+      "outputs": ["V_real", "V_imag"]
+    },
+    {
+      "step_order": 11,
+      "step_name": "Compute Visibility Amplitudes",
+      "mathematical_description": "|\\mathcal{V}_k| = \\sqrt{\\Re(\\mathcal{V}_k)^2 + \\Im(\\mathcal{V}_k)^2 + \\epsilon}",
+      "required_operators": ["square", "addition", "sqrt"],
+      "inputs": ["V_real", "V_imag", "ε"],
+      "outputs": ["V_amp"]
+    },
+    {
+      "step_order": 12,
+      "step_name": "Compute Closure Phases",
+      "mathematical_description": "\\Psi_i = \\mathcal{S}_i^{(1)}\\text{atan2}(\\mathcal{V}_{\\mathcal{I}_i^{(1)}}) + \\mathcal{S}_i^{(2)}\\text{atan2}(\\mathcal{V}_{\\mathcal{I}_i^{(2)}}) + \\mathcal{S}_i^{(3)}\\text{atan2}(\\mathcal{V}_{\\mathcal{I}_i^{(3)}}) \\quad (\\text{in degrees})",
+      "required_operators": ["atan2", "indexing", "multiply", "addition", "rad2deg"],
+      "inputs": ["V_real", "V_imag", "I_cp_indices", "S_cp_signs"],
+      "outputs": ["Ψ_pred"]
+    },
+    {
+      "step_order": 13,
+      "step_name": "Compute Log Closure Amplitudes",
+      "mathematical_description": "\\log A_j = \\log|\\mathcal{V}_{\\mathcal{I}_j^{(1)}}| + \\log|\\mathcal{V}_{\\mathcal{I}_j^{(2)}}| - \\log|\\mathcal{V}_{\\mathcal{I}_j^{(3)}}| - \\log|\\mathcal{V}_{\\mathcal{I}_j^{(4)}}|",
+      "required_operators": ["log", "indexing", "addition", "subtraction"],
+      "inputs": ["V_amp", "I_ca_indices", "ε"],
+      "outputs": ["logA_pred"]
+    },
+    {
+      "step_order": 14,
+      "step_name": "Compute Data Fidelity Loss",
+      "mathematical_description": "\\mathcal{L}_{\\text{data}} = \\frac{1}{2s}\\left[ w_{\\text{cp}} \\sum_{i=1}^{N_{\\text{cp}}} \\frac{2(1 - \\cos(\\Psi_i^{\\text{true}} - \\Psi_i^{\\text{pred}}))}{(\\sigma_{\\text{cp},i} \\cdot \\pi/180)^2} + w_{\\text{ca}} \\sum_{j=1}^{N_{\\text{ca}}} \\frac{(\\log A_j^{\\text{true}} - \\log A_j^{\\text{pred}})^2}{\\sigma_{\\text{ca},j}^2} \\right]",
+      "required_operators": ["cos", "subtraction", "square", "division", "sum", "multiply"],
+      "inputs": ["Ψ_pred", "Ψ_true", "σ_cp", "logA_pred", "logA_true", "σ_ca", "w_cp", "w_ca", "s"],
+      "outputs": ["L_data"]
+    },
+    {
+      "step_order": 15,
+      "step_name": "Compute Base Energy",
+      "mathematical_description": "E(z;\\phi) = \\lambda_{\\text{data}} \\cdot \\mathcal{L}_{\\text{data}} - \\log|\\det J| + \\frac{1}{2}\\|z\\|_2^2",
+      "required_operators": ["multiply", "subtraction", "norm_squared", "addition"],
+      "inputs": ["λ_data", "L_data", "log_det_J", "z"],
+      "outputs": ["E"]
+    },
+    {
+      "step_order": 16,
+      "step_name": "Compute Importance Weights",
+      "mathematical_description": "w_i = \\frac{\\exp((\\alpha - 1) E_i)}{\\frac{1}{N_{\\text{batch}}}\\sum_j \\exp((\\alpha - 1) E_j)}, \\quad \\text{detached from gradient}",
+      "required_operators": ["multiply", "exp", "sum", "division", "detach"],
+      "inputs": ["E", "α", "N_batch"],
+      "outputs": ["w"]
+    },
+    {
+      "step_order": 17,
+      "step_name": "Compute Weighted Loss",
+      "mathematical_description": "\\mathcal{L} = \\frac{1}{N_{\\text{batch}}} \\sum_{i=1}^{N_{\\text{batch}}} w_i \\cdot E_i",
+      "required_operators": ["multiply", "sum", "division"],
+      "inputs": ["w", "E", "N_batch"],
+      "outputs": ["L"]
+    },
+    {
+      "step_order": 18,
+      "step_name": "Compute Gradients with Clipping",
+      "mathematical_description": "g = \\nabla_\\phi \\mathcal{L}, \\quad g \\leftarrow g \\cdot \\min\\left(1, \\frac{c}{\\|g\\|_2}\\right)",
+      "required_operators": ["backward", "norm", "minimum", "division", "multiply"],
+      "inputs": ["L", "φ", "c"],
+      "outputs": ["g_clipped"]
+    },
+    {
+      "step_order": 19,
+      "step_name": "Adam Parameter Update",
+      "mathematical_description": "m \\leftarrow \\beta_1 m + (1-\\beta_1) g, \\quad v \\leftarrow \\beta_2 v + (1-\\beta_2) g^2, \\quad \\hat{m} = m/(1-\\beta_1^k), \\quad \\hat{v} = v/(1-\\beta_2^k), \\quad \\phi \\leftarrow \\phi - \\eta \\cdot \\hat{m}/(\\sqrt{\\hat{v}} + \\epsilon)",
+      "required_operators": ["multiply", "addition", "subtraction", "square", "sqrt", "division", "power"],
+      "inputs": ["g_clipped", "φ", "m", "v", "β₁", "β₂", "η", "k", "ε"],
+      "outputs": ["φ", "m", "v"]
+    },
+    {
+      "step_order": 20,
+      "step_name": "Increment Epoch Counter",
+      "mathematical_description": "k \\leftarrow k + 1",
+      "required_operators": ["addition"],
+      "inputs": ["k"],
+      "outputs": ["k"]
+    }
+  ]
+}
+```

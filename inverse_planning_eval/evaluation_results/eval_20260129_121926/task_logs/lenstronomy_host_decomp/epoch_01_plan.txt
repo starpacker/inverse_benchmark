@@ -1,0 +1,173 @@
+```json
+{
+  "algorithm_name": "Particle Swarm Optimization with Linear Amplitude Solving for Quasar-Host Galaxy Decomposition",
+  "initialization": [
+    "Define non-linear parameter vector: θ_NL = (R_s^disk, e_1^disk, e_2^disk, c_x, c_y, R_s^bulge)^T ∈ ℝ^6",
+    "For each particle p ∈ {1,...,N_p}: sample initial position θ_p^(0) ~ U(θ_lower, θ_upper)",
+    "For each particle p: sample initial velocity v_p^(0) ~ U(-|θ_upper - θ_lower|, |θ_upper - θ_lower|)",
+    "Set personal best for each particle: p_p^best = θ_p^(0)",
+    "Evaluate fitness L(θ_p^(0)) for all particles using linear amplitude solve",
+    "Initialize global best: g^best = argmin_{θ_p^(0)} L(θ_p^(0))",
+    "Set PSO hyperparameters: inertia weight ω, cognitive coefficient c_1, social coefficient c_2"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Velocity Update",
+      "mathematical_description": "v_p^{(t)} = \\omega v_p^{(t-1)} + c_1 r_1 \\odot (p_p^{\\text{best}} - \\theta_p^{(t-1)}) + c_2 r_2 \\odot (g^{\\text{best}} - \\theta_p^{(t-1)}), \\quad r_1, r_2 \\sim \\mathcal{U}(0,1)^6",
+      "required_operators": [
+        "random_uniform_sampling",
+        "elementwise_multiplication",
+        "vector_subtraction",
+        "scalar_vector_multiplication",
+        "vector_addition"
+      ],
+      "inputs": [
+        "v_p^{(t-1)}",
+        "θ_p^{(t-1)}",
+        "p_p^best",
+        "g^best",
+        "ω",
+        "c_1",
+        "c_2"
+      ],
+      "outputs": [
+        "v_p^{(t)}"
+      ]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Position Update with Bounds Enforcement",
+      "mathematical_description": "\\theta_p^{(t)} = \\text{clip}\\left(\\theta_p^{(t-1)} + v_p^{(t)}, \\theta_{\\text{lower}}, \\theta_{\\text{upper}}\\right)",
+      "required_operators": [
+        "vector_addition",
+        "elementwise_clipping"
+      ],
+      "inputs": [
+        "θ_p^{(t-1)}",
+        "v_p^{(t)}",
+        "θ_lower",
+        "θ_upper"
+      ],
+      "outputs": [
+        "θ_p^{(t)}"
+      ]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Apply Joint Center Constraints",
+      "mathematical_description": "c_x^{\\text{bulge}} \\leftarrow c_x^{\\text{disk}}, \\quad c_y^{\\text{bulge}} \\leftarrow c_y^{\\text{disk}}, \\quad \\alpha_{\\text{ps}} \\leftarrow c_x^{\\text{disk}}, \\quad \\delta_{\\text{ps}} \\leftarrow c_y^{\\text{disk}}",
+      "required_operators": [
+        "parameter_assignment",
+        "constraint_enforcement"
+      ],
+      "inputs": [
+        "θ_p^{(t)}"
+      ],
+      "outputs": [
+        "θ_p^{(t)}_constrained"
+      ]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Build Design Matrix for Linear Solve",
+      "mathematical_description": "A_{:,1} = \\text{vec}(K \\ast I_{\\text{disk}}^{\\text{unit}}(\\theta_p^{(t)})), \\quad A_{:,2} = \\text{vec}(K \\ast I_{\\text{bulge}}^{\\text{unit}}(\\theta_p^{(t)})), \\quad A_{:,3} = \\text{vec}(K \\ast I_{\\text{ps}}^{\\text{unit}}(\\theta_p^{(t)})), \\quad A \\in \\mathbb{R}^{N^2 \\times 3}",
+      "required_operators": [
+        "sersic_profile_generation",
+        "point_source_generation",
+        "convolution_2d",
+        "vectorization",
+        "matrix_column_stacking"
+      ],
+      "inputs": [
+        "θ_p^{(t)}_constrained",
+        "K",
+        "n_disk",
+        "n_bulge",
+        "coordinate_grid"
+      ],
+      "outputs": [
+        "A"
+      ]
+    },
+    {
+      "step_order": 5,
+      "step_name": "Linear Amplitude Solve via Weighted Least Squares",
+      "mathematical_description": "a^* = \\arg\\min_{a \\geq 0} \\| W^{1/2}(y - Aa) \\|_2^2 = (A^T W A)^{-1} A^T W y, \\quad a^* = (A_{\\text{disk}}^*, A_{\\text{bulge}}^*, A_{\\text{ps}}^*)^T",
+      "required_operators": [
+        "matrix_transpose",
+        "matrix_multiplication",
+        "matrix_inverse",
+        "matrix_vector_multiplication",
+        "non_negative_least_squares"
+      ],
+      "inputs": [
+        "A",
+        "y",
+        "W"
+      ],
+      "outputs": [
+        "a^*"
+      ]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Compute Weighted Chi-Square Objective",
+      "mathematical_description": "\\hat{y} = A a^*, \\quad \\mathcal{L}_p = (y - \\hat{y})^T W (y - \\hat{y}) = \\sum_{i=1}^{N^2} W_{ii}(y_i - \\hat{y}_i)^2",
+      "required_operators": [
+        "matrix_vector_multiplication",
+        "vector_subtraction",
+        "weighted_inner_product",
+        "quadratic_form_evaluation"
+      ],
+      "inputs": [
+        "A",
+        "a^*",
+        "y",
+        "W"
+      ],
+      "outputs": [
+        "L_p",
+        "y_hat"
+      ]
+    },
+    {
+      "step_order": 7,
+      "step_name": "Update Personal Best",
+      "mathematical_description": "\\text{If } \\mathcal{L}_p < \\mathcal{L}(p_p^{\\text{best}}): \\quad p_p^{\\text{best}} \\leftarrow \\theta_p^{(t)}, \\quad \\mathcal{L}_p^{\\text{best}} \\leftarrow \\mathcal{L}_p",
+      "required_operators": [
+        "scalar_comparison",
+        "conditional_assignment"
+      ],
+      "inputs": [
+        "L_p",
+        "L_p^best",
+        "p_p^best",
+        "θ_p^{(t)}_constrained"
+      ],
+      "outputs": [
+        "p_p^best",
+        "L_p^best"
+      ]
+    },
+    {
+      "step_order": 8,
+      "step_name": "Update Global Best",
+      "mathematical_description": "g^{\\text{best}} = \\arg\\min_{p_p^{\\text{best}}, \\forall p \\in \\{1,...,N_p\\}} \\mathcal{L}(p_p^{\\text{best}})",
+      "required_operators": [
+        "argmin_over_set",
+        "scalar_comparison",
+        "conditional_assignment"
+      ],
+      "inputs": [
+        "p_p^best (all particles)",
+        "L_p^best (all particles)"
+      ],
+      "outputs": [
+        "g^best",
+        "L_global^best"
+      ]
+    }
+  ]
+}
+```

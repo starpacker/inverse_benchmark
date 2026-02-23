@@ -1,0 +1,147 @@
+```json
+{
+  "algorithm_name": "GAP-TV (Generalized Alternating Projection with Total Variation)",
+  "initialization": [
+    "Backprojection Initialization: $\\tilde{\\mathbf{X}}^{(0)} = \\mathbf{A}^T(\\mathbf{y}) = \\boldsymbol{\\Phi} \\odot \\text{tile}(\\mathbf{y}, n_C)$ where $\\text{tile}(\\mathbf{y}, n_C)_{:,:,i} = \\mathbf{y}$ for all $i$",
+    "Initialize Auxiliary Variable: $\\mathbf{y}_1^{(0)} = \\mathbf{0} \\in \\mathbb{R}^{r \\times (c+s(n_C-1))}$"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Forward Projection",
+      "mathematical_description": "$\\mathbf{y}_b^{(k)} = \\mathbf{A}(\\tilde{\\mathbf{X}}^{(k)}) = \\sum_{i=1}^{n_C} \\boldsymbol{\\Phi}_{:,:,i} \\odot \\tilde{\\mathbf{X}}^{(k)}_{:,:,i}$",
+      "required_operators": ["elementwise_multiply", "sum_along_axis"],
+      "inputs": ["X_tilde_k", "Phi"],
+      "outputs": ["y_b_k"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Residual Accumulation",
+      "mathematical_description": "$\\mathbf{y}_1^{(k+1)} = \\mathbf{y}_1^{(k)} + (\\mathbf{y} - \\mathbf{y}_b^{(k)})$",
+      "required_operators": ["elementwise_add", "elementwise_subtract"],
+      "inputs": ["y_1_k", "y", "y_b_k"],
+      "outputs": ["y_1_k+1"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Compute Correction Term",
+      "mathematical_description": "$\\mathbf{r}^{(k)} = \\frac{\\mathbf{y}_1^{(k+1)} - \\mathbf{y}_b^{(k)}}{\\boldsymbol{\\Phi}_{\\text{sum}}}$",
+      "required_operators": ["elementwise_subtract", "elementwise_divide"],
+      "inputs": ["y_1_k+1", "y_b_k", "Phi_sum"],
+      "outputs": ["r_k"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Backprojection Update",
+      "mathematical_description": "$\\tilde{\\mathbf{X}}^{(k+\\frac{1}{2})} = \\tilde{\\mathbf{X}}^{(k)} + \\lambda \\cdot \\mathbf{A}^T(\\mathbf{r}^{(k)})$ where $\\mathbf{A}^T(\\mathbf{r}) = \\boldsymbol{\\Phi} \\odot \\text{tile}(\\mathbf{r}, n_C)$",
+      "required_operators": ["tile", "elementwise_multiply", "scalar_multiply", "elementwise_add"],
+      "inputs": ["X_tilde_k", "r_k", "Phi", "lambda"],
+      "outputs": ["X_tilde_k_half"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "Shift Back (Undisperse)",
+      "mathematical_description": "$\\mathbf{X}^{(k+\\frac{1}{2})}_{:,:,i} = \\tilde{\\mathbf{X}}^{(k+\\frac{1}{2})}_{:, 0:c, i}$ after rolling channel $i$ by $-s \\cdot i$ along axis 1",
+      "required_operators": ["roll_axis", "slice"],
+      "inputs": ["X_tilde_k_half", "s", "c", "n_C"],
+      "outputs": ["X_k_half"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "TV Denoising - Initialize Dual Variables",
+      "mathematical_description": "$\\mathbf{p}_1^{(0)} = \\mathbf{0}$, $\\mathbf{p}_2^{(0)} = \\mathbf{0}$, $\\text{divp}^{(0)} = \\mathbf{0}$",
+      "required_operators": ["zeros_like"],
+      "inputs": ["X_k_half"],
+      "outputs": ["p1_0", "p2_0", "divp_0"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "TV Denoising - Compute Primal Estimate",
+      "mathematical_description": "$\\mathbf{z}^{(t)} = \\text{divp}^{(t)} - \\tau \\cdot \\mathbf{f}$ where $\\mathbf{f} = \\mathbf{X}^{(k+\\frac{1}{2})}$",
+      "required_operators": ["scalar_multiply", "elementwise_subtract"],
+      "inputs": ["divp_t", "tau", "X_k_half"],
+      "outputs": ["z_t"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "TV Denoising - Horizontal Gradient",
+      "mathematical_description": "$\\mathbf{z}_1^{(t)}_{j,k,i} = \\mathbf{z}^{(t)}_{j, k+1, i} - \\mathbf{z}^{(t)}_{j,k,i}$ with Neumann BC",
+      "required_operators": ["gradient_horizontal", "boundary_condition_neumann"],
+      "inputs": ["z_t"],
+      "outputs": ["z1_t"]
+    },
+    {
+      "step_order": 9,
+      "step_name": "TV Denoising - Vertical Gradient",
+      "mathematical_description": "$\\mathbf{z}_2^{(t)}_{j,k,i} = \\mathbf{z}^{(t)}_{j+1, k, i} - \\mathbf{z}^{(t)}_{j,k,i}$ with Neumann BC",
+      "required_operators": ["gradient_vertical", "boundary_condition_neumann"],
+      "inputs": ["z_t"],
+      "outputs": ["z2_t"]
+    },
+    {
+      "step_order": 10,
+      "step_name": "TV Denoising - Gradient Magnitude (Isotropic)",
+      "mathematical_description": "$\\mathbf{g}^{(t)}_{j,k} = \\sqrt{\\sum_{i=1}^{n_C}\\left[(\\mathbf{z}_1^{(t)}_{j,k,i})^2 + (\\mathbf{z}_2^{(t)}_{j,k,i})^2\\right]}$",
+      "required_operators": ["elementwise_square", "elementwise_add", "sum_along_axis", "elementwise_sqrt"],
+      "inputs": ["z1_t", "z2_t"],
+      "outputs": ["g_t"]
+    },
+    {
+      "step_order": 11,
+      "step_name": "TV Denoising - Compute Denominator",
+      "mathematical_description": "$\\mathbf{d}^{(t)}_{j,k,i} = 1 + \\delta t \\cdot \\mathbf{g}^{(t)}_{j,k}$ with $\\delta t = 0.25$",
+      "required_operators": ["scalar_multiply", "scalar_add", "broadcast"],
+      "inputs": ["g_t", "delta_t"],
+      "outputs": ["d_t"]
+    },
+    {
+      "step_order": 12,
+      "step_name": "TV Denoising - Update Dual Variable p1",
+      "mathematical_description": "$\\mathbf{p}_1^{(t+1)} = \\frac{\\mathbf{p}_1^{(t)} + \\delta t \\cdot \\mathbf{z}_1^{(t)}}{\\mathbf{d}^{(t)}}$",
+      "required_operators": ["scalar_multiply", "elementwise_add", "elementwise_divide"],
+      "inputs": ["p1_t", "z1_t", "d_t", "delta_t"],
+      "outputs": ["p1_t+1"]
+    },
+    {
+      "step_order": 13,
+      "step_name": "TV Denoising - Update Dual Variable p2",
+      "mathematical_description": "$\\mathbf{p}_2^{(t+1)} = \\frac{\\mathbf{p}_2^{(t)} + \\delta t \\cdot \\mathbf{z}_2^{(t)}}{\\mathbf{d}^{(t)}}$",
+      "required_operators": ["scalar_multiply", "elementwise_add", "elementwise_divide"],
+      "inputs": ["p2_t", "z2_t", "d_t", "delta_t"],
+      "outputs": ["p2_t+1"]
+    },
+    {
+      "step_order": 14,
+      "step_name": "TV Denoising - Compute Divergence",
+      "mathematical_description": "$\\text{divp}^{(t+1)}_{j,k,i} = (\\mathbf{p}_1^{(t+1)}_{j,k,i} - \\mathbf{p}_1^{(t+1)}_{j,k-1,i}) + (\\mathbf{p}_2^{(t+1)}_{j,k,i} - \\mathbf{p}_2^{(t+1)}_{j-1,k,i})$ with BC: $\\mathbf{p}_1^{(t+1)}_{j,-1,i} = 0$, $\\mathbf{p}_2^{(t+1)}_{-1,k,i} = 0$",
+      "required_operators": ["divergence", "boundary_condition_zero"],
+      "inputs": ["p1_t+1", "p2_t+1"],
+      "outputs": ["divp_t+1"]
+    },
+    {
+      "step_order": 15,
+      "step_name": "TV Denoising - Recover Primal Solution",
+      "mathematical_description": "$\\mathbf{u} = \\mathbf{f} - \\frac{1}{\\tau}\\text{divp}^{(K_{\\text{TV}})}$ where $\\mathbf{f} = \\mathbf{X}^{(k+\\frac{1}{2})}$",
+      "required_operators": ["scalar_divide", "elementwise_subtract"],
+      "inputs": ["X_k_half", "divp_final", "tau"],
+      "outputs": ["X_k+1"]
+    },
+    {
+      "step_order": 16,
+      "step_name": "Shift Forward (Disperse)",
+      "mathematical_description": "$\\tilde{\\mathbf{X}}^{(k+1)}_{:, i \\cdot s : i \\cdot s + c, i} = \\mathbf{X}^{(k+1)}_{:,:,i}$ for all $i \\in \\{0, \\ldots, n_C-1\\}$",
+      "required_operators": ["slice_assign", "roll_axis"],
+      "inputs": ["X_k+1", "s", "c", "n_C"],
+      "outputs": ["X_tilde_k+1"]
+    },
+    {
+      "step_order": 17,
+      "step_name": "Compute PSNR",
+      "mathematical_description": "$\\text{PSNR}^{(k+1)} = 20 \\log_{10}\\left(\\frac{1.0}{\\sqrt{\\text{MSE}(\\mathbf{X}^{gt}, \\mathbf{X}^{(k+1)})}}\\right)$",
+      "required_operators": ["mse", "sqrt", "log10", "scalar_divide"],
+      "inputs": ["X_gt", "X_k+1", "PIXEL_MAX"],
+      "outputs": ["PSNR_k+1"]
+    }
+  ]
+}
+```

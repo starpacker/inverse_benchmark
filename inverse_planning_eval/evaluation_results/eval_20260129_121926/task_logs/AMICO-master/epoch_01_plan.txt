@@ -1,0 +1,194 @@
+```json
+{
+  "algorithm_name": "AMICO-NODDI Microstructure Imaging",
+  "initialization": [
+    "Load DWI data D of shape (N_x, N_y, N_z, n_S) from NIfTI file",
+    "Load and binarize brain mask M of shape (N_x, N_y, N_z)",
+    "Parse acquisition scheme file to extract gradient directions G, b-values b, pulse duration delta, and diffusion time Delta",
+    "Compute b-values from scheme v1: b = (gamma * delta * G)^2 * (Delta - delta/3) * 1e-6",
+    "Normalize gradient directions: g_hat = g / (||g||_2 + 1e-16)",
+    "Identify diffusion shells by rounding b-values to nearest 100",
+    "Perform DTI fitting using DIPY tensor model to obtain principal diffusion directions V_1 of shape (N_x, N_y, N_z, 3)",
+    "Generate 500-direction sphere sampling GRAD_500",
+    "Precompute SH basis matrix Y for GRAD_500 up to order l_max=12",
+    "Compute SH pseudo-inverse: Y_plus = (Y^T Y)^{-1} Y^T and store in AUX['fit']",
+    "Precompute rotation constants: const[l] = sqrt(4*pi/(2*l+1)) for each SH degree",
+    "Precompute SH basis Ylm_rot evaluated at each of 500 sphere directions",
+    "Define IC volume fraction grid: v_ic in linspace(0.1, 0.99, 12)",
+    "Define orientation dispersion grid: OD in [0.03, 0.06] union linspace(0.09, 0.99, 10)",
+    "Compute concentration parameters: kappa = 1 / tan(OD * pi/2)",
+    "Set hyperparameters: d_parallel=1.7e-3, d_iso=3.0e-3, lambda=0.5",
+    "Build KD-tree from GRAD_500 for efficient nearest neighbor search"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Dictionary Generation - Compartment Signal Computation",
+      "mathematical_description": "For each (\\kappa_i, v_{\\text{ic},j}) pair: Compute $S_{\\text{ic}} = \\frac{1}{2} \\sum_{\\ell=0}^{6} L_\\ell(\\Lambda_\\perp - \\Lambda_\\parallel) \\cdot c_\\ell(\\kappa) \\cdot \\sqrt{\\frac{2\\ell + 0.5}{\\pi}} \\cdot P_{2\\ell}^0(\\cos\\theta) \\cdot e^{\\Lambda_\\perp}$ and $S_{\\text{ec}} = \\exp(-b \\cdot [(D_\\parallel^{\\text{app}} - D_\\perp^{\\text{app}})\\cos^2\\theta + D_\\perp^{\\text{app}}])$",
+      "required_operators": ["watson_sh_coefficients", "legendre_gaussian_integrals", "dawson_function", "legendre_polynomials", "exponential"],
+      "inputs": ["d_parallel", "kappa_grid", "v_ic_grid", "scheme_high", "GRAD_500"],
+      "outputs": ["s_ic", "s_ec"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Dictionary Generation - Compartment Mixing",
+      "mathematical_description": "$\\mathbf{s} = v_{\\text{ic},j} \\cdot \\mathbf{s}_{\\text{ic}} + (1 - v_{\\text{ic},j}) \\cdot \\mathbf{s}_{\\text{ec}}$",
+      "required_operators": ["weighted_sum"],
+      "inputs": ["s_ic", "s_ec", "v_ic_j"],
+      "outputs": ["s_combined"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Dictionary Generation - SH Projection",
+      "mathematical_description": "$\\mathbf{K}^{(\\text{SH})}_s = \\mathbf{Y}^+ \\cdot \\mathbf{s}[\\text{shell } s]$ for each shell $s$",
+      "required_operators": ["matrix_vector_multiply", "pseudo_inverse"],
+      "inputs": ["s_combined", "AUX['fit']"],
+      "outputs": ["K_SH"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Dictionary Generation - SH Rotation",
+      "mathematical_description": "$K_{\\ell m}^{(d)} = \\sqrt{\\frac{4\\pi}{2\\ell+1}} \\cdot K_{\\ell 0} \\cdot Y_{\\ell m}(\\theta_d, \\phi_d)$ for each direction $d \\in \\{1,\\ldots,500\\}$",
+      "required_operators": ["sh_rotation", "element_wise_multiply"],
+      "inputs": ["K_SH", "AUX['const']", "AUX['Ylm_rot']", "AUX['idx_m0']"],
+      "outputs": ["KR"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "Dictionary Generation - Resampling to Acquisition",
+      "mathematical_description": "$\\mathbf{K}^{(\\text{acq})}[d, :] = \\mathbf{Y}_{\\text{acq}} \\cdot \\mathbf{KR}[d, :]$",
+      "required_operators": ["matrix_vector_multiply"],
+      "inputs": ["KR", "Y_acq"],
+      "outputs": ["KERNELS['wm']"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Dictionary Generation - Normalization Factors",
+      "mathematical_description": "$\\text{norm}_k = \\|\\mathbf{K}^{(\\text{acq})}[0, \\text{dwi\\_idx}]\\|_2^{-1}$",
+      "required_operators": ["l2_norm", "reciprocal"],
+      "inputs": ["KERNELS['wm']"],
+      "outputs": ["KERNELS['norms']"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "Dictionary Generation - Isotropic Kernel",
+      "mathematical_description": "$S_{\\text{iso}} = \\exp(-\\mathbf{b} \\cdot d_{\\text{iso}})$",
+      "required_operators": ["exponential", "scalar_vector_multiply"],
+      "inputs": ["b", "d_iso"],
+      "outputs": ["KERNELS['iso']"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "Voxelwise Inversion - Extract Masked Voxels",
+      "mathematical_description": "$\\mathbf{Y} = \\mathbf{D}[\\mathbf{M}] \\in \\mathbb{R}^{n_{\\text{vox}} \\times n_S}$",
+      "required_operators": ["boolean_indexing"],
+      "inputs": ["D", "M"],
+      "outputs": ["Y"]
+    },
+    {
+      "step_order": 9,
+      "step_name": "Voxelwise Inversion - Direction Normalization",
+      "mathematical_description": "$\\hat{\\mathbf{v}}_i = \\mathbf{v}_i / (\\|\\mathbf{v}_i\\|_2 + 10^{-16})$",
+      "required_operators": ["l2_norm", "vector_scalar_divide"],
+      "inputs": ["V_1[i]"],
+      "outputs": ["v_hat"]
+    },
+    {
+      "step_order": 10,
+      "step_name": "Voxelwise Inversion - Nearest Direction Lookup",
+      "mathematical_description": "$d^* = \\arg\\min_d \\min(\\|\\hat{\\mathbf{v}} - \\mathbf{g}_d\\|, \\|\\hat{\\mathbf{v}} + \\mathbf{g}_d\\|)$",
+      "required_operators": ["kd_tree_query", "minimum"],
+      "inputs": ["v_hat", "GRAD_500", "tree"],
+      "outputs": ["d_star"]
+    },
+    {
+      "step_order": 11,
+      "step_name": "Voxelwise Inversion - Dictionary Column Extraction",
+      "mathematical_description": "$\\mathbf{A}_{\\text{wm}} = \\text{KERNELS['wm']}[:, d^*, :]^T \\in \\mathbb{R}^{n_S \\times (n_{\\text{atoms}}-1)}$",
+      "required_operators": ["array_indexing", "transpose"],
+      "inputs": ["KERNELS['wm']", "d_star"],
+      "outputs": ["A_wm"]
+    },
+    {
+      "step_order": 12,
+      "step_name": "Voxelwise Inversion - Isotropic Fitting (NNLS)",
+      "mathematical_description": "$x_{\\text{iso}} = \\arg\\min_{x \\geq 0} \\|\\mathbf{y}_i - x \\cdot \\mathbf{a}_{\\text{iso}}\\|_2^2$",
+      "required_operators": ["nnls"],
+      "inputs": ["y_i", "KERNELS['iso']"],
+      "outputs": ["x_iso"]
+    },
+    {
+      "step_order": 13,
+      "step_name": "Voxelwise Inversion - WM Residual Computation",
+      "mathematical_description": "$\\mathbf{y}_{\\text{wm}} = \\max(\\mathbf{y}_i - x_{\\text{iso}} \\cdot \\mathbf{a}_{\\text{iso}}, 0)$",
+      "required_operators": ["vector_subtraction", "scalar_vector_multiply", "element_wise_max"],
+      "inputs": ["y_i", "x_iso", "KERNELS['iso']"],
+      "outputs": ["y_wm"]
+    },
+    {
+      "step_order": 14,
+      "step_name": "Voxelwise Inversion - Dictionary Scaling",
+      "mathematical_description": "$\\tilde{\\mathbf{A}}_{\\text{wm}} = \\mathbf{A}_{\\text{wm}} \\odot \\mathbf{n}$ (column-wise multiplication by normalization factors)",
+      "required_operators": ["column_wise_multiply"],
+      "inputs": ["A_wm", "KERNELS['norms']"],
+      "outputs": ["A_wm_scaled"]
+    },
+    {
+      "step_order": 15,
+      "step_name": "Voxelwise Inversion - LASSO Solve",
+      "mathematical_description": "$\\tilde{\\mathbf{x}}_{\\text{wm}} = \\arg\\min_{\\mathbf{x} \\geq 0} \\frac{1}{2}\\|\\mathbf{y}_{\\text{wm}} - \\tilde{\\mathbf{A}}_{\\text{wm}}\\mathbf{x}\\|_2^2 + \\alpha\\|\\mathbf{x}\\|_1$ where $\\alpha = \\lambda / n_S$",
+      "required_operators": ["lasso_nnls"],
+      "inputs": ["y_wm", "A_wm_scaled", "lambda", "n_S"],
+      "outputs": ["x_wm_scaled"]
+    },
+    {
+      "step_order": 16,
+      "step_name": "Voxelwise Inversion - Coefficient Unscaling",
+      "mathematical_description": "$\\mathbf{x}_{\\text{wm}} = \\tilde{\\mathbf{x}}_{\\text{wm}} \\odot \\mathbf{n}$",
+      "required_operators": ["element_wise_multiply"],
+      "inputs": ["x_wm_scaled", "KERNELS['norms']"],
+      "outputs": ["x_wm"]
+    },
+    {
+      "step_order": 17,
+      "step_name": "Voxelwise Inversion - NDI Computation",
+      "mathematical_description": "$\\text{NDI}_i = \\frac{\\sum_k x_{\\text{wm},k} \\cdot v_{\\text{ic},k}}{\\sum_k x_{\\text{wm},k} + \\epsilon}$",
+      "required_operators": ["weighted_sum", "sum", "division"],
+      "inputs": ["x_wm", "KERNELS['icvf']"],
+      "outputs": ["NDI_i"]
+    },
+    {
+      "step_order": 18,
+      "step_name": "Voxelwise Inversion - Weighted Kappa Computation",
+      "mathematical_description": "$\\bar{\\kappa}_i = \\frac{\\sum_k x_{\\text{wm},k} \\cdot \\kappa_k}{\\sum_k x_{\\text{wm},k} + \\epsilon}$",
+      "required_operators": ["weighted_sum", "sum", "division"],
+      "inputs": ["x_wm", "KERNELS['kappa']"],
+      "outputs": ["kappa_bar_i"]
+    },
+    {
+      "step_order": 19,
+      "step_name": "Voxelwise Inversion - ODI Computation",
+      "mathematical_description": "$\\text{ODI}_i = \\frac{2}{\\pi} \\arctan\\left(\\frac{1}{\\bar{\\kappa}_i}\\right)$",
+      "required_operators": ["reciprocal", "arctan", "scalar_multiply"],
+      "inputs": ["kappa_bar_i"],
+      "outputs": ["ODI_i"]
+    },
+    {
+      "step_order": 20,
+      "step_name": "Voxelwise Inversion - FWF Computation",
+      "mathematical_description": "$\\text{FWF}_i = \\frac{x_{\\text{iso}}}{\\sum_k x_{\\text{wm},k} + x_{\\text{iso}}}$",
+      "required_operators": ["sum", "addition", "division"],
+      "inputs": ["x_iso", "x_wm"],
+      "outputs": ["FWF_i"]
+    },
+    {
+      "step_order": 21,
+      "step_name": "Map Reconstruction",
+      "mathematical_description": "Place voxelwise results back into 3D volumes at mask locations: $\\text{NDI}[\\mathbf{M}] = \\{\\text{NDI}_i\\}$, $\\text{ODI}[\\mathbf{M}] = \\{\\text{ODI}_i\\}$, $\\text{FWF}[\\mathbf{M}] = \\{\\text{FWF}_i\\}$",
+      "required_operators": ["boolean_indexing_assignment"],
+      "inputs": ["NDI_i", "ODI_i", "FWF_i", "M"],
+      "outputs": ["NDI_map", "ODI_map", "FWF_map"]
+    }
+  ]
+}
+```

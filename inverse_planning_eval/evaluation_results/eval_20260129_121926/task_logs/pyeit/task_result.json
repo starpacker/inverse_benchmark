@@ -1,0 +1,53 @@
+{
+  "task_name": "pyeit",
+  "golden_rating": 1085.692249845601,
+  "epoch_ratings": {
+    "epoch_01": 1057.4449563917303,
+    "epoch_02": 983.1791649455087,
+    "epoch_03": 948.5898424277975,
+    "epoch_04": 965.5368171427904,
+    "epoch_05": 1009.4047269061954,
+    "epoch_06": 950.1522423403767
+  },
+  "similarity_scores": {
+    "epoch_01": {
+      "embedding_similarity": 0.6991769075393677,
+      "structural_similarity": 0.0,
+      "combined_score": 0.34958845376968384
+    },
+    "epoch_02": {
+      "embedding_similarity": 0.5928652286529541,
+      "structural_similarity": 0.0,
+      "combined_score": 0.29643261432647705
+    },
+    "epoch_03": {
+      "embedding_similarity": 0.5581949949264526,
+      "structural_similarity": 0.0,
+      "combined_score": 0.2790974974632263
+    },
+    "epoch_04": {
+      "embedding_similarity": 0.6621763706207275,
+      "structural_similarity": 0.0,
+      "combined_score": 0.33108818531036377
+    },
+    "epoch_05": {
+      "embedding_similarity": 0.6246343851089478,
+      "structural_similarity": 0.0,
+      "combined_score": 0.3123171925544739
+    },
+    "epoch_06": {
+      "embedding_similarity": 0.6061277389526367,
+      "structural_similarity": 0.0,
+      "combined_score": 0.30306386947631836
+    }
+  },
+  "plans_summary": {
+    "epoch_01": "```json\n{\n  \"algorithm_name\": \"3D EIT Jacobian-Based Tikhonov Reconstruction\",\n  \"initialization\": [...",
+    "epoch_02": "```json\n{\n  \"algorithm_name\": \"3D EIT Jacobian-Based Inversion\",\n  \"initialization\": [\n    \"Assemble...",
+    "epoch_03": "```json\n{\n  \"algorithm_name\": \"JAC (Jacobian-based) EIT Inversion\",\n  \"initialization\": [\n    \"Assem...",
+    "epoch_04": "```json\n{\n  \"algorithm_name\": \"JAC-EIT (Jacobian-based Electrical Impedance Tomography Reconstructio...",
+    "epoch_05": "```json\n{\n  \"algorithm_name\": \"Jacobian-Based EIT Reconstruction (JAC)\",\n  \"initialization\": [\n    \"...",
+    "epoch_06": "```json\n{\n  \"algorithm_name\": \"JAC (Jacobian-based Linear Reconstruction)\",\n  \"initialization\": [\n  ..."
+  },
+  "timestamp": "2026-01-29T16:47:41.543146"
+}

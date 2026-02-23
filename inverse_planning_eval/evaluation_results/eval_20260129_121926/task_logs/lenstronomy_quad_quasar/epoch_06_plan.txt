@@ -1,0 +1,290 @@
+```json
+{
+  "algorithm_name": "Gravitational Lens Modeling via PSO-MCMC",
+  "initialization": [
+    "Initialize parameter vector θ_init with default lens, source, lens light, and point source parameters",
+    "Initialize parameter uncertainties σ for each parameter from kwargs_*_sigma dictionaries",
+    "Set box constraints θ_lower and θ_upper from kwargs_lower_* and kwargs_upper_* dictionaries",
+    "Initialize PSO particle positions: X_p^{(i,j)} = θ_{init,j} + σ_scale · σ_j · U_ij where U_ij ~ U(-1,1) for i=1,...,N_part",
+    "Initialize PSO particle velocities: v_p^{(i,j)} = σ_scale · σ_j · U_ij where U_ij ~ U(-1,1)",
+    "Set personal best positions: p_best^{(i)} = X_p^{(i)} for all particles",
+    "Evaluate initial fitness for all particles: χ²_p^{(i)} = χ²(X_p^{(i)})",
+    "Set global best: g_best = argmin_i χ²_p^{(i)}",
+    "Set global best fitness: χ²_global = min_i χ²_p^{(i)}"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "PSO Outer Loop Start",
+      "mathematical_description": "\\text{for } k = 1, \\ldots, N_{\\text{iter}}^{\\text{PSO}}",
+      "required_operators": ["loop_control"],
+      "inputs": ["N_iter_PSO"],
+      "outputs": ["k"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "PSO Particle Loop Start",
+      "mathematical_description": "\\text{for } i = 1, \\ldots, N_{\\text{part}}",
+      "required_operators": ["loop_control"],
+      "inputs": ["N_part"],
+      "outputs": ["i"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Generate Random Coefficients",
+      "mathematical_description": "r_1, r_2 \\sim \\mathcal{U}(0, 1)",
+      "required_operators": ["uniform_random_generator"],
+      "inputs": [],
+      "outputs": ["r_1", "r_2"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Update Particle Velocity",
+      "mathematical_description": "\\mathbf{v}_p^{(i)} \\leftarrow \\omega \\mathbf{v}_p^{(i)} + c_1 r_1 (\\mathbf{p}_{\\text{best}}^{(i)} - \\mathbf{X}_p^{(i)}) + c_2 r_2 (\\mathbf{g}_{\\text{best}} - \\mathbf{X}_p^{(i)})",
+      "required_operators": ["vector_scalar_multiply", "vector_addition", "vector_subtraction"],
+      "inputs": ["v_p^{(i)}", "X_p^{(i)}", "p_best^{(i)}", "g_best", "omega", "c_1", "c_2", "r_1", "r_2"],
+      "outputs": ["v_p^{(i)}"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "Update Particle Position",
+      "mathematical_description": "\\mathbf{X}_p^{(i)} \\leftarrow \\mathbf{X}_p^{(i)} + \\mathbf{v}_p^{(i)}",
+      "required_operators": ["vector_addition"],
+      "inputs": ["X_p^{(i)}", "v_p^{(i)}"],
+      "outputs": ["X_p^{(i)}"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Enforce Box Constraints",
+      "mathematical_description": "X_{p,j}^{(i)} \\leftarrow \\max(\\theta_{\\text{lower},j}, \\min(\\theta_{\\text{upper},j}, X_{p,j}^{(i)})), \\quad \\forall j",
+      "required_operators": ["elementwise_clip", "elementwise_min", "elementwise_max"],
+      "inputs": ["X_p^{(i)}", "theta_lower", "theta_upper"],
+      "outputs": ["X_p^{(i)}"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "Compute Lens Deflection Angles",
+      "mathematical_description": "\\boldsymbol{\\alpha}(\\boldsymbol{\\theta}) = \\boldsymbol{\\alpha}_{\\text{EPL}}(\\theta_E, \\gamma, e_1, e_2, x_c, y_c) + \\boldsymbol{\\alpha}_{\\text{shear}}(\\gamma_1, \\gamma_2)",
+      "required_operators": ["EPL_deflection", "shear_deflection", "vector_addition"],
+      "inputs": ["X_p^{(i)}", "pixel_coords"],
+      "outputs": ["alpha"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "Ray-Trace to Source Plane",
+      "mathematical_description": "\\boldsymbol{\\beta}_{\\text{pix}} = \\boldsymbol{\\theta}_{\\text{pix}} - \\boldsymbol{\\alpha}(\\boldsymbol{\\theta}_{\\text{pix}})",
+      "required_operators": ["vector_subtraction"],
+      "inputs": ["theta_pix", "alpha"],
+      "outputs": ["beta_pix"]
+    },
+    {
+      "step_order": 9,
+      "step_name": "Evaluate Source Surface Brightness",
+      "mathematical_description": "I_{\\text{src}}(\\boldsymbol{\\beta}) = A_{\\text{src}} \\exp\\left(-b_n \\left[\\left(\\frac{R(\\boldsymbol{\\beta})}{R_{\\text{sersic}}}\\right)^{1/n} - 1\\right]\\right)",
+      "required_operators": ["sersic_profile", "elliptical_radius"],
+      "inputs": ["beta_pix", "R_sersic_src", "n_sersic_src", "e1_src", "e2_src", "x_c_src", "y_c_src"],
+      "outputs": ["S_src_lensed"]
+    },
+    {
+      "step_order": 10,
+      "step_name": "Evaluate Lens Light Surface Brightness",
+      "mathematical_description": "I_{\\text{lens}}(\\boldsymbol{\\theta}) = A_{\\text{ll}} \\exp\\left(-b_n \\left[\\left(\\frac{R(\\boldsymbol{\\theta})}{R_{\\text{sersic}}^{\\text{ll}}}\\right)^{1/n_{\\text{ll}}} - 1\\right]\\right)",
+      "required_operators": ["sersic_profile", "elliptical_radius"],
+      "inputs": ["theta_pix", "R_sersic_ll", "n_sersic_ll", "e1_ll", "e2_ll", "x_c_ll", "y_c_ll"],
+      "outputs": ["S_lens"]
+    },
+    {
+      "step_order": 11,
+      "step_name": "Render Point Sources",
+      "mathematical_description": "S_{\\text{PS}} = \\sum_{j=1}^{4} A_j \\cdot \\delta(\\boldsymbol{\\theta} - \\boldsymbol{\\theta}_j^{\\text{img}})",
+      "required_operators": ["point_source_render", "delta_function"],
+      "inputs": ["x_img", "y_img", "point_amp", "pixel_coords"],
+      "outputs": ["S_PS"]
+    },
+    {
+      "step_order": 12,
+      "step_name": "Combine and Convolve with PSF",
+      "mathematical_description": "\\mathbf{m}(\\boldsymbol{\\theta}) = (S_{\\text{lens}} + S_{\\text{src}}^{\\text{lensed}} + S_{\\text{PS}}) * \\text{PSF}",
+      "required_operators": ["image_addition", "convolution_2d", "fft", "ifft"],
+      "inputs": ["S_lens", "S_src_lensed", "S_PS", "PSF"],
+      "outputs": ["m"]
+    },
+    {
+      "step_order": 13,
+      "step_name": "Compute Chi-Squared",
+      "mathematical_description": "\\chi^2 = \\sum_{i=1}^{N_{\\text{pix}}} \\frac{(d_i - m_i)^2}{\\sigma_{\\text{bkg}}^2 + m_i/t_{\\text{exp}}}",
+      "required_operators": ["elementwise_subtract", "elementwise_square", "elementwise_divide", "sum_reduce"],
+      "inputs": ["d", "m", "sigma_bkg", "t_exp"],
+      "outputs": ["chi2_current"]
+    },
+    {
+      "step_order": 14,
+      "step_name": "Update Personal Best",
+      "mathematical_description": "\\text{if } \\chi^2_{\\text{current}} < \\chi^2_p^{(i)}: \\quad \\mathbf{p}_{\\text{best}}^{(i)} \\leftarrow \\mathbf{X}_p^{(i)}, \\quad \\chi^2_p^{(i)} \\leftarrow \\chi^2_{\\text{current}}",
+      "required_operators": ["scalar_comparison", "conditional_assignment", "vector_copy"],
+      "inputs": ["chi2_current", "chi2_p^{(i)}", "X_p^{(i)}", "p_best^{(i)}"],
+      "outputs": ["p_best^{(i)}", "chi2_p^{(i)}"]
+    },
+    {
+      "step_order": 15,
+      "step_name": "Update Global Best",
+      "mathematical_description": "\\text{if } \\chi^2_{\\text{current}} < \\chi^2_{\\text{global}}: \\quad \\mathbf{g}_{\\text{best}} \\leftarrow \\mathbf{X}_p^{(i)}, \\quad \\chi^2_{\\text{global}} \\leftarrow \\chi^2_{\\text{current}}",
+      "required_operators": ["scalar_comparison", "conditional_assignment", "vector_copy"],
+      "inputs": ["chi2_current", "chi2_global", "X_p^{(i)}", "g_best"],
+      "outputs": ["g_best", "chi2_global"]
+    },
+    {
+      "step_order": 16,
+      "step_name": "End PSO Particle Loop",
+      "mathematical_description": "\\text{end for } i",
+      "required_operators": ["loop_control"],
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "step_order": 17,
+      "step_name": "End PSO Outer Loop",
+      "mathematical_description": "\\text{end for } k",
+      "required_operators": ["loop_control"],
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "step_order": 18,
+      "step_name": "Initialize MCMC Walkers from PSO Result",
+      "mathematical_description": "\\mathbf{W}^{(j)} = \\mathbf{g}_{\\text{best}} + \\sigma_{\\text{scale}}^{\\text{MCMC}} \\cdot \\boldsymbol{\\sigma} \\cdot \\mathbf{U}_j, \\quad \\mathbf{U}_j \\sim \\mathcal{N}(0, \\mathbf{I}), \\quad j=1,\\ldots,N_{\\text{walk}}",
+      "required_operators": ["gaussian_random_generator", "vector_scalar_multiply", "vector_addition"],
+      "inputs": ["g_best", "sigma", "sigma_scale_MCMC", "N_walk"],
+      "outputs": ["W"]
+    },
+    {
+      "step_order": 19,
+      "step_name": "Evaluate Initial Log-Posterior for Walkers",
+      "mathematical_description": "\\log p(\\mathbf{W}^{(j)} | \\mathbf{d}) = -\\frac{1}{2}\\chi^2(\\mathbf{W}^{(j)}) + \\log p(\\mathbf{W}^{(j)})",
+      "required_operators": ["chi2_evaluation", "log_prior_evaluation", "scalar_addition"],
+      "inputs": ["W", "d", "theta_lower", "theta_upper"],
+      "outputs": ["log_prob_W"]
+    },
+    {
+      "step_order": 20,
+      "step_name": "MCMC Burn-in Loop Start",
+      "mathematical_description": "\\text{for } t = 1, \\ldots, N_{\\text{burn}}",
+      "required_operators": ["loop_control"],
+      "inputs": ["N_burn"],
+      "outputs": ["t"]
+    },
+    {
+      "step_order": 21,
+      "step_name": "MCMC Walker Loop Start",
+      "mathematical_description": "\\text{for } j = 1, \\ldots, N_{\\text{walk}}",
+      "required_operators": ["loop_control"],
+      "inputs": ["N_walk"],
+      "outputs": ["j"]
+    },
+    {
+      "step_order": 22,
+      "step_name": "Select Complementary Walker",
+      "mathematical_description": "k \\sim \\mathcal{U}(\\{1,\\ldots,N_{\\text{walk}}\\} \\setminus \\{j\\})",
+      "required_operators": ["discrete_uniform_random", "set_exclusion"],
+      "inputs": ["N_walk", "j"],
+      "outputs": ["k"]
+    },
+    {
+      "step_order": 23,
+      "step_name": "Draw Stretch Factor",
+      "mathematical_description": "z \\sim g(z) \\propto \\frac{1}{\\sqrt{z}}, \\quad z \\in [1/a, a], \\quad a = a_{\\text{stretch}} = 2",
+      "required_operators": ["stretch_move_random"],
+      "inputs": ["a_stretch"],
+      "outputs": ["z"]
+    },
+    {
+      "step_order": 24,
+      "step_name": "Propose New Position",
+      "mathematical_description": "\\mathbf{W}_{\\text{prop}}^{(j)} = \\mathbf{W}^{(k)} + z(\\mathbf{W}^{(j)} - \\mathbf{W}^{(k)})",
+      "required_operators": ["vector_subtraction", "vector_scalar_multiply", "vector_addition"],
+      "inputs": ["W^{(j)}", "W^{(k)}", "z"],
+      "outputs": ["W_prop"]
+    },
+    {
+      "step_order": 25,
+      "step_name": "Compute Log-Posterior for Proposal",
+      "mathematical_description": "\\log p(\\mathbf{W}_{\\text{prop}}^{(j)} | \\mathbf{d}) = -\\frac{1}{2}\\chi^2(\\mathbf{W}_{\\text{prop}}^{(j)}) + \\log p(\\mathbf{W}_{\\text{prop}}^{(j)})",
+      "required_operators": ["forward_model", "chi2_evaluation", "log_prior_evaluation"],
+      "inputs": ["W_prop", "d", "theta_lower", "theta_upper"],
+      "outputs": ["log_prob_prop"]
+    },
+    {
+      "step_order": 26,
+      "step_name": "Compute Acceptance Probability",
+      "mathematical_description": "\\alpha = \\min\\left(1, z^{N_{\\text{param}}-1} \\exp(\\log p_{\\text{prop}} - \\log p^{(j)})\\right)",
+      "required_operators": ["scalar_power", "scalar_exp", "scalar_subtract", "scalar_multiply", "scalar_min"],
+      "inputs": ["z", "N_param", "log_prob_prop", "log_prob_W^{(j)}"],
+      "outputs": ["acceptance_prob"]
+    },
+    {
+      "step_order": 27,
+      "step_name": "Accept or Reject Proposal",
+      "mathematical_description": "u \\sim \\mathcal{U}(0,1); \\quad \\text{if } u < \\alpha: \\mathbf{W}^{(j)} \\leftarrow \\mathbf{W}_{\\text{prop}}^{(j)}, \\log p^{(j)} \\leftarrow \\log p_{\\text{prop}}",
+      "required_operators": ["uniform_random_generator", "scalar_comparison", "conditional_assignment"],
+      "inputs": ["acceptance_prob", "W_prop", "log_prob_prop", "W^{(j)}", "log_prob_W^{(j)}"],
+      "outputs": ["W^{(j)}", "log_prob_W^{(j)}"]
+    },
+    {
+      "step_order": 28,
+      "step_name": "End MCMC Walker Loop",
+      "mathematical_description": "\\text{end for } j",
+      "required_operators": ["loop_control"],
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "step_order": 29,
+      "step_name": "End MCMC Burn-in Loop",
+      "mathematical_description": "\\text{end for } t",
+      "required_operators": ["loop_control"],
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "step_order": 30,
+      "step_name": "MCMC Production Loop Start",
+      "mathematical_description": "\\text{for } t = 1, \\ldots, N_{\\text{run}}",
+      "required_operators": ["loop_control"],
+      "inputs": ["N_run"],
+      "outputs": ["t"]
+    },
+    {
+      "step_order": 31,
+      "step_name": "Execute MCMC Stretch Move (same as steps 21-28)",
+      "mathematical_description": "\\text{Repeat affine-invariant stretch moves for all walkers}",
+      "required_operators": ["stretch_move_random", "forward_model", "chi2_evaluation", "acceptance_test"],
+      "inputs": ["W", "d", "a_stretch", "theta_lower", "theta_upper"],
+      "outputs": ["W", "log_prob_W"]
+    },
+    {
+      "step_order": 32,
+      "step_name": "Store MCMC Samples",
+      "mathematical_description": "\\mathbf{S}^{(t)} \\leftarrow \\mathbf{W}",
+      "required_operators": ["array_copy", "array_append"],
+      "inputs": ["W", "t"],
+      "outputs": ["samples"]
+    },
+    {
+      "step_order": 33,
+      "step_name": "End MCMC Production Loop",
+      "mathematical_description": "\\text{end for } t",
+      "required_operators": ["loop_control"],
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "step_order": 34,
+      "step_name": "Compute Posterior Statistics",
+      "mathematical_description": "\\hat{\\boldsymbol{\\theta}} = \\frac{1}{N_{\\text{walk}} \\cdot N_{\\text{run}}} \\sum_{t,j} \\mathbf{S}^{(t,j)}, \\quad \\boldsymbol{\\Sigma} = \\text{Cov}(\\mathbf{S})",
+      "required_operators": ["mean_reduce", "covariance_matrix"],
+      "inputs": ["samples"],
+      "outputs": ["theta_posterior_mean", "theta_posterior_cov"]
+    }
+  ]
+}
+```

@@ -1,0 +1,312 @@
+```json
+{
+  "algorithm_name": "PSO-MCMC Strong Gravitational Lens Modeling Inference",
+  "initialization": [
+    "Construct coordinate transform matrix: $\\mathbf{T} = \\begin{pmatrix} -\\Delta_{\\text{pix}} & 0 \\\\ 0 & \\Delta_{\\text{pix}} \\end{pmatrix}$ and compute reference coordinates $\\text{RA}_0$, $\\text{Dec}_0$ from pixel center",
+    "Build Gaussian PSF kernel: $\\mathcal{P}(x, y) = \\frac{1}{2\\pi\\sigma_{\\text{PSF}}^2} \\exp\\left(-\\frac{x^2 + y^2}{2\\sigma_{\\text{PSF}}^2}\\right)$ truncated at $n_{\\text{trunc}} \\cdot \\sigma_{\\text{PSF}}$",
+    "Compute clean simulated image $\\mathbf{I}^{\\text{clean}}$ using true parameters via forward model with EPL deflection, external shear, Sérsic profiles, and PSF convolution",
+    "Solve lens equation $\\boldsymbol{\\beta}_s = \\boldsymbol{x} - \\boldsymbol{\\alpha}(\\boldsymbol{x})$ to obtain true point source image positions $\\{(x_k, y_k)\\}_{k=1}^{N_{\\text{img}}}$",
+    "Compute magnification factors $\\mu_k = [(1-\\kappa)^2 - \\gamma_{\\text{tot}}^2]^{-1}$ at each image position",
+    "Generate observed image: $\\mathbf{I}^{\\text{obs}} = \\mathbf{I}^{\\text{clean}} + \\text{Poisson noise} + \\mathcal{N}(0, \\sigma_{\\text{bkg}}^2)$",
+    "Initialize PSO particle positions: $\\boldsymbol{x}_i^{(0)} \\sim \\mathcal{N}(\\boldsymbol{\\theta}^{(0)}, \\text{diag}(\\boldsymbol{\\sigma}_{\\text{init}}^2))$ clipped to bounds for $i = 1, \\ldots, N_p$",
+    "Initialize PSO velocities: $\\boldsymbol{v}_i^{(0)} = \\boldsymbol{0}$ for all particles",
+    "Initialize personal bests: $\\boldsymbol{p}_i^{(0)} = \\boldsymbol{x}_i^{(0)}$ and global best: $\\boldsymbol{g}^{(0)} = \\arg\\min_{\\boldsymbol{x}_i} \\mathcal{J}(\\boldsymbol{x}_i^{(0)})$"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "PSO Fitness Evaluation",
+      "mathematical_description": "$f_i = \\frac{1}{2} \\sum_{j,k} \\frac{(I^{\\text{obs}}_{jk} - I^{\\text{model}}_{jk}(\\boldsymbol{x}_i))^2}{\\sigma_{jk}^2}$ where $\\sigma_{jk}^2 = \\sigma_{\\text{bkg}}^2 + \\frac{I^{\\text{model}}_{jk}}{t_{\\text{exp}}}$",
+      "required_operators": [
+        "forward_model_evaluation",
+        "EPL_deflection_computation",
+        "shear_deflection_computation",
+        "lens_equation_ray_tracing",
+        "sersic_profile_evaluation",
+        "PSF_convolution",
+        "chi_squared_computation"
+      ],
+      "inputs": [
+        "particle_positions_x_i",
+        "observed_image_I_obs",
+        "PSF_kernel",
+        "coordinate_grid",
+        "sigma_bkg",
+        "t_exp"
+      ],
+      "outputs": [
+        "fitness_values_f_i",
+        "model_images_I_model_i"
+      ]
+    },
+    {
+      "step_order": 2,
+      "step_name": "PSO Personal Best Update",
+      "mathematical_description": "$\\boldsymbol{p}_i^{(t)} = \\begin{cases} \\boldsymbol{x}_i^{(t)} & \\text{if } f_i^{(t)} < f(\\boldsymbol{p}_i^{(t-1)}) \\\\ \\boldsymbol{p}_i^{(t-1)} & \\text{otherwise} \\end{cases}$",
+      "required_operators": [
+        "elementwise_comparison",
+        "conditional_assignment"
+      ],
+      "inputs": [
+        "particle_positions_x_i",
+        "personal_bests_p_i",
+        "fitness_values_f_i",
+        "personal_best_fitness_values"
+      ],
+      "outputs": [
+        "personal_bests_p_i",
+        "personal_best_fitness_values"
+      ]
+    },
+    {
+      "step_order": 3,
+      "step_name": "PSO Global Best Update",
+      "mathematical_description": "$\\boldsymbol{g}^{(t)} = \\arg\\min_{\\boldsymbol{p}_i^{(t)}} f(\\boldsymbol{p}_i^{(t)})$",
+      "required_operators": [
+        "argmin_over_particles"
+      ],
+      "inputs": [
+        "personal_bests_p_i",
+        "personal_best_fitness_values"
+      ],
+      "outputs": [
+        "global_best_g",
+        "global_best_fitness"
+      ]
+    },
+    {
+      "step_order": 4,
+      "step_name": "PSO Velocity Update",
+      "mathematical_description": "$\\boldsymbol{v}_i^{(t)} = \\omega \\boldsymbol{v}_i^{(t-1)} + c_1 \\boldsymbol{r}_1 \\odot (\\boldsymbol{p}_i^{(t)} - \\boldsymbol{x}_i^{(t-1)}) + c_2 \\boldsymbol{r}_2 \\odot (\\boldsymbol{g}^{(t)} - \\boldsymbol{x}_i^{(t-1)})$ where $\\boldsymbol{r}_1, \\boldsymbol{r}_2 \\sim \\mathcal{U}(0,1)^d$",
+      "required_operators": [
+        "uniform_random_vector_generation",
+        "elementwise_multiplication",
+        "vector_subtraction",
+        "scalar_vector_multiplication",
+        "vector_addition"
+      ],
+      "inputs": [
+        "velocities_v_i",
+        "particle_positions_x_i",
+        "personal_bests_p_i",
+        "global_best_g",
+        "inertia_weight_omega",
+        "cognitive_coefficient_c1",
+        "social_coefficient_c2"
+      ],
+      "outputs": [
+        "velocities_v_i"
+      ]
+    },
+    {
+      "step_order": 5,
+      "step_name": "PSO Position Update",
+      "mathematical_description": "$\\boldsymbol{x}_i^{(t)} = \\text{clip}(\\boldsymbol{x}_i^{(t-1)} + \\boldsymbol{v}_i^{(t)}, \\boldsymbol{\\theta}^{\\text{lower}}, \\boldsymbol{\\theta}^{\\text{upper}})$",
+      "required_operators": [
+        "vector_addition",
+        "elementwise_clipping"
+      ],
+      "inputs": [
+        "particle_positions_x_i",
+        "velocities_v_i",
+        "parameter_lower_bounds",
+        "parameter_upper_bounds"
+      ],
+      "outputs": [
+        "particle_positions_x_i"
+      ]
+    },
+    {
+      "step_order": 6,
+      "step_name": "PSO Termination Check",
+      "mathematical_description": "Continue if $t < N_{\\text{iter}}^{\\text{PSO}}$; otherwise proceed to MCMC initialization",
+      "required_operators": [
+        "iteration_counter_comparison"
+      ],
+      "inputs": [
+        "current_iteration_t",
+        "max_PSO_iterations"
+      ],
+      "outputs": [
+        "continue_PSO_flag"
+      ]
+    },
+    {
+      "step_order": 7,
+      "step_name": "MCMC Walker Initialization",
+      "mathematical_description": "$\\boldsymbol{w}_j^{(0)} \\sim \\mathcal{N}(\\boldsymbol{g}^{\\text{final}}, \\sigma_{\\text{scale}}^2 \\cdot \\text{diag}(\\boldsymbol{\\sigma}_{\\text{init}}^2))$ for $j = 1, \\ldots, N_w$ where $N_w = r_w \\cdot d$",
+      "required_operators": [
+        "multivariate_normal_sampling",
+        "elementwise_clipping"
+      ],
+      "inputs": [
+        "global_best_g",
+        "sigma_scale",
+        "sigma_init",
+        "walker_ratio_r_w",
+        "parameter_dimension_d",
+        "parameter_lower_bounds",
+        "parameter_upper_bounds"
+      ],
+      "outputs": [
+        "walker_positions_w_j",
+        "num_walkers_N_w"
+      ]
+    },
+    {
+      "step_order": 8,
+      "step_name": "MCMC Stretch Move Proposal",
+      "mathematical_description": "Select $\\boldsymbol{w}_k$ uniformly from complementary ensemble $\\mathcal{S}_{-j}$; draw $z \\sim g(z) \\propto \\frac{1}{\\sqrt{z}}$ for $z \\in [1/a, a]$; compute $\\boldsymbol{w}_j' = \\boldsymbol{w}_k + z(\\boldsymbol{w}_j^{(t-1)} - \\boldsymbol{w}_k)$",
+      "required_operators": [
+        "uniform_integer_sampling",
+        "stretch_scale_sampling",
+        "vector_subtraction",
+        "scalar_vector_multiplication",
+        "vector_addition"
+      ],
+      "inputs": [
+        "walker_positions_w_j",
+        "complementary_ensemble_S_minus_j",
+        "stretch_parameter_a"
+      ],
+      "outputs": [
+        "proposal_position_w_j_prime",
+        "stretch_factor_z"
+      ]
+    },
+    {
+      "step_order": 9,
+      "step_name": "MCMC Log-Posterior Evaluation",
+      "mathematical_description": "$\\ln p(\\boldsymbol{w} | \\mathbf{I}^{\\text{obs}}) = -\\frac{1}{2} \\sum_{i,j} \\frac{(I^{\\text{obs}}_{ij} - I^{\\text{model}}_{ij}(\\boldsymbol{w}))^2}{\\sigma_{ij}^2} + \\ln p(\\boldsymbol{w})$ where prior is uniform within bounds",
+      "required_operators": [
+        "forward_model_evaluation",
+        "EPL_deflection_computation",
+        "shear_deflection_computation",
+        "lens_equation_ray_tracing",
+        "sersic_profile_evaluation",
+        "PSF_convolution",
+        "log_likelihood_computation",
+        "bounds_checking"
+      ],
+      "inputs": [
+        "walker_position_or_proposal",
+        "observed_image_I_obs",
+        "PSF_kernel",
+        "coordinate_grid",
+        "sigma_bkg",
+        "t_exp",
+        "parameter_lower_bounds",
+        "parameter_upper_bounds"
+      ],
+      "outputs": [
+        "log_posterior_value"
+      ]
+    },
+    {
+      "step_order": 10,
+      "step_name": "MCMC Acceptance Decision",
+      "mathematical_description": "$\\alpha = \\min\\left(1, z^{d-1} \\frac{p(\\boldsymbol{w}_j' | \\mathbf{I}^{\\text{obs}})}{p(\\boldsymbol{w}_j^{(t-1)} | \\mathbf{I}^{\\text{obs}})}\\right)$; accept $\\boldsymbol{w}_j^{(t)} = \\boldsymbol{w}_j'$ with probability $\\alpha$, else $\\boldsymbol{w}_j^{(t)} = \\boldsymbol{w}_j^{(t-1)}$",
+      "required_operators": [
+        "log_acceptance_ratio_computation",
+        "exponential",
+        "minimum",
+        "uniform_random_scalar_generation",
+        "conditional_assignment"
+      ],
+      "inputs": [
+        "log_posterior_current",
+        "log_posterior_proposal",
+        "stretch_factor_z",
+        "parameter_dimension_d",
+        "walker_position_current",
+        "proposal_position_w_j_prime"
+      ],
+      "outputs": [
+        "walker_positions_w_j",
+        "acceptance_flag"
+      ]
+    },
+    {
+      "step_order": 11,
+      "step_name": "MCMC Burn-in Iteration",
+      "mathematical_description": "Repeat steps 8-10 for all walkers; discard samples; continue if $t < N_{\\text{burn}}$",
+      "required_operators": [
+        "iteration_counter_comparison",
+        "loop_over_walkers"
+      ],
+      "inputs": [
+        "current_burn_iteration",
+        "N_burn",
+        "walker_positions_w_j"
+      ],
+      "outputs": [
+        "walker_positions_w_j",
+        "continue_burnin_flag"
+      ]
+    },
+    {
+      "step_order": 12,
+      "step_name": "MCMC Production Sampling",
+      "mathematical_description": "Repeat steps 8-10 for all walkers; store samples $\\{\\boldsymbol{w}_j^{(t)}\\}$; continue if $t < N_{\\text{run}}$",
+      "required_operators": [
+        "iteration_counter_comparison",
+        "loop_over_walkers",
+        "sample_storage"
+      ],
+      "inputs": [
+        "current_production_iteration",
+        "N_run",
+        "walker_positions_w_j"
+      ],
+      "outputs": [
+        "walker_positions_w_j",
+        "stored_samples_chain",
+        "continue_production_flag"
+      ]
+    },
+    {
+      "step_order": 13,
+      "step_name": "Extract Maximum A Posteriori Estimate",
+      "mathematical_description": "$\\boldsymbol{\\theta}^* = \\arg\\max_{\\boldsymbol{w} \\in \\text{samples}} p(\\boldsymbol{w} | \\mathbf{I}^{\\text{obs}})$",
+      "required_operators": [
+        "argmax_over_samples",
+        "log_posterior_comparison"
+      ],
+      "inputs": [
+        "stored_samples_chain",
+        "log_posterior_values_chain"
+      ],
+      "outputs": [
+        "best_fit_parameters_theta_star",
+        "maximum_log_posterior"
+      ]
+    },
+    {
+      "step_order": 14,
+      "step_name": "Compute Evaluation Metrics",
+      "mathematical_description": "$\\chi^2 = \\sum_{i,j} \\frac{(I^{\\text{obs}}_{ij} - I^{\\text{model}}_{ij})^2}{\\sigma_{\\text{bkg}}^2}$; $\\chi^2_\\nu = \\frac{\\chi^2}{N_{\\text{pix}}^2 - 1}$; $\\text{RMS} = \\sqrt{\\frac{1}{N_{\\text{pix}}^2} \\sum_{i,j} (I^{\\text{obs}}_{ij} - I^{\\text{model}}_{ij})^2}$; $\\Delta\\theta_k = \\theta_k^{\\text{fit}} - \\theta_k^{\\text{true}}$",
+      "required_operators": [
+        "forward_model_evaluation",
+        "chi_squared_computation",
+        "reduced_chi_squared_computation",
+        "RMS_computation",
+        "parameter_residual_computation"
+      ],
+      "inputs": [
+        "best_fit_parameters_theta_star",
+        "true_parameters_theta_true",
+        "observed_image_I_obs",
+        "sigma_bkg",
+        "N_pix"
+      ],
+      "outputs": [
+        "chi_squared",
+        "reduced_chi_squared",
+        "residual_RMS",
+        "max_absolute_residual",
+        "parameter_residuals"
+      ]
+    }
+  ]
+}
+```

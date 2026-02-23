@@ -1,0 +1,53 @@
+{
+  "task_name": "lensless_admm",
+  "golden_rating": 1085.692249845601,
+  "epoch_ratings": {
+    "epoch_01": 976.4301620041458,
+    "epoch_02": 967.3711558486661,
+    "epoch_03": 922.583150029879,
+    "epoch_04": 1015.2909379842009,
+    "epoch_05": 994.8096633643501,
+    "epoch_06": 1037.822680923157
+  },
+  "similarity_scores": {
+    "epoch_01": {
+      "embedding_similarity": 0.6069780588150024,
+      "structural_similarity": 0.0,
+      "combined_score": 0.3034890294075012
+    },
+    "epoch_02": {
+      "embedding_similarity": 0.7149317264556885,
+      "structural_similarity": 0.0,
+      "combined_score": 0.35746586322784424
+    },
+    "epoch_03": {
+      "embedding_similarity": 0.5604479908943176,
+      "structural_similarity": 0.0,
+      "combined_score": 0.2802239954471588
+    },
+    "epoch_04": {
+      "embedding_similarity": 0.4950009286403656,
+      "structural_similarity": 0.0,
+      "combined_score": 0.2475004643201828
+    },
+    "epoch_05": {
+      "embedding_similarity": 0.5177518725395203,
+      "structural_similarity": 0.0,
+      "combined_score": 0.25887593626976013
+    },
+    "epoch_06": {
+      "embedding_similarity": 0.6267452239990234,
+      "structural_similarity": 0.0,
+      "combined_score": 0.3133726119995117
+    }
+  },
+  "plans_summary": {
+    "epoch_01": "```json\n{\n  \"algorithm_name\": \"ADMM for TV-Regularized Lensless Image Reconstruction\",\n  \"initializa...",
+    "epoch_02": "```json\n{\n  \"algorithm_name\": \"ADMM-Based Lensless Image Reconstruction\",\n  \"initialization\": [\n    ...",
+    "epoch_03": "```json\n{\n  \"algorithm_name\": \"ADMM-TV Lensless Image Reconstruction\",\n  \"initialization\": [\n    \"x^...",
+    "epoch_04": "```json\n{\n  \"algorithm_name\": \"ADMM-TV Lensless Image Reconstruction\",\n  \"initialization\": [\n    \"In...",
+    "epoch_05": "```json\n{\n  \"algorithm_name\": \"ADMM for Lensless Image Reconstruction with Total Variation\",\n  \"init...",
+    "epoch_06": "```json\n{\n  \"algorithm_name\": \"ADMM-TV Lensless Image Reconstruction\",\n  \"initialization\": [\n    \"Lo..."
+  },
+  "timestamp": "2026-01-29T19:49:57.858933"
+}

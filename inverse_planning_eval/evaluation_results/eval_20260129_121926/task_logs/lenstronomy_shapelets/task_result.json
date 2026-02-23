@@ -1,0 +1,53 @@
+{
+  "task_name": "lenstronomy_shapelets",
+  "golden_rating": 1085.692249845601,
+  "epoch_ratings": {
+    "epoch_01": 975.789237933242,
+    "epoch_02": 912.9796192329127,
+    "epoch_03": 1036.6391338970443,
+    "epoch_04": 992.734176344472,
+    "epoch_05": 951.0817783011862,
+    "epoch_06": 1045.0838044455418
+  },
+  "similarity_scores": {
+    "epoch_01": {
+      "embedding_similarity": 0.7599316239356995,
+      "structural_similarity": 0.0,
+      "combined_score": 0.37996581196784973
+    },
+    "epoch_02": {
+      "embedding_similarity": 0.6157320141792297,
+      "structural_similarity": 0.0,
+      "combined_score": 0.30786600708961487
+    },
+    "epoch_03": {
+      "embedding_similarity": 0.8091702461242676,
+      "structural_similarity": 0.0,
+      "combined_score": 0.4045851230621338
+    },
+    "epoch_04": {
+      "embedding_similarity": 0.658902108669281,
+      "structural_similarity": 0.0,
+      "combined_score": 0.3294510543346405
+    },
+    "epoch_05": {
+      "embedding_similarity": 0.6423403024673462,
+      "structural_similarity": 0.0,
+      "combined_score": 0.3211701512336731
+    },
+    "epoch_06": {
+      "embedding_similarity": 0.7303599715232849,
+      "structural_similarity": 0.0,
+      "combined_score": 0.36517998576164246
+    }
+  },
+  "plans_summary": {
+    "epoch_01": "```json\n{\n  \"algorithm_name\": \"Gravitational Lensing Source Reconstruction via Shapelet Linear Inver...",
+    "epoch_02": "```json\n{\n  \"algorithm_name\": \"Gravitational Lens Source Reconstruction via Shapelet Linear Inversio...",
+    "epoch_03": "```json\n{\n  \"algorithm_name\": \"Shapelet-Based Linear Inversion for Gravitational Lens Source Reconst...",
+    "epoch_04": "```json\n{\n  \"algorithm_name\": \"Weighted Linear Least Squares Shapelet Inversion for Gravitational Le...",
+    "epoch_05": "```json\n{\n  \"algorithm_name\": \"Weighted Least Squares Shapelet Inversion for Gravitational Lens Sour...",
+    "epoch_06": "```json\n{\n  \"algorithm_name\": \"Weighted Least Squares Shapelet Source Reconstruction\",\n  \"initializa..."
+  },
+  "timestamp": "2026-01-30T03:19:43.050282"
+}

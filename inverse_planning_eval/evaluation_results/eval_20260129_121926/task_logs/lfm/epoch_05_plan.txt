@@ -1,0 +1,96 @@
+```json
+{
+  "algorithm_name": "Richardson-Lucy Deconvolution for Light Field Microscopy Volume Reconstruction",
+  "initialization": [
+    "Create initial volume estimate: V^{(0)} = 1_{N_x × N_y × N_z} (all ones tensor of shape volumeSize)",
+    "Precompute forward projection of ones: 1_fwd = H(V^{(0)}) using FORWARD operator with step=8",
+    "Precompute backward projection of onesForward: 1_back = H^T(1_fwd) using ADJOINT operator with step=8",
+    "Compute depth-adaptive Lanczos filter widths: w = LFM_computeDepthAdaptiveWidth(Camera, Resolution), yielding shape (N_z,)",
+    "Precompute Lanczos filter kernels in Fourier domain: K = lanczosfft(volumeSize, w, a=4), yielding complex tensor of shape (N_x, N_y, N_z)",
+    "Copy initial volume to working variable: V ← V^{(0)} (deep copy)",
+    "Initialize error tracking: error_metrics = [] (empty list for convergence monitoring)"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Forward project current estimate (conditional)",
+      "mathematical_description": "\\hat{y}^{(k)} = \\begin{cases} \\mathbf{1}_{\\text{fwd}} & \\text{if } k = 0 \\\\ \\mathbf{H}(V^{(k)}) & \\text{if } k > 0 \\end{cases}",
+      "required_operators": ["FORWARD"],
+      "inputs": ["V^{(k)}", "H", "LensletCenters", "Resolution", "imgSize", "Camera['range']", "1_fwd"],
+      "outputs": ["ŷ^{(k)} (LFimageGuess)"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Compute weighted error ratio",
+      "mathematical_description": "e_{\\text{LF}}^{(k)} = \\frac{y}{\\hat{y}^{(k)}} \\odot \\mathbf{1}_{\\text{fwd}}",
+      "required_operators": ["element-wise division", "element-wise multiplication"],
+      "inputs": ["y", "ŷ^{(k)}", "1_fwd"],
+      "outputs": ["e_LF^{(k)} (errorLFimage)"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Numerical stability correction (sensor space)",
+      "mathematical_description": "e_{\\text{LF}}^{(k)}[p] = 0 \\quad \\forall p : \\neg\\text{isfinite}(e_{\\text{LF}}^{(k)}[p])",
+      "required_operators": ["isfinite", "conditional assignment"],
+      "inputs": ["e_LF^{(k)}"],
+      "outputs": ["e_LF^{(k)}"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Calculate mean absolute error for convergence",
+      "mathematical_description": "\\epsilon^{(k)} = \\frac{1}{M_x M_y} \\sum_{p} \\left| e_{\\text{LF}}^{(k)}[p] - \\mathbf{1}_{\\text{fwd}}[p] \\right|",
+      "required_operators": ["absolute value", "mean reduction"],
+      "inputs": ["e_LF^{(k)}", "1_fwd"],
+      "outputs": ["ε^{(k)}", "error_metrics"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "Backproject weighted error to volume space",
+      "mathematical_description": "e_{\\text{back,raw}}^{(k)} = \\mathbf{H}^T(e_{\\text{LF}}^{(k)})",
+      "required_operators": ["ADJOINT"],
+      "inputs": ["H^T", "e_LF^{(k)}", "LensletCenters", "Resolution", "texSize", "Camera['range']"],
+      "outputs": ["e_back,raw^{(k)}"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Normalize backprojected error",
+      "mathematical_description": "e_{\\text{back}}^{(k)} = \\frac{e_{\\text{back,raw}}^{(k)}}{\\mathbf{1}_{\\text{back}}}",
+      "required_operators": ["element-wise division"],
+      "inputs": ["e_back,raw^{(k)}", "1_back"],
+      "outputs": ["e_back^{(k)} (errorBack)"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "Numerical stability correction (volume space)",
+      "mathematical_description": "e_{\\text{back}}^{(k)}[v] = 0 \\quad \\forall v : \\neg\\text{isfinite}(e_{\\text{back}}^{(k)}[v])",
+      "required_operators": ["isfinite", "conditional assignment"],
+      "inputs": ["e_back^{(k)}"],
+      "outputs": ["e_back^{(k)}"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "Richardson-Lucy multiplicative update",
+      "mathematical_description": "V^{(k+1/2)} = V^{(k)} \\odot e_{\\text{back}}^{(k)}",
+      "required_operators": ["element-wise multiplication"],
+      "inputs": ["V^{(k)}", "e_back^{(k)}"],
+      "outputs": ["V^{(k+1/2)}"]
+    },
+    {
+      "step_order": 9,
+      "step_name": "Depth-wise Lanczos anti-aliasing filtering (conditional)",
+      "mathematical_description": "\\text{If filter\\_flag=True, for } j = 0, \\ldots, N_z-1: \\quad V^{(k+1/2)}_{:,:,j} \\leftarrow \\left| \\mathcal{F}^{-1}\\left( \\text{fftshift}\\left( K_{:,:,j} \\odot \\mathcal{F}(V^{(k+1/2)}_{:,:,j}) \\right) \\right) \\right|",
+      "required_operators": ["fft2", "ifft2", "fftshift", "element-wise multiplication", "absolute value"],
+      "inputs": ["V^{(k+1/2)}", "K (kernelFFT)", "filter_flag"],
+      "outputs": ["V^{(k+1/2)}"]
+    },
+    {
+      "step_order": 10,
+      "step_name": "Final numerical stability correction",
+      "mathematical_description": "V^{(k+1)}[v] = 0 \\quad \\forall v : \\neg\\text{isfinite}(V^{(k+1/2)}[v]); \\quad V^{(k+1)} = V^{(k+1/2)}",
+      "required_operators": ["isfinite", "conditional assignment"],
+      "inputs": ["V^{(k+1/2)}"],
+      "outputs": ["V^{(k+1)} (reconVolume)"]
+    }
+  ]
+}
+```

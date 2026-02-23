@@ -1,0 +1,136 @@
+```json
+{
+  "algorithm_name": "Gravitational Lens Model Fitting via PSO-MCMC",
+  "initialization": [
+    "Assemble parameter vector: θ_init = [θ_E, γ, e1, e2, x_c, y_c, γ1_shear, γ2_shear, ...] from initial kwargs",
+    "Initialize PSO particles: p_0^(i) = θ_init + σ · N(0,1) · σ_scale_PSO for i = 1,...,N_particles",
+    "Initialize velocities: v_0^(i) = 0 for all particles",
+    "Enforce bounds: p_0^(i) = clip(p_0^(i), θ_lower, θ_upper)",
+    "Evaluate initial fitness: f^(i) = χ²(p_0^(i)) - 2·ln(π(p_0^(i))) for all particles",
+    "Set personal best: p_best^(i) = p_0^(i) for all i",
+    "Set global best: g_best = argmin_i f^(i)"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "PSO Velocity Update",
+      "mathematical_description": "v_k^{(i)} = \\omega v_{k-1}^{(i)} + c_1 r_1 (p_{\\text{best}}^{(i)} - p_{k-1}^{(i)}) + c_2 r_2 (g_{\\text{best}} - p_{k-1}^{(i)})",
+      "required_operators": ["scalar_multiplication", "vector_addition", "random_uniform_sampling"],
+      "inputs": ["v_{k-1}^{(i)}", "p_{k-1}^{(i)}", "p_best^{(i)}", "g_best", "omega", "c_1", "c_2"],
+      "outputs": ["v_k^{(i)}"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "PSO Position Update",
+      "mathematical_description": "p_k^{(i)} = p_{k-1}^{(i)} + v_k^{(i)}",
+      "required_operators": ["vector_addition"],
+      "inputs": ["p_{k-1}^{(i)}", "v_k^{(i)}"],
+      "outputs": ["p_k^{(i)}"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Bound Projection",
+      "mathematical_description": "p_k^{(i)} = \\text{clip}(p_k^{(i)}, \\theta_{\\text{lower}}, \\theta_{\\text{upper}})",
+      "required_operators": ["elementwise_clip"],
+      "inputs": ["p_k^{(i)}", "theta_lower", "theta_upper"],
+      "outputs": ["p_k^{(i)}"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Forward Model Evaluation",
+      "mathematical_description": "m^{(i)} = \\mathcal{F}(p_k^{(i)}) = \\text{PSF} \\ast I_{\\text{source}}^{\\text{lensed}} + \\text{PSF} \\ast I_{\\text{lens\\_light}} + \\sum_{n=1}^{4} A_n \\cdot \\text{PSF}(x_n^{\\text{img}})",
+      "required_operators": ["lens_deflection_EPL", "lens_deflection_shear", "sersic_profile", "psf_convolution", "image_summation"],
+      "inputs": ["p_k^{(i)}", "PSF_kernel", "pixel_grid"],
+      "outputs": ["m^{(i)}"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "Chi-squared Computation",
+      "mathematical_description": "\\chi^{2(i)} = \\sum_{j,l} \\frac{(d_{jl} - m_{jl}^{(i)})^2}{\\sigma_{\\text{bkg}}^2 + m_{jl}^{(i)}/t_{\\text{exp}}}",
+      "required_operators": ["elementwise_subtraction", "elementwise_square", "elementwise_division", "summation"],
+      "inputs": ["d", "m^{(i)}", "sigma_bkg", "t_exp"],
+      "outputs": ["chi2^{(i)}"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Prior Evaluation",
+      "mathematical_description": "\\ln\\pi^{(i)} = -\\frac{(e_1^{(i)})^2}{2\\sigma_{e_1}^2} - \\frac{(e_2^{(i)})^2}{2\\sigma_{e_2}^2}",
+      "required_operators": ["elementwise_square", "scalar_division", "scalar_addition"],
+      "inputs": ["e_1^{(i)}", "e_2^{(i)}", "sigma_e1", "sigma_e2"],
+      "outputs": ["ln_pi^{(i)}"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "Fitness Computation",
+      "mathematical_description": "f^{(i)} = \\chi^{2(i)} - 2\\ln\\pi^{(i)}",
+      "required_operators": ["scalar_multiplication", "scalar_subtraction"],
+      "inputs": ["chi2^{(i)}", "ln_pi^{(i)}"],
+      "outputs": ["f^{(i)}"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "Personal Best Update",
+      "mathematical_description": "p_{\\text{best}}^{(i)} = p_k^{(i)} \\quad \\text{if } f^{(i)} < f_{\\text{best}}^{(i)}",
+      "required_operators": ["scalar_comparison", "conditional_assignment"],
+      "inputs": ["f^{(i)}", "f_best^{(i)}", "p_k^{(i)}", "p_best^{(i)}"],
+      "outputs": ["p_best^{(i)}", "f_best^{(i)}"]
+    },
+    {
+      "step_order": 9,
+      "step_name": "Global Best Update",
+      "mathematical_description": "g_{\\text{best}} = \\arg\\min_i p_{\\text{best}}^{(i)}",
+      "required_operators": ["argmin", "array_indexing"],
+      "inputs": ["p_best^{(i)}", "f_best^{(i)}"],
+      "outputs": ["g_best"]
+    },
+    {
+      "step_order": 10,
+      "step_name": "MCMC Walker Initialization",
+      "mathematical_description": "w_0^{(j)} = g_{\\text{best}} + \\sigma_{\\text{scale}}^{\\text{MCMC}} \\cdot \\sigma \\cdot \\mathcal{N}(0,1) \\quad \\text{for } j=1,\\ldots,N_{\\text{walkers}}",
+      "required_operators": ["gaussian_sampling", "scalar_multiplication", "vector_addition"],
+      "inputs": ["g_best", "sigma_scale_MCMC", "sigma", "N_walkers"],
+      "outputs": ["w_0^{(j)}"]
+    },
+    {
+      "step_order": 11,
+      "step_name": "Stretch Move Proposal",
+      "mathematical_description": "w_{k,\\text{prop}}^{(j)} = w_{k-1}^{(j')} + z(w_{k-1}^{(j)} - w_{k-1}^{(j')}) \\quad \\text{where } z \\sim g(z) \\propto 1/\\sqrt{z}, z \\in [1/a, a]",
+      "required_operators": ["complementary_walker_selection", "stretch_factor_sampling", "vector_subtraction", "scalar_vector_multiplication", "vector_addition"],
+      "inputs": ["w_{k-1}^{(j)}", "w_{k-1}^{(j')}", "a"],
+      "outputs": ["w_{k,prop}^{(j)}", "z"]
+    },
+    {
+      "step_order": 12,
+      "step_name": "Bound Check",
+      "mathematical_description": "\\text{Valid} = (\\theta_{\\text{lower}} \\leq w_{k,\\text{prop}}^{(j)} \\leq \\theta_{\\text{upper}})",
+      "required_operators": ["elementwise_comparison", "logical_and"],
+      "inputs": ["w_{k,prop}^{(j)}", "theta_lower", "theta_upper"],
+      "outputs": ["valid_flag"]
+    },
+    {
+      "step_order": 13,
+      "step_name": "MCMC Log-Likelihood Evaluation",
+      "mathematical_description": "\\ln\\mathcal{L}^{(j)} = -\\frac{1}{2}\\chi^2(w_{k,\\text{prop}}^{(j)}) + \\ln\\pi(w_{k,\\text{prop}}^{(j)})",
+      "required_operators": ["forward_model", "chi_squared", "prior_evaluation", "scalar_multiplication", "scalar_addition"],
+      "inputs": ["w_{k,prop}^{(j)}", "d", "sigma_bkg", "t_exp"],
+      "outputs": ["ln_L_prop^{(j)}"]
+    },
+    {
+      "step_order": 14,
+      "step_name": "Acceptance Probability Computation",
+      "mathematical_description": "\\alpha = \\min\\left(1, z^{N_{\\text{dim}}-1} \\exp(\\ln\\mathcal{L}_{\\text{prop}} - \\ln\\mathcal{L}_{\\text{current}})\\right)",
+      "required_operators": ["scalar_power", "scalar_subtraction", "exp", "min"],
+      "inputs": ["z", "N_dim", "ln_L_prop^{(j)}", "ln_L_current^{(j)}"],
+      "outputs": ["alpha"]
+    },
+    {
+      "step_order": 15,
+      "step_name": "Metropolis Accept/Reject",
+      "mathematical_description": "w_k^{(j)} = \\begin{cases} w_{k,\\text{prop}}^{(j)} & \\text{if } u < \\alpha, u \\sim U(0,1) \\\\ w_{k-1}^{(j)} & \\text{otherwise} \\end{cases}",
+      "required_operators": ["uniform_sampling", "scalar_comparison", "conditional_assignment"],
+      "inputs": ["w_{k,prop}^{(j)}", "w_{k-1}^{(j)}", "alpha", "ln_L_prop^{(j)}", "ln_L_current^{(j)}"],
+      "outputs": ["w_k^{(j)}", "ln_L_current^{(j)}"]
+    }
+  ]
+}
+```

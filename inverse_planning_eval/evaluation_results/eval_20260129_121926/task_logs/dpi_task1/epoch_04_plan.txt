@@ -1,0 +1,133 @@
+```json
+{
+  "algorithm_name": "Deep Probabilistic Imaging (DPI) for Radio Interferometry",
+  "initialization": [
+    "Initialize RealNVP normalizing flow: G_θ ← RealNVP(N_pix², N_flow, affine=True) with Xavier/Kaiming weights",
+    "Initialize learnable log-scale: λ ← log(F_0 / (0.8 · N_pix²))",
+    "Initialize Adam optimizer: Adam({θ, λ}, η=10⁻⁴, β₁=0.9, β₂=0.999)",
+    "Initialize loss history: H ← []"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Sample Latent Variables",
+      "mathematical_description": "$z^{(k)} \\sim \\mathcal{N}(0, I_{N_{\\text{pix}}^2})$, $z^{(k)} \\in \\mathbb{R}^{N_{\\text{batch}} \\times N_{\\text{pix}}^2}$",
+      "required_operators": ["random_normal"],
+      "inputs": ["N_batch", "N_pix"],
+      "outputs": ["z"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Generate Raw Images via Flow",
+      "mathematical_description": "$(x_{\\text{raw}}^{(k)}, \\log|\\det J_G|) = G_\\theta^{-1}(z^{(k)})$",
+      "required_operators": ["realnvp_inverse"],
+      "inputs": ["z", "θ"],
+      "outputs": ["x_raw", "log_det_J_G"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Apply Softplus and Scale",
+      "mathematical_description": "$x^{(k)} = \\text{Softplus}(x_{\\text{raw}}^{(k)}) \\cdot e^{\\lambda}$ where $\\text{Softplus}(t) = \\log(1 + e^t)$",
+      "required_operators": ["softplus", "exp", "elementwise_multiply"],
+      "inputs": ["x_raw", "λ"],
+      "outputs": ["x"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Compute Full Log-Determinant",
+      "mathematical_description": "$\\log|\\det J|^{(k)} = \\log|\\det J_G| + \\sum_{i,j}\\left(x_{\\text{raw},ij}^{(k)} - \\text{Softplus}(x_{\\text{raw},ij}^{(k)})\\right) + \\lambda \\cdot N_{\\text{pix}}^2$",
+      "required_operators": ["softplus", "sum", "elementwise_subtract", "scalar_multiply"],
+      "inputs": ["log_det_J_G", "x_raw", "λ", "N_pix"],
+      "outputs": ["log_det_J"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "Compute Complex Visibilities",
+      "mathematical_description": "$\\mathcal{V}_{\\text{re}}^{(k)} = \\text{vec}(x^{(k)}) \\cdot \\mathbf{F}_{:,:,0}$, $\\mathcal{V}_{\\text{im}}^{(k)} = \\text{vec}(x^{(k)}) \\cdot \\mathbf{F}_{:,:,1}$",
+      "required_operators": ["flatten", "matmul", "stack"],
+      "inputs": ["x", "F"],
+      "outputs": ["V"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Compute Visibility Amplitudes",
+      "mathematical_description": "$|\\mathcal{V}|_m^{(k)} = \\sqrt{(\\mathcal{V}_{\\text{re},m}^{(k)})^2 + (\\mathcal{V}_{\\text{im},m}^{(k)})^2 + \\epsilon_{\\text{amp}}}$",
+      "required_operators": ["square", "sum", "sqrt"],
+      "inputs": ["V", "ε_amp"],
+      "outputs": ["V_amp"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "Compute Predicted Closure Phases",
+      "mathematical_description": "$\\phi_i^{\\text{pred},(k)} = \\frac{180}{\\pi}\\left(s_{1,i} \\cdot \\text{atan2}(\\mathcal{V}_{\\text{im},I_{1,i}}, \\mathcal{V}_{\\text{re},I_{1,i}}) + s_{2,i} \\cdot \\text{atan2}(\\mathcal{V}_{\\text{im},I_{2,i}}, \\mathcal{V}_{\\text{re},I_{2,i}}) + s_{3,i} \\cdot \\text{atan2}(\\mathcal{V}_{\\text{im},I_{3,i}}, \\mathcal{V}_{\\text{re},I_{3,i}})\\right)$",
+      "required_operators": ["gather", "atan2", "elementwise_multiply", "sum", "rad2deg"],
+      "inputs": ["V", "I_1", "I_2", "I_3", "s_1", "s_2", "s_3"],
+      "outputs": ["φ_pred"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "Compute Closure Phase Data Fidelity",
+      "mathematical_description": "$\\mathcal{L}_{\\text{cphase}}^{(k)} = \\frac{2}{N_{\\text{cp}}} \\sum_{i=1}^{N_{\\text{cp}}} \\frac{1 - \\cos\\left(\\frac{\\pi}{180}(\\phi_i^{\\text{true}} - \\phi_i^{\\text{pred},(k)})\\right)}{\\left(\\frac{\\pi}{180}\\sigma_{\\text{cp},i}\\right)^2}$",
+      "required_operators": ["deg2rad", "elementwise_subtract", "cos", "elementwise_divide", "mean"],
+      "inputs": ["φ_true", "φ_pred", "σ_cp", "N_cp"],
+      "outputs": ["L_cphase"]
+    },
+    {
+      "step_order": 9,
+      "step_name": "Compute Entropy Regularization",
+      "mathematical_description": "$\\mathcal{L}_{\\text{CE}}^{(k)} = \\frac{1}{N_{\\text{pix}}^2} \\sum_{i,j} x_{ij}^{(k)} \\cdot \\left(\\log(x_{ij}^{(k)} + \\epsilon_{\\text{log}}) - \\log(p_{ij} + \\epsilon_{\\text{log}})\\right)$",
+      "required_operators": ["log", "elementwise_subtract", "elementwise_multiply", "mean"],
+      "inputs": ["x", "p", "ε_log", "N_pix"],
+      "outputs": ["L_CE"]
+    },
+    {
+      "step_order": 10,
+      "step_name": "Compute Flux Constraint Loss",
+      "mathematical_description": "$\\mathcal{L}_{\\text{flux}}^{(k)} = \\left(\\sum_{i,j} x_{ij}^{(k)} - F_0\\right)^2$",
+      "required_operators": ["sum", "elementwise_subtract", "square"],
+      "inputs": ["x", "F_0"],
+      "outputs": ["L_flux"]
+    },
+    {
+      "step_order": 11,
+      "step_name": "Compute Weighted Total Loss",
+      "mathematical_description": "$\\mathcal{L}^{(k)} = \\frac{1}{N_{\\text{batch}}}\\sum_b \\left[ w_{\\text{cp}} \\mathcal{L}_{\\text{cphase},b}^{(k)} + w_{\\text{ce}} \\mathcal{L}_{\\text{CE},b}^{(k)} + w_{\\text{flux}} \\mathcal{L}_{\\text{flux},b}^{(k)} - w_{\\text{logdet}} \\log|\\det J|_b^{(k)} \\right]$",
+      "required_operators": ["scalar_multiply", "sum", "mean"],
+      "inputs": ["L_cphase", "L_CE", "L_flux", "log_det_J", "w_cp", "w_ce", "w_flux", "w_logdet"],
+      "outputs": ["L_total"]
+    },
+    {
+      "step_order": 12,
+      "step_name": "Backpropagation",
+      "mathematical_description": "$g_\\theta^{(k)} = \\nabla_\\theta \\mathcal{L}^{(k)}$, $g_\\lambda^{(k)} = \\nabla_\\lambda \\mathcal{L}^{(k)}$",
+      "required_operators": ["backward", "gradient"],
+      "inputs": ["L_total", "θ", "λ"],
+      "outputs": ["g_θ", "g_λ"]
+    },
+    {
+      "step_order": 13,
+      "step_name": "Clip Gradient Norm",
+      "mathematical_description": "If $\\|[g_\\theta; g_\\lambda]\\|_2 > \\gamma_{\\text{clip}}$: $[g_\\theta; g_\\lambda] \\leftarrow \\gamma_{\\text{clip}} \\cdot \\frac{[g_\\theta; g_\\lambda]}{\\|[g_\\theta; g_\\lambda]\\|_2}$",
+      "required_operators": ["norm", "clip_by_norm"],
+      "inputs": ["g_θ", "g_λ", "γ_clip"],
+      "outputs": ["g_θ_clipped", "g_λ_clipped"]
+    },
+    {
+      "step_order": 14,
+      "step_name": "Parameter Update (Adam)",
+      "mathematical_description": "$m^{(k+1)} = \\beta_1 m^{(k)} + (1-\\beta_1) g^{(k)}$, $v^{(k+1)} = \\beta_2 v^{(k)} + (1-\\beta_2) (g^{(k)})^2$, $\\hat{m} = m^{(k+1)}/(1-\\beta_1^{k+1})$, $\\hat{v} = v^{(k+1)}/(1-\\beta_2^{k+1})$, $[\\theta; \\lambda]^{(k+1)} = [\\theta; \\lambda]^{(k)} - \\eta \\cdot \\hat{m}/(\\sqrt{\\hat{v}} + 10^{-8})$",
+      "required_operators": ["adam_update"],
+      "inputs": ["g_θ_clipped", "g_λ_clipped", "θ", "λ", "m", "v", "η", "β_1", "β_2", "k"],
+      "outputs": ["θ", "λ", "m", "v"]
+    },
+    {
+      "step_order": 15,
+      "step_name": "Record Loss",
+      "mathematical_description": "$\\mathcal{H} \\leftarrow \\mathcal{H} \\cup \\{\\mathcal{L}^{(k)}\\}$",
+      "required_operators": ["append"],
+      "inputs": ["H", "L_total"],
+      "outputs": ["H"]
+    }
+  ]
+}
+```

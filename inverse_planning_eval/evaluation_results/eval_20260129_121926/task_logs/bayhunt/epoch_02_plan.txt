@@ -1,0 +1,141 @@
+```json
+{
+  "algorithm_name": "Bayesian Seismic Inversion via Reversible-Jump MCMC",
+  "initialization": [
+    "Initialize random number generator: RNG ← RandomState(seed=None)",
+    "For each chain c = 1,...,n_chains: sample n_layers^(c,0) ~ U{1,20}, layer thicknesses h^(c,0) ~ U(0, 60/n_layers) subject to h_i ≥ h_min, shear velocities v_s^(c,0) ~ U(2,5), velocity ratio (v_p/v_s)^(c,0) ~ U(1.4,2.1), noise parameters σ_swd^(c,0), σ_rf^(c,0) ~ U(10^-5, 0.05)",
+    "Compute initial likelihoods for all chains: L^(c,0) = L_swd(m^(c,0)) + L_rf(m^(c,0))",
+    "Initialize acceptance counters: A_accept^(c) ← 0, A_total^(c) ← 0 for all chains"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Select Proposal Type",
+      "mathematical_description": "\\tau \\sim \\text{Categorical}(\\{\\text{birth}, \\text{death}, \\text{move interface}, \\text{change } v_s, \\text{change } v_p/v_s, \\text{change noise}\\})",
+      "required_operators": ["categorical_sampling"],
+      "inputs": ["k"],
+      "outputs": ["tau"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Generate Proposal (Property Perturbation)",
+      "mathematical_description": "\\text{If } \\tau = \\text{change } v_s: v'_{s,j} = v_{s,j} + \\delta_1 \\xi, \\xi \\sim \\mathcal{N}(0,1); \\text{If } \\tau = \\text{change } v_p/v_s: (v_p/v_s)' = (v_p/v_s) + \\delta_2 \\xi; \\text{If } \\tau = \\text{move interface}: h'_j = h_j + \\delta_3 \\xi; \\text{If } \\tau = \\text{change noise}: \\sigma' = \\sigma + \\delta_4 \\xi",
+      "required_operators": ["gaussian_perturbation", "uniform_layer_selection"],
+      "inputs": ["m^(c,k-1)", "delta", "tau"],
+      "outputs": ["m_prime"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Generate Proposal (Birth Move)",
+      "mathematical_description": "z_{\\text{new}} \\sim \\mathcal{U}(0, z_{\\max}), \\quad v_{s,\\text{new}} = v_s(z_{\\text{new}}) + \\delta_1 \\xi, \\quad n'_{\\text{layers}} = n_{\\text{layers}} + 1",
+      "required_operators": ["uniform_sampling", "interpolation", "layer_insertion"],
+      "inputs": ["m^(c,k-1)", "z_max", "delta_1"],
+      "outputs": ["m_prime", "n_layers_prime", "h_prime", "v_s_prime"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Generate Proposal (Death Move)",
+      "mathematical_description": "j \\sim \\mathcal{U}\\{1, n_{\\text{layers}}\\}, \\quad n'_{\\text{layers}} = n_{\\text{layers}} - 1, \\quad h'_j = h_j + h_{j+1}",
+      "required_operators": ["uniform_discrete_sampling", "layer_removal", "layer_merging"],
+      "inputs": ["m^(c,k-1)", "n_layers"],
+      "outputs": ["m_prime", "n_layers_prime", "h_prime", "v_s_prime"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "Check Prior Bounds",
+      "mathematical_description": "\\text{valid} = \\mathbb{1}\\left[m' \\in \\Omega_{\\text{prior}}\\right], \\quad \\Omega_{\\text{prior}} = \\{1.4 \\leq v_p/v_s \\leq 2.1\\} \\cap \\{2 \\leq v_s \\leq 5\\} \\cap \\{h_i \\geq 0.1\\} \\cap \\{1 \\leq n_{\\text{layers}} \\leq 20\\}",
+      "required_operators": ["bound_checking", "indicator_function"],
+      "inputs": ["m_prime", "prior_bounds"],
+      "outputs": ["valid"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Compute Forward Model (SWD)",
+      "mathematical_description": "\\mathbf{d}_{\\text{swd}}^{\\text{pred}} = G_{\\text{swd}}(\\mathbf{h}', \\mathbf{v}'_s, (v_p/v_s)', \\mathbf{x}_{\\text{swd}})",
+      "required_operators": ["rayleigh_dispersion_forward_model", "propagator_matrix_method"],
+      "inputs": ["h_prime", "v_s_prime", "vpvs_prime", "x_swd"],
+      "outputs": ["d_swd_pred"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "Compute Forward Model (RF)",
+      "mathematical_description": "\\mathbf{d}_{\\text{rf}}^{\\text{pred}} = G_{\\text{rf}}(\\mathbf{h}', \\mathbf{v}'_s, (v_p/v_s)', \\mathbf{x}_{\\text{rf}}, p)",
+      "required_operators": ["receiver_function_forward_model", "reflectivity_method", "gaussian_filter", "water_level_deconvolution"],
+      "inputs": ["h_prime", "v_s_prime", "vpvs_prime", "x_rf", "p"],
+      "outputs": ["d_rf_pred"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "Construct Covariance Matrix (SWD)",
+      "mathematical_description": "[\\mathbf{C}_{\\text{swd}}]_{ij} = (\\sigma'_{\\text{swd}})^2 \\cdot (\\rho_{\\text{swd}})^{|i-j|}; \\text{ for } \\rho_{\\text{swd}}=0: \\mathbf{C}_{\\text{swd}} = (\\sigma'_{\\text{swd}})^2 \\mathbf{I}",
+      "required_operators": ["exponential_covariance_matrix", "identity_matrix"],
+      "inputs": ["sigma_swd_prime", "rho_swd", "N_swd"],
+      "outputs": ["C_swd"]
+    },
+    {
+      "step_order": 9,
+      "step_name": "Construct Covariance Matrix (RF)",
+      "mathematical_description": "[\\mathbf{C}_{\\text{rf}}]_{ij} = (\\sigma'_{\\text{rf}})^2 \\cdot (\\rho_{\\text{rf}})^{|i-j|}, \\quad \\rho_{\\text{rf}} = 0.98",
+      "required_operators": ["exponential_covariance_matrix"],
+      "inputs": ["sigma_rf_prime", "rho_rf", "N_rf"],
+      "outputs": ["C_rf"]
+    },
+    {
+      "step_order": 10,
+      "step_name": "Compute Residuals",
+      "mathematical_description": "\\mathbf{r}_{\\text{swd}} = \\mathbf{d}_{\\text{swd}}^{\\text{obs}} - \\mathbf{d}_{\\text{swd}}^{\\text{pred}}, \\quad \\mathbf{r}_{\\text{rf}} = \\mathbf{d}_{\\text{rf}}^{\\text{obs}} - \\mathbf{d}_{\\text{rf}}^{\\text{pred}}",
+      "required_operators": ["vector_subtraction"],
+      "inputs": ["d_swd_obs", "d_swd_pred", "d_rf_obs", "d_rf_pred"],
+      "outputs": ["r_swd", "r_rf"]
+    },
+    {
+      "step_order": 11,
+      "step_name": "Compute Proposed Likelihood",
+      "mathematical_description": "\\mathcal{L}(m') = \\frac{1}{2} \\mathbf{r}_{\\text{swd}}^T \\mathbf{C}_{\\text{swd}}^{-1} \\mathbf{r}_{\\text{swd}} + \\frac{1}{2}\\log|\\mathbf{C}_{\\text{swd}}| + \\frac{1}{2} \\mathbf{r}_{\\text{rf}}^T \\mathbf{C}_{\\text{rf}}^{-1} \\mathbf{r}_{\\text{rf}} + \\frac{1}{2}\\log|\\mathbf{C}_{\\text{rf}}|",
+      "required_operators": ["matrix_inverse", "matrix_determinant", "quadratic_form", "logarithm"],
+      "inputs": ["r_swd", "r_rf", "C_swd", "C_rf", "kappa"],
+      "outputs": ["L_prime"]
+    },
+    {
+      "step_order": 12,
+      "step_name": "Compute Acceptance Probability",
+      "mathematical_description": "\\alpha = \\min\\left(1, \\exp\\left(\\mathcal{L}^{(k-1)} - \\mathcal{L}'\\right) \\cdot |J|\\right), \\text{ where } |J| \\text{ is Jacobian for birth/death moves}",
+      "required_operators": ["exponential", "minimum", "jacobian_computation"],
+      "inputs": ["L_current", "L_prime", "tau", "n_layers", "delta_1"],
+      "outputs": ["alpha"]
+    },
+    {
+      "step_order": 13,
+      "step_name": "Metropolis-Hastings Accept/Reject",
+      "mathematical_description": "u \\sim \\mathcal{U}(0,1); \\quad \\text{if } u < \\alpha: m^{(c,k)} \\leftarrow m', \\mathcal{L}^{(k)} \\leftarrow \\mathcal{L}'; \\quad \\text{else: } m^{(c,k)} \\leftarrow m^{(c,k-1)}, \\mathcal{L}^{(k)} \\leftarrow \\mathcal{L}^{(k-1)}",
+      "required_operators": ["uniform_sampling", "conditional_assignment"],
+      "inputs": ["alpha", "m_prime", "m_current", "L_prime", "L_current"],
+      "outputs": ["m^(c,k)", "L^(k)", "accepted"]
+    },
+    {
+      "step_order": 14,
+      "step_name": "Update Acceptance Counters",
+      "mathematical_description": "A_{\\text{total}}^{(c)} \\leftarrow A_{\\text{total}}^{(c)} + 1; \\quad \\text{if accepted: } A_{\\text{accept}}^{(c)} \\leftarrow A_{\\text{accept}}^{(c)} + 1",
+      "required_operators": ["counter_increment"],
+      "inputs": ["A_accept", "A_total", "accepted"],
+      "outputs": ["A_accept", "A_total"]
+    },
+    {
+      "step_order": 15,
+      "step_name": "Adapt Proposal Widths (Burn-in Only)",
+      "mathematical_description": "\\text{if } k \\leq N_{\\text{burnin}} \\text{ and } k \\mod 1000 = 0: \\quad \\hat{\\alpha} = \\frac{A_{\\text{accept}}}{A_{\\text{total}}} \\times 100; \\quad \\text{if } \\hat{\\alpha} < \\alpha_{\\min}: \\delta \\leftarrow 0.95\\delta; \\quad \\text{if } \\hat{\\alpha} > \\alpha_{\\max}: \\delta \\leftarrow 1.05\\delta",
+      "required_operators": ["acceptance_rate_computation", "scaling"],
+      "inputs": ["k", "N_burnin", "A_accept", "A_total", "alpha_min", "alpha_max", "delta"],
+      "outputs": ["delta"]
+    },
+    {
+      "step_order": 16,
+      "step_name": "Store Posterior Samples (Post Burn-in)",
+      "mathematical_description": "\\text{if } k > N_{\\text{burnin}}: \\quad \\mathcal{S} \\leftarrow \\mathcal{S} \\cup \\{m^{(c,k)}\\}",
+      "required_operators": ["sample_storage"],
+      "inputs": ["k", "N_burnin", "m^(c,k)", "sample_collection"],
+      "outputs": ["sample_collection"]
+    }
+  ]
+}
+```

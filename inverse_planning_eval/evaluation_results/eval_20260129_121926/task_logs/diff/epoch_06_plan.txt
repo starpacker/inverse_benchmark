@@ -1,0 +1,122 @@
+```json
+{
+  "algorithm_name": "Differentiable Ray Tracing Lens Metrology Inversion",
+  "initialization": [
+    "Initialize curvature parameters: c_0 = 0.0, c_1 = 0.0",
+    "Initialize thickness parameter: d_1 = 3.0 mm",
+    "Initialize tilt angles: θ_x = 0.0, θ_y = 0.0 rad",
+    "Compute lens origin from mount geometry: o = _compute_mount_geometry(C)",
+    "Initialize iteration counter: k = 0",
+    "Initialize empty loss history: ls = []",
+    "Initialize Adam first moment estimates: m_θ = 0 for all parameters",
+    "Initialize Adam second moment estimates: v_θ = 0 for all parameters",
+    "Call lensgroup.update() to propagate initial parameters to ray tracer"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Forward Ray Tracing",
+      "mathematical_description": "\\mathbf{P}^{(k)} = \\texttt{DM.trace}(\\text{with\\_element}=\\text{True}, \\text{mask}=\\mathbf{V}, \\text{angles}=\\phi)[..., 0:2]",
+      "required_operators": ["differentiable_ray_tracer", "stack"],
+      "inputs": ["c_0", "c_1", "d_1", "o", "theta_x", "theta_y", "V", "phi"],
+      "outputs": ["P_k"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Apply Validity Mask to Residual",
+      "mathematical_description": "\\mathbf{r}^{(k)}_{i,j} = \\begin{cases} \\mathbf{P}^{(k)}_{i,j} - \\hat{\\mathbf{P}}_{i,j} & \\text{if } V_{i,j} = 1 \\\\ \\mathbf{0} & \\text{otherwise} \\end{cases}",
+      "required_operators": ["subtraction", "masking"],
+      "inputs": ["P_k", "P_hat", "V"],
+      "outputs": ["r_k"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Compute Per-Pixel Squared Error",
+      "mathematical_description": "e^{(k)}_{i,j} = (r^{(k)}_{i,j,0})^2 + (r^{(k)}_{i,j,1})^2",
+      "required_operators": ["square", "sum_over_coordinates"],
+      "inputs": ["r_k"],
+      "outputs": ["e_k"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Compute Mean Loss",
+      "mathematical_description": "\\mathcal{L}^{(k)} = \\frac{1}{|\\mathcal{V}|} \\sum_{(i,j) \\in \\mathcal{V}} e^{(k)}_{i,j}",
+      "required_operators": ["masked_mean"],
+      "inputs": ["e_k", "V"],
+      "outputs": ["L_k"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "Append Loss to History",
+      "mathematical_description": "\\mathbf{ls} \\leftarrow \\mathbf{ls} \\cup \\{\\mathcal{L}^{(k)}\\}",
+      "required_operators": ["list_append"],
+      "inputs": ["L_k", "ls"],
+      "outputs": ["ls"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Backpropagate Gradients",
+      "mathematical_description": "\\mathbf{g}_{\\theta}^{(k)} = \\nabla_{\\theta} \\mathcal{L}^{(k)} \\quad \\forall \\theta \\in \\{c_0, c_1, d_1, \\mathbf{o}, \\theta_x, \\theta_y\\}",
+      "required_operators": ["automatic_differentiation", "backward_pass"],
+      "inputs": ["L_k", "computational_graph"],
+      "outputs": ["g_c0", "g_c1", "g_d1", "g_o", "g_theta_x", "g_theta_y"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "Update First Moment Estimates",
+      "mathematical_description": "\\mathbf{m}_{\\theta}^{(k)} = \\beta_1 \\mathbf{m}_{\\theta}^{(k-1)} + (1 - \\beta_1) \\mathbf{g}_{\\theta}^{(k)}",
+      "required_operators": ["scalar_multiplication", "addition"],
+      "inputs": ["m_theta_prev", "g_theta", "beta_1"],
+      "outputs": ["m_theta"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "Update Second Moment Estimates",
+      "mathematical_description": "\\mathbf{v}_{\\theta}^{(k)} = \\beta_2 \\mathbf{v}_{\\theta}^{(k-1)} + (1 - \\beta_2) (\\mathbf{g}_{\\theta}^{(k)})^2",
+      "required_operators": ["scalar_multiplication", "elementwise_square", "addition"],
+      "inputs": ["v_theta_prev", "g_theta", "beta_2"],
+      "outputs": ["v_theta"]
+    },
+    {
+      "step_order": 9,
+      "step_name": "Bias-Correct First Moment",
+      "mathematical_description": "\\hat{\\mathbf{m}}_{\\theta}^{(k)} = \\frac{\\mathbf{m}_{\\theta}^{(k)}}{1 - \\beta_1^k}",
+      "required_operators": ["division", "power"],
+      "inputs": ["m_theta", "beta_1", "k"],
+      "outputs": ["m_theta_hat"]
+    },
+    {
+      "step_order": 10,
+      "step_name": "Bias-Correct Second Moment",
+      "mathematical_description": "\\hat{\\mathbf{v}}_{\\theta}^{(k)} = \\frac{\\mathbf{v}_{\\theta}^{(k)}}{1 - \\beta_2^k}",
+      "required_operators": ["division", "power"],
+      "inputs": ["v_theta", "beta_2", "k"],
+      "outputs": ["v_theta_hat"]
+    },
+    {
+      "step_order": 11,
+      "step_name": "Update Parameters (Adam Step)",
+      "mathematical_description": "\\theta^{(k)} = \\theta^{(k-1)} - \\alpha \\cdot \\frac{\\hat{\\mathbf{m}}_{\\theta}^{(k)}}{\\sqrt{\\hat{\\mathbf{v}}_{\\theta}^{(k)}} + \\epsilon}",
+      "required_operators": ["sqrt", "division", "scalar_multiplication", "subtraction"],
+      "inputs": ["theta_prev", "m_theta_hat", "v_theta_hat", "alpha", "epsilon"],
+      "outputs": ["c_0", "c_1", "d_1", "o", "theta_x", "theta_y"]
+    },
+    {
+      "step_order": 12,
+      "step_name": "Update Lens Group State",
+      "mathematical_description": "\\texttt{lensgroup.update()}",
+      "required_operators": ["transformation_matrix_recomputation"],
+      "inputs": ["c_0", "c_1", "d_1", "o", "theta_x", "theta_y"],
+      "outputs": ["internal_ray_tracer_state"]
+    },
+    {
+      "step_order": 13,
+      "step_name": "Increment Iteration Counter",
+      "mathematical_description": "k \\leftarrow k + 1",
+      "required_operators": ["increment"],
+      "inputs": ["k"],
+      "outputs": ["k"]
+    }
+  ]
+}
+```

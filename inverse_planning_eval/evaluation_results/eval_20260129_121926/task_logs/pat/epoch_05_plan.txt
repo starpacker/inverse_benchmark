@@ -1,0 +1,156 @@
+```json
+{
+  "algorithm_name": "Delay-and-Sum Backprojection with Linear Spectral Unmixing",
+  "initialization": [
+    "Compute Nyquist frequency: f_nyq = f_s / 2, normalized cutoffs: ω_low = f_low / f_nyq, ω_high = f_high / f_nyq",
+    "Design Butterworth bandpass filter coefficients (b, a) of order n_order = 4",
+    "Apply zero-phase forward-backward filtering: y_filt[λ, i, t] = filtfilt(b, a, y_raw[λ, i, :])",
+    "Compute Hilbert transform and extract imaginary part: y[λ, i, t] = Im(y_filt[λ, i, t] + j · H{y_filt[λ, i, :]}(t))",
+    "Generate spatial coordinate arrays: x_k = -L_x/2 + k·L_x/(n_x-1), y_j = -L_y/2 + j·L_y/(n_y-1), z_m = 0",
+    "Create 3D coordinate meshgrid: X, Y, Z = meshgrid(z, y, x, indexing='ij')",
+    "Compute distance-to-sample conversion factor: Δl = c / f_s",
+    "Interpolate extinction coefficients at acquisition wavelengths: ε_Hb(λ), ε_HbO2(λ) via linear interpolation from reference spectra",
+    "Assemble extinction coefficient matrix: E = [[ε_Hb(λ_1), ε_HbO2(λ_1)]; ...; [ε_Hb(λ_nλ), ε_HbO2(λ_nλ)]] ∈ R^(n_λ × 2)",
+    "Compute Moore-Penrose pseudoinverse: E† = (E^T E)^(-1) E^T ∈ R^(2 × n_λ)",
+    "Initialize reconstruction volume: p[λ, z, y, x] = 0 for all λ ∈ [0, n_λ-1], z ∈ [0, n_z-1], y ∈ [0, n_y-1], x ∈ [0, n_x-1]"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Extract Wavelength Signal",
+      "mathematical_description": "y^{(\\lambda)} = y[i_\\lambda, :, :] \\in \\mathbb{R}^{n_{\\text{det}} \\times n_t}",
+      "required_operators": ["array_slicing"],
+      "inputs": ["y", "i_lambda"],
+      "outputs": ["y_lambda"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Extract Detector Position",
+      "mathematical_description": "\\mathbf{g} = (g_x^{(i)}, g_y^{(i)}, g_z^{(i)}) = \\mathbf{g}_i[i, :]",
+      "required_operators": ["array_slicing"],
+      "inputs": ["detector_positions", "i"],
+      "outputs": ["g"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Compute Distance Field",
+      "mathematical_description": "d[z,y,x] = \\sqrt{(X[z,y,x] - g_x)^2 + (Y[z,y,x] - g_y)^2 + (Z[z,y,x] - g_z)^2}",
+      "required_operators": ["subtraction", "element_wise_square", "sum", "sqrt", "broadcasting"],
+      "inputs": ["X", "Y", "Z", "g"],
+      "outputs": ["d"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Convert Distance to Sample Index",
+      "mathematical_description": "\\tau[z,y,x] = \\left\\lfloor \\frac{d[z,y,x]}{\\Delta l} \\right\\rfloor",
+      "required_operators": ["division", "floor"],
+      "inputs": ["d", "delta_l"],
+      "outputs": ["tau"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "Compute Valid Index Mask",
+      "mathematical_description": "M_{\\text{valid}}[z,y,x] = (0 \\leq \\tau[z,y,x]) \\land (\\tau[z,y,x] < n_t)",
+      "required_operators": ["comparison_geq", "comparison_lt", "logical_and"],
+      "inputs": ["tau", "n_t"],
+      "outputs": ["M_valid"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Backproject Detector Signal",
+      "mathematical_description": "p[i_\\lambda, z, y, x] \\mathrel{+}= y^{(\\lambda)}[i, \\tau[z,y,x]] \\cdot M_{\\text{valid}}[z,y,x]",
+      "required_operators": ["advanced_indexing", "element_wise_multiplication", "in_place_addition"],
+      "inputs": ["p", "y_lambda", "tau", "M_valid", "i_lambda", "i"],
+      "outputs": ["p"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "Flatten Reconstruction for Unmixing",
+      "mathematical_description": "S[\\lambda, n] = p[\\lambda, \\text{unravel}(n)] \\in \\mathbb{R}^{n_\\lambda \\times N_{\\text{pixels}}}",
+      "required_operators": ["reshape"],
+      "inputs": ["p"],
+      "outputs": ["S"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "Linear Spectral Unmixing",
+      "mathematical_description": "C = E^\\dagger \\cdot S \\in \\mathbb{R}^{2 \\times N_{\\text{pixels}}}",
+      "required_operators": ["matrix_multiplication"],
+      "inputs": ["E_pinv", "S"],
+      "outputs": ["C"]
+    },
+    {
+      "step_order": 9,
+      "step_name": "Reshape Concentrations to Spatial Grid",
+      "mathematical_description": "c_{\\text{Hb}}[z,y,x] = C[0, z \\cdot n_y \\cdot n_x + y \\cdot n_x + x], \\quad c_{\\text{HbO}_2}[z,y,x] = C[1, z \\cdot n_y \\cdot n_x + y \\cdot n_x + x]",
+      "required_operators": ["reshape", "array_slicing"],
+      "inputs": ["C", "n_z", "n_y", "n_x"],
+      "outputs": ["c_Hb", "c_HbO2"]
+    },
+    {
+      "step_order": 10,
+      "step_name": "Compute Total Hemoglobin Concentration",
+      "mathematical_description": "c_{\\text{total}}[z,y,x] = c_{\\text{Hb}}[z,y,x] + c_{\\text{HbO}_2}[z,y,x]",
+      "required_operators": ["addition"],
+      "inputs": ["c_Hb", "c_HbO2"],
+      "outputs": ["c_total"]
+    },
+    {
+      "step_order": 11,
+      "step_name": "Compute sO2 Threshold Mask",
+      "mathematical_description": "M_{\\text{sO}_2}[z,y,x] = c_{\\text{total}}[z,y,x] > \\theta_{\\text{mask}} \\cdot \\max_{z,y,x}(c_{\\text{total}})",
+      "required_operators": ["max_reduction", "scalar_multiplication", "comparison_gt"],
+      "inputs": ["c_total", "theta_mask"],
+      "outputs": ["M_sO2"]
+    },
+    {
+      "step_order": 12,
+      "step_name": "Initialize sO2 Map",
+      "mathematical_description": "\\text{sO}_2[z,y,x] = 0 \\quad \\forall z, y, x",
+      "required_operators": ["zeros_like"],
+      "inputs": ["n_z", "n_y", "n_x"],
+      "outputs": ["sO2"]
+    },
+    {
+      "step_order": 13,
+      "step_name": "Compute Masked Oxygen Saturation",
+      "mathematical_description": "\\text{sO}_2[M_{\\text{sO}_2}] = \\frac{c_{\\text{HbO}_2}[M_{\\text{sO}_2}]}{c_{\\text{total}}[M_{\\text{sO}_2}]}",
+      "required_operators": ["boolean_indexing", "division"],
+      "inputs": ["sO2", "c_HbO2", "c_total", "M_sO2"],
+      "outputs": ["sO2"]
+    },
+    {
+      "step_order": 14,
+      "step_name": "Clip sO2 to Valid Range",
+      "mathematical_description": "\\text{sO}_2[z,y,x] = \\text{clip}(\\text{sO}_2[z,y,x], 0, 1)",
+      "required_operators": ["clip"],
+      "inputs": ["sO2"],
+      "outputs": ["sO2"]
+    },
+    {
+      "step_order": 15,
+      "step_name": "Compute Mean Reconstruction Across Wavelengths",
+      "mathematical_description": "\\bar{p}[z,y,x] = \\frac{1}{n_\\lambda} \\sum_{\\lambda=0}^{n_\\lambda-1} p[\\lambda, z, y, x]",
+      "required_operators": ["mean_reduction"],
+      "inputs": ["p"],
+      "outputs": ["p_mean"]
+    },
+    {
+      "step_order": 16,
+      "step_name": "Extract 2D Slice for Display",
+      "mathematical_description": "\\bar{p}_{\\text{2D}}[y,x] = \\bar{p}[0, y, x], \\quad \\text{sO}_{2,\\text{2D}}[y,x] = \\text{sO}_2[0, y, x]",
+      "required_operators": ["array_slicing"],
+      "inputs": ["p_mean", "sO2"],
+      "outputs": ["p_2D", "sO2_2D"]
+    },
+    {
+      "step_order": 17,
+      "step_name": "Compute Mean sO2 in Region of Interest",
+      "mathematical_description": "\\overline{\\text{sO}_2} = \\frac{\\sum_{(y,x) \\in R} \\text{sO}_{2,\\text{2D}}[y,x]}{|R|}, \\quad R = \\{(y,x) : \\text{sO}_{2,\\text{2D}}[y,x] > 0\\}",
+      "required_operators": ["comparison_gt", "boolean_indexing", "sum_reduction", "count_nonzero", "division"],
+      "inputs": ["sO2_2D"],
+      "outputs": ["sO2_mean"]
+    }
+  ]
+}
+```

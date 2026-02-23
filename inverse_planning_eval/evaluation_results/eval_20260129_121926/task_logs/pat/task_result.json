@@ -1,0 +1,53 @@
+{
+  "task_name": "pat",
+  "golden_rating": 1055.8138937895299,
+  "epoch_ratings": {
+    "epoch_01": 1001.4170987651396,
+    "epoch_02": 958.7097474448078,
+    "epoch_03": 994.05168494902,
+    "epoch_04": 1063.8282181343627,
+    "epoch_05": 1011.9725989758491,
+    "epoch_06": 914.2067579412909
+  },
+  "similarity_scores": {
+    "epoch_01": {
+      "embedding_similarity": 0.731151819229126,
+      "structural_similarity": 0.0,
+      "combined_score": 0.365575909614563
+    },
+    "epoch_02": {
+      "embedding_similarity": 0.7500940561294556,
+      "structural_similarity": 0.0,
+      "combined_score": 0.3750470280647278
+    },
+    "epoch_03": {
+      "embedding_similarity": 0.7618757486343384,
+      "structural_similarity": 0.0,
+      "combined_score": 0.3809378743171692
+    },
+    "epoch_04": {
+      "embedding_similarity": 0.7991238832473755,
+      "structural_similarity": 0.0,
+      "combined_score": 0.39956194162368774
+    },
+    "epoch_05": {
+      "embedding_similarity": 0.5182139277458191,
+      "structural_similarity": 0.0,
+      "combined_score": 0.25910696387290955
+    },
+    "epoch_06": {
+      "embedding_similarity": 0.33708587288856506,
+      "structural_similarity": 0.0,
+      "combined_score": 0.16854293644428253
+    }
+  },
+  "plans_summary": {
+    "epoch_01": "```json\n{\n  \"algorithm_name\": \"Photoacoustic Tomography Reconstruction with Spectral Unmixing (PAT-D...",
+    "epoch_02": "```json\n{\n  \"algorithm_name\": \"Photoacoustic Tomography Reconstruction with Spectral Unmixing (Delay...",
+    "epoch_03": "```json\n{\n  \"algorithm_name\": \"Photoacoustic Tomography Delay-and-Sum Backprojection with Linear Spe...",
+    "epoch_04": "```json\n{\n  \"algorithm_name\": \"Delay-and-Sum Photoacoustic Tomography with Spectral Unmixing\",\n  \"in...",
+    "epoch_05": "```json\n{\n  \"algorithm_name\": \"Delay-and-Sum Backprojection with Linear Spectral Unmixing\",\n  \"initi...",
+    "epoch_06": "```json\n{\n  \"algorithm_name\": \"Delay-and-Sum Backprojection with Linear Spectral Unmixing\",\n  \"initi..."
+  },
+  "timestamp": "2026-01-29T19:17:25.085840"
+}

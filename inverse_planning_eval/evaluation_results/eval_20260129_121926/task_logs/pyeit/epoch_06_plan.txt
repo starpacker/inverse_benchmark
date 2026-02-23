@@ -1,0 +1,115 @@
+```json
+{
+  "algorithm_name": "JAC (Jacobian-based Linear Reconstruction)",
+  "initialization": [
+    "Initialize conductivity: $\\sigma \\leftarrow \\sigma_{baseline}$ with shape $(N_e,)$",
+    "Initialize Jacobian: $J \\leftarrow \\mathbf{0}$ with shape $(M, N_e)$"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Assemble Global Stiffness Matrix",
+      "mathematical_description": "$K_g = \\sum_{e=1}^{N_e} \\sigma_e \\cdot P_e^T K_e[e] P_e$ with Dirichlet condition at ref_node",
+      "required_operators": ["sparse_assembly", "boundary_condition_enforcement"],
+      "inputs": ["K_e", "tri", "sigma", "N_n", "ref_node"],
+      "outputs": ["K_g"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Build Excitation RHS Matrix",
+      "mathematical_description": "$\\mathbf{b}[k, \\text{el\\_pos}[\\text{ex\\_mat}[k,0]]] = 1, \\quad \\mathbf{b}[k, \\text{el\\_pos}[\\text{ex\\_mat}[k,1]]] = -1$",
+      "required_operators": ["indexing", "assignment"],
+      "inputs": ["ex_mat", "el_pos", "N_n"],
+      "outputs": ["b"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Solve Forward Problems (Loop)",
+      "mathematical_description": "$\\mathbf{f}[i, :] = K_g^{-1} \\mathbf{b}[i, :] \\quad \\forall i \\in [0, N_{ex})$",
+      "required_operators": ["sparse_linear_solve"],
+      "inputs": ["K_g", "b"],
+      "outputs": ["f"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Compute Dense Inverse at Electrodes",
+      "mathematical_description": "$R_{mat} = (K_g^{-1})[\\text{el\\_pos}, :] \\in \\mathbb{R}^{N_{el} \\times N_n}$",
+      "required_operators": ["dense_matrix_inversion", "row_extraction"],
+      "inputs": ["K_g", "el_pos"],
+      "outputs": ["R_mat"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "Broadcast Electrode Response",
+      "mathematical_description": "$R_{el}[k, :, :] = R_{mat} \\quad \\forall k \\in [0, N_{ex})$",
+      "required_operators": ["broadcast"],
+      "inputs": ["R_mat", "N_ex"],
+      "outputs": ["R_el"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Compute Measurement-Differenced Response",
+      "mathematical_description": "$r_i[m, :] = R_{el}[\\text{idx}[m], \\text{meas\\_mat}[m,0], :] - R_{el}[\\text{idx}[m], \\text{meas\\_mat}[m,1], :]$",
+      "required_operators": ["indexing", "subtraction"],
+      "inputs": ["R_el", "meas_mat"],
+      "outputs": ["r_i"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "Extract Potentials for Jacobian",
+      "mathematical_description": "$\\mathbf{f}_n = \\mathbf{f}[\\text{meas\\_mat}[:,2], :]$",
+      "required_operators": ["indexing"],
+      "inputs": ["f", "meas_mat"],
+      "outputs": ["f_n"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "Compute Jacobian Columns (Loop)",
+      "mathematical_description": "$J[:, e] = \\sum_{\\text{axis}=1} \\left( (r_i[:, \\text{tri}[e]] \\cdot K_e[e]) \\odot \\mathbf{f}_n[:, \\text{tri}[e]] \\right) \\quad \\forall e \\in [0, N_e)$",
+      "required_operators": ["matrix_vector_product", "elementwise_product", "sum_reduction"],
+      "inputs": ["r_i", "K_e", "f_n", "tri"],
+      "outputs": ["J"]
+    },
+    {
+      "step_order": 9,
+      "step_name": "Compute Gram Matrix",
+      "mathematical_description": "$G = J^T J$",
+      "required_operators": ["matrix_transpose", "matrix_multiplication"],
+      "inputs": ["J"],
+      "outputs": ["G"]
+    },
+    {
+      "step_order": 10,
+      "step_name": "Build Regularization Matrix",
+      "mathematical_description": "$R = \\text{diag}(G_{ii}^p)$ where $p=0.5$ for Kotre method",
+      "required_operators": ["diagonal_extraction", "elementwise_power", "diagonal_matrix_construction"],
+      "inputs": ["G", "p"],
+      "outputs": ["R"]
+    },
+    {
+      "step_order": 11,
+      "step_name": "Compute Regularized Inverse",
+      "mathematical_description": "$H = (G + \\lambda R)^{-1} J^T$",
+      "required_operators": ["matrix_addition", "matrix_inversion", "matrix_multiplication"],
+      "inputs": ["G", "R", "J", "lambda"],
+      "outputs": ["H"]
+    },
+    {
+      "step_order": 12,
+      "step_name": "Compute Voltage Difference",
+      "mathematical_description": "$\\Delta v = v_1 - v_0$",
+      "required_operators": ["subtraction"],
+      "inputs": ["v_1", "v_0"],
+      "outputs": ["Delta_v"]
+    },
+    {
+      "step_order": 13,
+      "step_name": "Apply Reconstruction Matrix",
+      "mathematical_description": "$\\Delta\\sigma = -H \\cdot \\Delta v$",
+      "required_operators": ["matrix_vector_product", "negation"],
+      "inputs": ["H", "Delta_v"],
+      "outputs": ["Delta_sigma"]
+    }
+  ]
+}
+```

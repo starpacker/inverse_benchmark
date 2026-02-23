@@ -1,0 +1,53 @@
+{
+  "task_name": "oopao_sh_wfs",
+  "golden_rating": 1072.3942668317973,
+  "epoch_ratings": {
+    "epoch_01": 1009.1942995346105,
+    "epoch_02": 1039.6402321366822,
+    "epoch_03": 977.1188465586469,
+    "epoch_04": 988.8314817708442,
+    "epoch_05": 998.9563532499294,
+    "epoch_06": 913.8645199174895
+  },
+  "similarity_scores": {
+    "epoch_01": {
+      "embedding_similarity": 0.7479497194290161,
+      "structural_similarity": 0.0,
+      "combined_score": 0.37397485971450806
+    },
+    "epoch_02": {
+      "embedding_similarity": 0.6460210084915161,
+      "structural_similarity": 0.0,
+      "combined_score": 0.32301050424575806
+    },
+    "epoch_03": {
+      "embedding_similarity": 0.6621365547180176,
+      "structural_similarity": 0.0,
+      "combined_score": 0.3310682773590088
+    },
+    "epoch_04": {
+      "embedding_similarity": 0.849134624004364,
+      "structural_similarity": 0.0,
+      "combined_score": 0.424567312002182
+    },
+    "epoch_05": {
+      "embedding_similarity": 0.7656869888305664,
+      "structural_similarity": 0.0,
+      "combined_score": 0.3828434944152832
+    },
+    "epoch_06": {
+      "embedding_similarity": 0.6174697875976562,
+      "structural_similarity": 0.0,
+      "combined_score": 0.3087348937988281
+    }
+  },
+  "plans_summary": {
+    "epoch_01": "```json\n{\n  \"algorithm_name\": \"Adaptive Optics Closed-Loop Control with Shack-Hartmann Wavefront Sen...",
+    "epoch_02": "```json\n{\n  \"algorithm_name\": \"Closed-Loop Adaptive Optics with Shack-Hartmann Wavefront Sensor (Int...",
+    "epoch_03": "```json\n{\n  \"algorithm_name\": \"Closed-Loop Adaptive Optics Integral Controller with Shack-Hartmann W...",
+    "epoch_04": "```json\n{\n  \"algorithm_name\": \"Closed-Loop Integral Controller for Shack-Hartmann Adaptive Optics\",\n...",
+    "epoch_05": "```json\n{\n  \"algorithm_name\": \"Closed-Loop Adaptive Optics with Integral Control\",\n  \"initialization...",
+    "epoch_06": "```json\n{\n  \"algorithm_name\": \"Closed-Loop Adaptive Optics with Integral Control\",\n  \"initialization..."
+  },
+  "timestamp": "2026-01-29T15:00:22.536505"
+}

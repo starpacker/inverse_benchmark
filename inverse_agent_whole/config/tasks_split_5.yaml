@@ -1,0 +1,31 @@
+global:
+  default_settings:
+    max_rounds: 10
+    model_name: gemini-3-pro-preview
+  sandbox_root: /data/yjh/react_inverse_problem_sandboxes
+tasks:
+- expected_output_path: null
+  gt_code_path: /data/yjh/PtyLab-main/ptylab_standalone.py
+  input_path: null
+  name: PtyLab-main
+  working_folder: /data/yjh/PtyLab-main_sandbox
+- expected_output_path: null
+  gt_code_path: /data/yjh/PyAbel-master_sandbox/pyabel_code.py
+  input_path: null
+  name: PyAbel-master
+  working_folder: /data/yjh/PyAbel-master_sandbox
+- expected_output_path: null
+  gt_code_path: /data/yjh/pyDHM-master_sandbox/pydhm_code.py
+  input_path: null
+  name: pyDHM-master
+  working_folder: /data/yjh/pyDHM-master_sandbox
+- expected_output_path: null
+  gt_code_path: /data/yjh/PyHoloscope-main_sandbox/pyholoscope_code.py
+  input_path: null
+  name: PyHoloscope-main
+  working_folder: /data/yjh/PyHoloscope-main_sandbox
+- expected_output_path: null
+  gt_code_path: /data/yjh/PySMLFM-main_sandbox/pysmlfm_code.py
+  input_path: null
+  name: PySMLFM-main
+  working_folder: /data/yjh/PySMLFM-main_sandbox

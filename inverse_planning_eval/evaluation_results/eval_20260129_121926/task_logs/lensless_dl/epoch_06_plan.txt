@@ -1,0 +1,88 @@
+```json
+{
+  "algorithm_name": "FISTA (Fast Iterative Shrinkage-Thresholding Algorithm) for FFT-based Image Deconvolution",
+  "initialization": [
+    "x^{(0)} \\leftarrow \\mathbf{0} \\in \\mathbb{R}^{1 \\times H \\times W \\times C}",
+    "y^{(0)} \\leftarrow x^{(0)}",
+    "t^{(0)} \\leftarrow 1.0",
+    "\\mathbf{H} \\leftarrow \\mathcal{F}_{2D}^{\\text{ortho}}(\\text{ZeroPad}(\\mathbf{h})) \\quad \\text{(precomputed PSF FFT)}",
+    "\\mathbf{H}^* \\leftarrow \\overline{\\mathbf{H}} \\quad \\text{(complex conjugate for adjoint)}",
+    "L \\leftarrow \\text{PowerMethod}(\\mathbf{A}^T\\mathbf{A}, 20) \\quad \\text{(Lipschitz constant estimate)}",
+    "\\alpha \\leftarrow 1/L \\quad \\text{(step size)}"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Forward Convolution via FFT",
+      "mathematical_description": "\\mathbf{A}\\mathbf{y}^{(k)} = \\text{Crop}\\left(\\text{ifftshift}\\left(\\mathcal{F}_{2D}^{-1}\\left(\\mathcal{F}_{2D}(\\text{ZeroPad}(\\mathbf{y}^{(k)})) \\odot \\mathbf{H}\\right)\\right)\\right)",
+      "required_operators": ["ZeroPad", "FFT2D", "ElementwiseMultiply", "IFFT2D", "IFFTShift", "Crop", "RealPart"],
+      "inputs": ["y^{(k)}", "H"],
+      "outputs": ["Ay^{(k)}"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Compute Residual",
+      "mathematical_description": "\\mathbf{r}^{(k)} = \\mathbf{A}\\mathbf{y}^{(k)} - \\mathbf{b}",
+      "required_operators": ["Subtract"],
+      "inputs": ["Ay^{(k)}", "b"],
+      "outputs": ["r^{(k)}"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Adjoint Convolution (Gradient Computation)",
+      "mathematical_description": "\\nabla f(\\mathbf{y}^{(k)}) = \\mathbf{A}^T\\mathbf{r}^{(k)} = \\text{Crop}\\left(\\text{ifftshift}\\left(\\mathcal{F}_{2D}^{-1}\\left(\\mathcal{F}_{2D}(\\text{ZeroPad}(\\mathbf{r}^{(k)})) \\odot \\mathbf{H}^*\\right)\\right)\\right)",
+      "required_operators": ["ZeroPad", "FFT2D", "ElementwiseMultiply", "IFFT2D", "IFFTShift", "Crop", "RealPart"],
+      "inputs": ["r^{(k)}", "H^*"],
+      "outputs": ["\\nabla f(y^{(k)})"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Gradient Descent Step",
+      "mathematical_description": "\\tilde{\\mathbf{x}}^{(k+1)} = \\mathbf{y}^{(k)} - \\alpha \\cdot \\nabla f(\\mathbf{y}^{(k)})",
+      "required_operators": ["ScalarMultiply", "Subtract"],
+      "inputs": ["y^{(k)}", "\\nabla f(y^{(k)})", "\\alpha"],
+      "outputs": ["\\tilde{x}^{(k+1)}"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "Proximal Operator (Non-negativity Projection)",
+      "mathematical_description": "\\mathbf{x}^{(k+1)} = \\text{prox}_{\\alpha g}(\\tilde{\\mathbf{x}}^{(k+1)}) = \\max(\\tilde{\\mathbf{x}}^{(k+1)}, 0)",
+      "required_operators": ["ElementwiseMaximum"],
+      "inputs": ["\\tilde{x}^{(k+1)}"],
+      "outputs": ["x^{(k+1)}"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Update Momentum Parameter",
+      "mathematical_description": "t^{(k+1)} = \\frac{1 + \\sqrt{1 + 4(t^{(k)})^2}}{2}",
+      "required_operators": ["ScalarSquare", "ScalarMultiply", "ScalarAdd", "ScalarSqrt", "ScalarDivide"],
+      "inputs": ["t^{(k)}"],
+      "outputs": ["t^{(k+1)}"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "Compute Momentum Coefficient",
+      "mathematical_description": "\\beta^{(k)} = \\frac{t^{(k)} - 1}{t^{(k+1)}}",
+      "required_operators": ["ScalarSubtract", "ScalarDivide"],
+      "inputs": ["t^{(k)}", "t^{(k+1)}"],
+      "outputs": ["\\beta^{(k)}"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "Momentum Extrapolation",
+      "mathematical_description": "\\mathbf{y}^{(k+1)} = \\mathbf{x}^{(k+1)} + \\beta^{(k)} \\cdot (\\mathbf{x}^{(k+1)} - \\mathbf{x}^{(k)})",
+      "required_operators": ["Subtract", "ScalarMultiply", "Add"],
+      "inputs": ["x^{(k+1)}", "x^{(k)}", "\\beta^{(k)}"],
+      "outputs": ["y^{(k+1)}"]
+    },
+    {
+      "step_order": 9,
+      "step_name": "Update Previous Iterate",
+      "mathematical_description": "\\mathbf{x}^{(k)} \\leftarrow \\mathbf{x}^{(k+1)}, \\quad t^{(k)} \\leftarrow t^{(k+1)}",
+      "required_operators": ["Copy"],
+      "inputs": ["x^{(k+1)}", "t^{(k+1)}"],
+      "outputs": ["x^{(k)}", "t^{(k)}"]
+    }
+  ]
+}
+```

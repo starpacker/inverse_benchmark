@@ -1,0 +1,161 @@
+```json
+{
+  "algorithm_name": "Differentiable Metrology for Lens Parameter Recovery with Adam Optimizer",
+  "initialization": [
+    "Initialize surface curvatures: c_0^{(0)} = 0, c_1^{(0)} = 0",
+    "Initialize lens thickness: d_1^{(0)} = 3.0 mm",
+    "Initialize tilt angles: \\theta_x^{(0)} = 0, \\theta_y^{(0)} = 0 rad",
+    "Compute lens origin from calibration: \\mathbf{o}^{(0)} \\leftarrow \\texttt{compute\\_mount\\_geometry}(C)",
+    "Form parameter vector: \\boldsymbol{\\theta}^{(0)} = [c_0, c_1, d_1, o_x, o_y, o_z, \\theta_x, \\theta_y]^T",
+    "Initialize Adam first moment: m^{(0)} = \\mathbf{0}",
+    "Initialize Adam second moment: v^{(0)} = \\mathbf{0}",
+    "Load captured intersection points \\mathbf{P}^{\\text{cap}} and valid mask \\mathbf{M} from phase-shifting deflectometry preprocessing",
+    "Update lens group internal state: \\texttt{lensgroup.update()}"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Forward Ray Tracing",
+      "mathematical_description": "\\mathbf{P}^{\\text{sim},(k)} = \\mathcal{F}(\\boldsymbol{\\theta}^{(k)}), \\quad \\text{where } \\mathbf{p}_{ij}^{\\text{sim}} = \\Pi_{xy}\\left[ \\mathcal{T}_{\\text{ray}}(\\mathbf{r}_{ij}^{\\text{cam}}; \\boldsymbol{\\theta}^{(k)}) \\right]",
+      "required_operators": [
+        "differentiable_ray_tracing",
+        "surface_intersection",
+        "refraction_snells_law",
+        "coordinate_projection"
+      ],
+      "inputs": [
+        "theta_k (parameter vector)",
+        "r_cam (camera rays)",
+        "lens_surfaces",
+        "display_geometry"
+      ],
+      "outputs": [
+        "P_sim_k (simulated intersection points, shape: N_cam x H x W x 2)"
+      ]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Compute Loss",
+      "mathematical_description": "\\mathcal{L}^{(k)} = \\frac{1}{|\\mathcal{V}|} \\sum_{(i,j) \\in \\mathcal{V}} \\left\\| \\mathbf{p}_{ij}^{\\text{sim},(k)} - \\mathbf{p}_{ij}^{\\text{cap}} \\right\\|_2^2",
+      "required_operators": [
+        "subtraction",
+        "squared_L2_norm",
+        "masked_mean"
+      ],
+      "inputs": [
+        "P_sim_k (simulated points)",
+        "P_cap (captured points)",
+        "valid_cap (mask M)",
+        "V_cardinality (number of valid pixels)"
+      ],
+      "outputs": [
+        "L_k (scalar loss value)"
+      ]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Compute Residual",
+      "mathematical_description": "\\mathbf{b}_{ij}^{(k)} = \\mathbf{M}_{ij} \\cdot \\left( \\mathbf{p}_{ij}^{\\text{cap}} - \\mathbf{p}_{ij}^{\\text{sim},(k)} \\right)",
+      "required_operators": [
+        "subtraction",
+        "element_wise_multiplication",
+        "masking"
+      ],
+      "inputs": [
+        "P_sim_k",
+        "P_cap",
+        "M (valid_cap mask)"
+      ],
+      "outputs": [
+        "b_k (residual tensor, shape: N_cam x H x W x 2)"
+      ]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Handle NaN Values",
+      "mathematical_description": "\\mathbf{b}_{ij}^{(k)} \\leftarrow 0 \\quad \\text{where } \\text{isnan}(\\mathbf{b}_{ij}^{(k)})",
+      "required_operators": [
+        "nan_detection",
+        "conditional_assignment",
+        "nan_to_num"
+      ],
+      "inputs": [
+        "b_k (residual with potential NaNs)"
+      ],
+      "outputs": [
+        "b_k (cleaned residual)"
+      ]
+    },
+    {
+      "step_order": 5,
+      "step_name": "Backward Pass (Gradient Computation)",
+      "mathematical_description": "\\mathbf{g}^{(k)} = \\nabla_{\\boldsymbol{\\theta}} \\mathcal{L}^{(k)} = \\frac{2}{|\\mathcal{V}|} \\sum_{(i,j) \\in \\mathcal{V}} \\left( \\mathbf{p}_{ij}^{\\text{sim},(k)} - \\mathbf{p}_{ij}^{\\text{cap}} \\right) \\cdot \\nabla_{\\boldsymbol{\\theta}} \\mathbf{p}_{ij}^{\\text{sim},(k)}",
+      "required_operators": [
+        "automatic_differentiation",
+        "backpropagation",
+        "chain_rule"
+      ],
+      "inputs": [
+        "L_k (loss)",
+        "theta_k (parameters)",
+        "computational_graph"
+      ],
+      "outputs": [
+        "g_k (gradient vector, shape: 8)"
+      ]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Adam Optimizer Update",
+      "mathematical_description": "\\begin{aligned} m^{(k+1)} &= \\beta_1 m^{(k)} + (1-\\beta_1) \\mathbf{g}^{(k)} \\\\ v^{(k+1)} &= \\beta_2 v^{(k)} + (1-\\beta_2) (\\mathbf{g}^{(k)})^2 \\\\ \\hat{m} &= \\frac{m^{(k+1)}}{1 - \\beta_1^{k+1}}, \\quad \\hat{v} = \\frac{v^{(k+1)}}{1 - \\beta_2^{k+1}} \\\\ \\boldsymbol{\\theta}^{(k+1)} &= \\boldsymbol{\\theta}^{(k)} - \\eta \\frac{\\hat{m}}{\\sqrt{\\hat{v}} + \\epsilon} \\end{aligned}",
+      "required_operators": [
+        "exponential_moving_average",
+        "bias_correction",
+        "element_wise_division",
+        "element_wise_sqrt",
+        "scalar_multiplication",
+        "vector_subtraction"
+      ],
+      "inputs": [
+        "theta_k (current parameters)",
+        "g_k (gradient)",
+        "m_k (first moment)",
+        "v_k (second moment)",
+        "k (iteration index)",
+        "beta_1 (default 0.9)",
+        "beta_2 (default 0.999)",
+        "eta (learning rate)",
+        "epsilon (default 1e-8)"
+      ],
+      "outputs": [
+        "theta_k+1 (updated parameters)",
+        "m_k+1 (updated first moment)",
+        "v_k+1 (updated second moment)"
+      ]
+    },
+    {
+      "step_order": 7,
+      "step_name": "Update Lens Group State",
+      "mathematical_description": "\\texttt{lensgroup.update}(\\boldsymbol{\\theta}^{(k+1)}): \\text{ Recompute transformation matrices from } c_0, c_1, d_1, \\mathbf{o}, \\theta_x, \\theta_y",
+      "required_operators": [
+        "rotation_matrix_construction",
+        "translation_matrix_construction",
+        "surface_parameter_update",
+        "lens_group_state_sync"
+      ],
+      "inputs": [
+        "theta_k+1 (updated parameter vector)"
+      ],
+      "outputs": [
+        "lensgroup (updated internal state)",
+        "surfaces[0].c (updated)",
+        "surfaces[1].c (updated)",
+        "surfaces[1].d (updated)",
+        "lensgroup.origin (updated)",
+        "lensgroup.theta_x (updated)",
+        "lensgroup.theta_y (updated)"
+      ]
+    }
+  ]
+}
+```

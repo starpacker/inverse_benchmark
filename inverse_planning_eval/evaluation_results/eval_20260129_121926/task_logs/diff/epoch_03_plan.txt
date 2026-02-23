@@ -1,0 +1,90 @@
+```json
+{
+  "algorithm_name": "Differentiable Deflectometry Lens Parameter Estimation",
+  "initialization": [
+    "Reset surface 0 curvature: $c_0 \\leftarrow 0.0$",
+    "Reset surface 1 curvature: $c_1 \\leftarrow 0.0$",
+    "Set initial lens thickness: $d \\leftarrow 3.0$",
+    "Reset x-tilt angle: $\\theta_x \\leftarrow 0.0$",
+    "Reset y-tilt angle: $\\theta_y \\leftarrow 0.0$",
+    "Initialize lens origin from calibration: $\\mathbf{o} \\leftarrow \\texttt{compute\\_mount\\_geometry}(\\mathbf{C})$",
+    "Update lens group internal transforms: $\\texttt{lensgroup.update()}$",
+    "Define differentiable parameter set: $\\mathcal{D} \\leftarrow \\{c_0, c_1, d, \\mathbf{o}, \\theta_x, \\theta_y\\}$",
+    "Initialize Adam optimizer with parameter set $\\mathcal{D}$"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Forward Ray Tracing",
+      "mathematical_description": "$\\mathbf{p}^{(k)} = \\texttt{trace}(\\text{with\\_element}=\\text{True}, \\text{mask}=\\mathcal{M}, \\text{angles}=\\alpha)[0][..., 0:2]$",
+      "required_operators": ["differentiable_ray_tracing", "ray_surface_intersection", "index_slicing"],
+      "inputs": ["lensgroup", "valid_cap", "alpha", "camera_parameters"],
+      "outputs": ["ps"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Apply Validity Mask",
+      "mathematical_description": "$\\mathbf{p}_{\\text{valid}}^{(k)} = \\mathbf{p}^{(k)}[\\mathcal{M}]$",
+      "required_operators": ["boolean_indexing", "tensor_masking"],
+      "inputs": ["ps", "valid_cap"],
+      "outputs": ["ps_valid"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Compute Squared Residuals",
+      "mathematical_description": "$\\mathbf{r}^{(k)} = \\sum_{d \\in \\{x,y\\}} \\left(\\mathbf{p}_{\\text{valid}}^{(k)} - \\hat{\\mathbf{p}}_{\\text{valid}}\\right)_d^2$",
+      "required_operators": ["subtraction", "element_wise_square", "sum_over_axis"],
+      "inputs": ["ps_valid", "ps_cap_valid"],
+      "outputs": ["residuals"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Compute Loss",
+      "mathematical_description": "$\\mathcal{L}^{(k)} = \\frac{1}{|\\mathcal{V}|} \\sum_i r_i^{(k)}$",
+      "required_operators": ["mean_reduction"],
+      "inputs": ["residuals"],
+      "outputs": ["loss"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "Compute Jacobian Residual",
+      "mathematical_description": "$\\mathbf{b}^{(k)} = \\mathcal{M}[..., \\text{None}] \\odot (\\hat{\\mathbf{p}} - \\mathbf{p}^{(k)}); \\quad \\mathbf{b}^{(k)}[\\text{NaN}] \\leftarrow 0$",
+      "required_operators": ["broadcasting", "element_wise_multiplication", "subtraction", "nan_to_zero"],
+      "inputs": ["ps", "ps_cap", "valid_cap"],
+      "outputs": ["b"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Backward Pass",
+      "mathematical_description": "$\\nabla_{\\boldsymbol{\\theta}} \\mathcal{L}^{(k)} \\leftarrow \\texttt{autograd}(\\mathcal{L}^{(k)}, \\mathcal{D})$",
+      "required_operators": ["automatic_differentiation", "gradient_computation"],
+      "inputs": ["loss", "differentiable_params"],
+      "outputs": ["grad_c0", "grad_c1", "grad_d", "grad_o", "grad_theta_x", "grad_theta_y"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "Adam Update",
+      "mathematical_description": "$\\boldsymbol{\\theta}^{(k)} \\leftarrow \\texttt{Adam}(\\boldsymbol{\\theta}^{(k-1)}, \\nabla_{\\boldsymbol{\\theta}} \\mathcal{L}^{(k)})$",
+      "required_operators": ["adam_optimizer_step"],
+      "inputs": ["c0", "c1", "d", "o", "theta_x", "theta_y", "grad_c0", "grad_c1", "grad_d", "grad_o", "grad_theta_x", "grad_theta_y"],
+      "outputs": ["c0", "c1", "d", "o", "theta_x", "theta_y"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "Update Lens Group",
+      "mathematical_description": "$\\texttt{lensgroup.update()}$",
+      "required_operators": ["geometric_transform_update", "ray_transfer_matrix_computation"],
+      "inputs": ["c0", "c1", "d", "o", "theta_x", "theta_y"],
+      "outputs": ["lensgroup"]
+    },
+    {
+      "step_order": 9,
+      "step_name": "Record Loss",
+      "mathematical_description": "$\\mathbf{l}[k] \\leftarrow \\mathcal{L}^{(k)}$",
+      "required_operators": ["list_append"],
+      "inputs": ["loss", "loss_history"],
+      "outputs": ["loss_history"]
+    }
+  ]
+}
+```

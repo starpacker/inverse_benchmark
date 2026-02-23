@@ -1,0 +1,31 @@
+global:
+  default_settings:
+    max_rounds: 10
+    model_name: gemini-3-pro-preview
+  sandbox_root: /data/yjh/react_inverse_problem_sandboxes
+tasks:
+- expected_output_path: null
+  gt_code_path: /home/yjh/pnp_cassi_sandbox/pnp_cassi_code.py
+  input_path: null
+  name: pnp_cassi
+  working_folder: /home/yjh/pnp_cassi_sandbox/
+- expected_output_path: null
+  gt_code_path: /home/yjh/fpm_inr_sandbox/fpm_inr_code.py
+  input_path: null
+  name: fpm_inr
+  working_folder: /home/yjh/fpm_inr_sandbox/
+- expected_output_path: null
+  gt_code_path: /home/yjh/flfm_sandbox/flfm_code.py
+  input_path: null
+  name: flfm
+  working_folder: /home/yjh/flfm_sandbox/
+- expected_output_path: null
+  gt_code_path: /home/yjh/lenstronomy_simple_ring_sandbox/main.py
+  input_path: null
+  name: lenstronomy_simple_ring
+  working_folder: /home/yjh/lenstronomy_simple_ring_sandbox/
+- expected_output_path: null
+  gt_code_path: /home/yjh/lenstronomy_quad_quasar_sandbox/main.py
+  input_path: null
+  name: lenstronomy_quad_quasar
+  working_folder: /home/yjh/lenstronomy_quad_quasar_sandbox/

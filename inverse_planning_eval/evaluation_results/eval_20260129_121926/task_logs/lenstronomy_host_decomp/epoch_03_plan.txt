@@ -1,0 +1,130 @@
+```json
+{
+  "algorithm_name": "Quasar-Host Galaxy Decomposition via Particle Swarm Optimization",
+  "initialization": [
+    "Define parameter bounds: θ_lower = [-0.5, -0.5, 0.001, 0.001, -10, -10]^T, θ_upper = [0.5, 0.5, 10, 10, 10, 10]^T",
+    "Set initial parameter guess: θ^(0) = [0, 0, 1.0, 0.5, 0, 0]^T for [e1, e2, R_disk, R_bulge, x_c, y_c]",
+    "Define parameter sigma for search scale: σ_θ = [0.1, 0.1, 0.5, 0.3, 0.1, 0.1]^T",
+    "Configure joint center constraints: x_c^disk = x_c^bulge = α_ps and y_c^disk = y_c^bulge = δ_ps",
+    "Initialize PSO swarm positions: x_p^(0) ~ U(θ^(0) - σ_scale·σ_θ, θ^(0) + σ_scale·σ_θ) for p = 1,...,N_part",
+    "Initialize particle velocities: v_p^(0) = 0 for all particles",
+    "Evaluate initial fitness for all particles: f_p^(0) = χ²(x_p^(0))",
+    "Initialize personal best positions: p_best,p = x_p^(0) and f_best,p = f_p^(0) for all p",
+    "Initialize global best: g_best = argmin_p x_p^(0) where fitness is minimum, f_gbest = min_p f_p^(0)"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Velocity Update",
+      "mathematical_description": "\\mathbf{v}_p^{(k)} = \\omega \\mathbf{v}_p^{(k-1)} + c_1 r_1 (\\mathbf{p}_{\\text{best},p} - \\mathbf{x}_p^{(k-1)}) + c_2 r_2 (\\mathbf{g}_{\\text{best}} - \\mathbf{x}_p^{(k-1)}), \\quad r_1, r_2 \\sim \\mathcal{U}(0,1)",
+      "required_operators": ["random_uniform", "vector_subtraction", "scalar_vector_multiplication", "vector_addition"],
+      "inputs": ["v_p^{(k-1)}", "x_p^{(k-1)}", "p_best_p", "g_best", "omega", "c1", "c2"],
+      "outputs": ["v_p^{(k)}"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Position Update",
+      "mathematical_description": "\\mathbf{x}_p^{(k)} = \\mathbf{x}_p^{(k-1)} + \\mathbf{v}_p^{(k)}",
+      "required_operators": ["vector_addition"],
+      "inputs": ["x_p^{(k-1)}", "v_p^{(k)}"],
+      "outputs": ["x_p^{(k)}"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Boundary Enforcement",
+      "mathematical_description": "x_{p,d}^{(k)} = \\text{clip}(x_{p,d}^{(k)}, \\theta_{\\text{lower},d}, \\theta_{\\text{upper},d}) \\quad \\forall d \\in \\{1,\\ldots,N_{\\text{dim}}\\}",
+      "required_operators": ["clip"],
+      "inputs": ["x_p^{(k)}", "theta_lower", "theta_upper"],
+      "outputs": ["x_p^{(k)}"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Joint Center Constraint Application",
+      "mathematical_description": "x_c^{\\text{bulge}} = x_c^{\\text{disk}}, \\quad y_c^{\\text{bulge}} = y_c^{\\text{disk}}, \\quad \\alpha_{\\text{ps}} = x_c^{\\text{disk}}, \\quad \\delta_{\\text{ps}} = y_c^{\\text{disk}}",
+      "required_operators": ["parameter_copy", "constraint_enforcement"],
+      "inputs": ["theta_p"],
+      "outputs": ["theta_p_constrained"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "Sérsic Disk Profile Computation",
+      "mathematical_description": "I_{\\text{disk}}(\\mathbf{r}) = \\exp\\left(-b_1 \\left[\\left(\\frac{r'}{R_{\\text{disk}}}\\right)^{1/n_{\\text{disk}}} - 1\\right]\\right), \\quad r' = \\sqrt{q((x-x_c)\\cos\\theta + (y-y_c)\\sin\\theta)^2 + ((y-y_c)\\cos\\theta - (x-x_c)\\sin\\theta)^2/q}",
+      "required_operators": ["ellipticity_to_axis_ratio", "coordinate_rotation", "elliptical_radius", "sersic_profile_evaluation"],
+      "inputs": ["R_disk", "e1_disk", "e2_disk", "x_c", "y_c", "n_disk", "b1", "pixel_grid"],
+      "outputs": ["I_disk"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Sérsic Bulge Profile Computation",
+      "mathematical_description": "I_{\\text{bulge}}(\\mathbf{r}) = \\exp\\left(-b_4 \\left[\\left(\\frac{r}{R_{\\text{bulge}}}\\right)^{1/4} - 1\\right]\\right), \\quad r = \\sqrt{(x-x_c)^2 + (y-y_c)^2}",
+      "required_operators": ["circular_radius", "sersic_profile_evaluation"],
+      "inputs": ["R_bulge", "x_c", "y_c", "n_bulge", "b4", "pixel_grid"],
+      "outputs": ["I_bulge"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "Point Source Model Generation",
+      "mathematical_description": "I_{\\text{ps}}(\\mathbf{r}) = \\delta(\\mathbf{r} - \\mathbf{r}_{\\text{ps}})",
+      "required_operators": ["delta_function", "subpixel_interpolation"],
+      "inputs": ["alpha_ps", "delta_ps", "pixel_grid"],
+      "outputs": ["I_ps"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "PSF Convolution",
+      "mathematical_description": "\\tilde{I}_{\\text{disk}} = P \\ast I_{\\text{disk}}, \\quad \\tilde{I}_{\\text{bulge}} = P \\ast I_{\\text{bulge}}, \\quad \\tilde{I}_{\\text{ps}} = P \\ast I_{\\text{ps}}",
+      "required_operators": ["fft_convolution", "psf_application"],
+      "inputs": ["I_disk", "I_bulge", "I_ps", "PSF_kernel"],
+      "outputs": ["I_disk_conv", "I_bulge_conv", "I_ps_conv"]
+    },
+    {
+      "step_order": 9,
+      "step_name": "Design Matrix Assembly",
+      "mathematical_description": "\\mathbf{M} = [\\text{vec}(\\tilde{I}_{\\text{disk}}), \\text{vec}(\\tilde{I}_{\\text{bulge}}), \\text{vec}(\\tilde{I}_{\\text{ps}})] \\in \\mathbb{R}^{N_{\\text{pix}}^2 \\times 3}",
+      "required_operators": ["matrix_vectorization", "column_stack"],
+      "inputs": ["I_disk_conv", "I_bulge_conv", "I_ps_conv"],
+      "outputs": ["M"]
+    },
+    {
+      "step_order": 10,
+      "step_name": "Linear Amplitude Solve (NNLS)",
+      "mathematical_description": "\\mathbf{a}^* = \\arg\\min_{\\mathbf{a} \\geq 0} \\|\\mathbf{y}^{\\text{obs}} - \\mathbf{M}\\mathbf{a}\\|_{\\mathbf{C}^{-1}}^2, \\quad \\mathbf{a} = [A_{\\text{disk}}, A_{\\text{bulge}}, A_{\\text{ps}}]^T",
+      "required_operators": ["non_negative_least_squares", "weighted_least_squares"],
+      "inputs": ["M", "y_obs_vectorized", "noise_covariance"],
+      "outputs": ["A_disk_optimal", "A_bulge_optimal", "A_ps_optimal"]
+    },
+    {
+      "step_order": 11,
+      "step_name": "Model Image Construction",
+      "mathematical_description": "\\mathbf{Y}^{\\text{model}} = A_{\\text{disk}}^* \\tilde{I}_{\\text{disk}} + A_{\\text{bulge}}^* \\tilde{I}_{\\text{bulge}} + A_{\\text{ps}}^* \\tilde{I}_{\\text{ps}}",
+      "required_operators": ["scalar_matrix_multiplication", "matrix_addition"],
+      "inputs": ["A_disk_optimal", "A_bulge_optimal", "A_ps_optimal", "I_disk_conv", "I_bulge_conv", "I_ps_conv"],
+      "outputs": ["Y_model"]
+    },
+    {
+      "step_order": 12,
+      "step_name": "Chi-squared Fitness Computation",
+      "mathematical_description": "\\chi^2_p = \\sum_{i,j} \\frac{(Y_{ij}^{\\text{obs}} - Y_{ij}^{\\text{model}})^2}{\\sigma_{\\text{bkg}}^2 + Y_{ij}^{\\text{model}}/t_{\\text{exp}}}",
+      "required_operators": ["matrix_subtraction", "element_wise_square", "noise_variance_computation", "element_wise_division", "sum_reduction"],
+      "inputs": ["Y_obs", "Y_model", "sigma_bkg", "t_exp"],
+      "outputs": ["chi_squared_p"]
+    },
+    {
+      "step_order": 13,
+      "step_name": "Personal Best Update",
+      "mathematical_description": "\\text{If } f_p^{(k)} < f_{\\text{best},p}: \\quad \\mathbf{p}_{\\text{best},p} \\leftarrow \\mathbf{x}_p^{(k)}, \\quad f_{\\text{best},p} \\leftarrow f_p^{(k)}",
+      "required_operators": ["scalar_comparison", "conditional_assignment", "vector_copy"],
+      "inputs": ["chi_squared_p", "f_best_p", "x_p^{(k)}", "p_best_p"],
+      "outputs": ["p_best_p", "f_best_p"]
+    },
+    {
+      "step_order": 14,
+      "step_name": "Global Best Update",
+      "mathematical_description": "\\text{If } \\min_p f_p^{(k)} < f_{\\text{gbest}}: \\quad \\mathbf{g}_{\\text{best}} \\leftarrow \\mathbf{x}_{p^*}^{(k)} \\text{ where } p^* = \\arg\\min_p f_p^{(k)}, \\quad f_{\\text{gbest}} \\leftarrow \\min_p f_p^{(k)}",
+      "required_operators": ["min_reduction", "argmin", "scalar_comparison", "conditional_assignment", "vector_copy"],
+      "inputs": ["chi_squared_all_particles", "f_gbest", "x_all_particles", "g_best"],
+      "outputs": ["g_best", "f_gbest"]
+    }
+  ]
+}
+```

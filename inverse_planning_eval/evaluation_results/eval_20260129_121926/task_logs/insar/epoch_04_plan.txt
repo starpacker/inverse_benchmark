@@ -1,0 +1,82 @@
+```json
+{
+  "algorithm_name": "ADMM Phase Unwrapping",
+  "initialization": [
+    "Initialize primal variable: F^{(0)} = 0_{M×N}",
+    "Initialize auxiliary variable x: w_x^{(0)} = 0_{M×N}",
+    "Initialize auxiliary variable y: w_y^{(0)} = 0_{M×N}",
+    "Initialize dual variable x: Λ_x^{(0)} = 0_{M×N}",
+    "Initialize dual variable y: Λ_y^{(0)} = 0_{M×N}",
+    "Initialize tracking variable: F_old^{(0)} = 0_{M×N}",
+    "Set iteration counter: k = 0",
+    "Precompute wrapped gradients φ_x, φ_y from wrapped phase with wrap correction",
+    "Precompute DCT inverse Laplacian kernel K from eigenvalues"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Assemble Poisson RHS",
+      "mathematical_description": "r_x = \\text{vec}(w_x^{(k)}) + \\text{vec}(\\phi_x) - \\text{vec}(\\Lambda_x^{(k)}), \\quad r_y = \\text{vec}(w_y^{(k)}) + \\text{vec}(\\phi_y) - \\text{vec}(\\Lambda_y^{(k)}), \\quad \\text{RHS} = D_x^T r_x + D_y^T r_y",
+      "required_operators": ["adjoint_gradient_x", "adjoint_gradient_y", "vectorize", "addition", "subtraction"],
+      "inputs": ["w_x", "w_y", "phi_x", "phi_y", "Lambda_x", "Lambda_y", "D_x", "D_y"],
+      "outputs": ["RHS"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "F-Subproblem (Poisson Solve via DCT)",
+      "mathematical_description": "\\hat{\\rho} = \\text{DCT-II}(\\text{reshape}(\\text{RHS}, (M, N))), \\quad F^{(k+1)} = \\text{IDCT-II}(\\hat{\\rho} \\odot K)",
+      "required_operators": ["reshape", "DCT2", "IDCT2", "elementwise_multiply"],
+      "inputs": ["RHS", "K", "M", "N"],
+      "outputs": ["F"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Forward Gradient Computation",
+      "mathematical_description": "F_x^{(k+1)} = \\text{reshape}(D_x \\cdot \\text{vec}(F^{(k+1)}), (M, N)), \\quad F_y^{(k+1)} = \\text{reshape}(D_y \\cdot \\text{vec}(F^{(k+1)}), (M, N))",
+      "required_operators": ["forward_gradient_x", "forward_gradient_y", "vectorize", "reshape"],
+      "inputs": ["F", "D_x", "D_y", "M", "N"],
+      "outputs": ["F_x", "F_y"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Form Shrinkage Arguments",
+      "mathematical_description": "u_x = F_x^{(k+1)} - \\phi_x + \\Lambda_x^{(k)}, \\quad u_y = F_y^{(k+1)} - \\phi_y + \\Lambda_y^{(k)}",
+      "required_operators": ["subtraction", "addition"],
+      "inputs": ["F_x", "F_y", "phi_x", "phi_y", "Lambda_x", "Lambda_y"],
+      "outputs": ["u_x", "u_y"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "w-Subproblem (p-Shrinkage Proximal Operator)",
+      "mathematical_description": "\\text{mag}_{i,j} = \\sqrt{u_{x,i,j}^2 + u_{y,i,j}^2}, \\quad s_{i,j} = \\frac{\\max(\\text{mag}_{i,j} - \\lambda^{2-p}(\\text{mag}_{i,j}^2 + \\epsilon)^{p/2 - 0.5}, 0)}{\\text{mag}_{i,j}}, \\quad (w_x^{(k+1)}, w_y^{(k+1)}) = s \\odot (u_x, u_y)",
+      "required_operators": ["p_shrinkage", "elementwise_sqrt", "elementwise_square", "elementwise_power", "elementwise_multiply", "max", "division"],
+      "inputs": ["u_x", "u_y", "lambda", "p", "epsilon"],
+      "outputs": ["w_x", "w_y"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Dual Variable Update",
+      "mathematical_description": "\\Lambda_x^{(k+1)} = \\Lambda_x^{(k)} + c \\cdot (F_x^{(k+1)} - \\phi_x - w_x^{(k+1)}), \\quad \\Lambda_y^{(k+1)} = \\Lambda_y^{(k)} + c \\cdot (F_y^{(k+1)} - \\phi_y - w_y^{(k+1)})",
+      "required_operators": ["addition", "subtraction", "scalar_multiply"],
+      "inputs": ["Lambda_x", "Lambda_y", "F_x", "F_y", "phi_x", "phi_y", "w_x", "w_y", "c"],
+      "outputs": ["Lambda_x", "Lambda_y"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "Convergence Check",
+      "mathematical_description": "\\Delta^{(k+1)} = \\max_{i,j} |F^{(k+1)}_{i,j} - F^{(k)}_{i,j}|, \\quad \\text{STOP if } (\\Delta^{(k+1)} < \\text{tol}) \\lor (\\text{isnan}(\\Delta^{(k+1)})) \\lor (k \\geq \\text{max\\_iters} - 1)",
+      "required_operators": ["subtraction", "absolute_value", "max_reduction", "comparison"],
+      "inputs": ["F", "F_old", "tol", "max_iters", "k"],
+      "outputs": ["Delta", "converged_flag"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "Update Tracking Variable",
+      "mathematical_description": "F_{\\text{old}}^{(k+1)} = F^{(k+1)}",
+      "required_operators": ["copy"],
+      "inputs": ["F"],
+      "outputs": ["F_old"]
+    }
+  ]
+}
+```

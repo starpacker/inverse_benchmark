@@ -1,0 +1,79 @@
+```json
+{
+  "algorithm_name": "JAC (Jacobian-based) EIT Inversion",
+  "initialization": [
+    "Assemble global stiffness matrix: K_g = sum_k(sigma_bg * L_k^T * S_e^(k) * L_k) with Dirichlet BC at reference node",
+    "Construct RHS excitation matrix: B[i, el_pos[E_exc[i,:]]] = [1, -1] for each excitation pair",
+    "Solve forward problems: F[i,:] = K_g^{-1} * b_i via sparse LU factorization for i = 1,...,n_exc",
+    "Compute reciprocity matrix: R_mat = (K_g^{-1})[el_pos, :] extracting rows at electrode positions",
+    "Compute differential reciprocity vectors: r_i[j,:] = R_mat[n_j,:] - R_mat[m_j,:] for each measurement j",
+    "Initialize Jacobian matrix: J = zeros(n_meas, n_elems)"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Extract Element Nodes",
+      "mathematical_description": "\\text{ijk} = \\mathbf{T}[e, :] \\in \\mathbb{Z}^4",
+      "required_operators": ["indexing", "element_connectivity_lookup"],
+      "inputs": ["T", "e"],
+      "outputs": ["ijk"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Extract Forward Potentials",
+      "mathematical_description": "\\mathbf{F}_n = \\mathbf{F}[\\mathbf{M}_{\\text{meas}}[:, 2], :] \\in \\mathbb{R}^{n_{\\text{meas}} \\times n_{\\text{nodes}}}",
+      "required_operators": ["matrix_indexing", "row_selection"],
+      "inputs": ["F", "M_meas"],
+      "outputs": ["F_n"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Compute Jacobian Column",
+      "mathematical_description": "\\mathbf{J}[:, e] = \\sum_{l=1}^{4} \\left( \\mathbf{r}_i[:, \\text{ijk}] \\cdot \\mathbf{S}_e^{(e)} \\right) \\odot \\mathbf{F}_n[:, \\text{ijk}]",
+      "required_operators": ["matrix_multiply", "elementwise_multiply", "sum_reduction", "column_assignment"],
+      "inputs": ["r_i", "S_e", "F_n", "ijk", "e"],
+      "outputs": ["J"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Compute Gram Matrix",
+      "mathematical_description": "\\mathbf{G} = \\mathbf{J}^\\top \\mathbf{J} \\in \\mathbb{R}^{n_{\\text{elems}} \\times n_{\\text{elems}}}",
+      "required_operators": ["matrix_transpose", "matrix_multiply"],
+      "inputs": ["J"],
+      "outputs": ["G"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "Construct Regularization Matrix",
+      "mathematical_description": "\\mathbf{R} = \\begin{cases} \\text{diag}((\\text{diag}(\\mathbf{G}))^p) & \\text{Kotre} \\\\ \\text{diag}(\\text{diag}(\\mathbf{G})) & \\text{LM} \\\\ \\mathbf{I}_{n_{\\text{elems}}} & \\text{DGN} \\end{cases}",
+      "required_operators": ["diagonal_extraction", "elementwise_power", "diagonal_matrix_construction", "identity_matrix"],
+      "inputs": ["G", "p", "method"],
+      "outputs": ["R"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Compute Reconstruction Matrix",
+      "mathematical_description": "\\mathbf{H} = (\\mathbf{G} + \\lambda \\mathbf{R})^{-1} \\mathbf{J}^\\top \\in \\mathbb{R}^{n_{\\text{elems}} \\times n_{\\text{meas}}}",
+      "required_operators": ["scalar_matrix_multiply", "matrix_add", "matrix_inverse", "matrix_transpose", "matrix_multiply"],
+      "inputs": ["G", "R", "J", "lambda"],
+      "outputs": ["H"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "Compute Voltage Difference",
+      "mathematical_description": "\\Delta\\mathbf{v} = \\begin{cases} \\mathbf{v}_1 - \\mathbf{v}_0 & \\text{unnormalized} \\\\ \\log|\\mathbf{v}_1 / \\mathbf{v}_0| \\cdot \\text{sign}(\\text{Re}(\\mathbf{v}_0)) & \\text{normalized} \\end{cases}",
+      "required_operators": ["vector_subtract", "elementwise_divide", "abs", "log", "sign", "elementwise_multiply"],
+      "inputs": ["v0", "v1", "normalize"],
+      "outputs": ["dv"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "Solve Inverse Problem",
+      "mathematical_description": "\\Delta\\boldsymbol{\\sigma} = -\\mathbf{H} \\cdot \\Delta\\mathbf{v} \\in \\mathbb{R}^{n_{\\text{elems}}}",
+      "required_operators": ["matrix_vector_multiply", "negate"],
+      "inputs": ["H", "dv"],
+      "outputs": ["ds"]
+    }
+  ]
+}
+```

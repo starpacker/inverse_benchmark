@@ -1,0 +1,53 @@
+{
+  "task_name": "insar",
+  "golden_rating": 1079.345675093451,
+  "epoch_ratings": {
+    "epoch_01": 976.8064432706076,
+    "epoch_02": 1045.2741775610718,
+    "epoch_03": 982.5223768628566,
+    "epoch_04": 979.2166865150497,
+    "epoch_05": 955.9337582381834,
+    "epoch_06": 980.9008824587798
+  },
+  "similarity_scores": {
+    "epoch_01": {
+      "embedding_similarity": 0.5432460904121399,
+      "structural_similarity": 0.0,
+      "combined_score": 0.27162304520606995
+    },
+    "epoch_02": {
+      "embedding_similarity": 0.5339746475219727,
+      "structural_similarity": 0.0,
+      "combined_score": 0.26698732376098633
+    },
+    "epoch_03": {
+      "embedding_similarity": 0.6262739896774292,
+      "structural_similarity": 0.0,
+      "combined_score": 0.3131369948387146
+    },
+    "epoch_04": {
+      "embedding_similarity": 0.6011670827865601,
+      "structural_similarity": 0.0,
+      "combined_score": 0.30058354139328003
+    },
+    "epoch_05": {
+      "embedding_similarity": 0.5444395542144775,
+      "structural_similarity": 0.0,
+      "combined_score": 0.27221977710723877
+    },
+    "epoch_06": {
+      "embedding_similarity": 0.5857073664665222,
+      "structural_similarity": 0.0,
+      "combined_score": 0.2928536832332611
+    }
+  },
+  "plans_summary": {
+    "epoch_01": "```json\n{\n  \"algorithm_name\": \"InSAR Phase Unwrapping via ADMM\",\n  \"initialization\": [\n    \"F^{(0)} ...",
+    "epoch_02": "```json\n{\n  \"algorithm_name\": \"InSAR Phase Unwrapping via ADMM\",\n  \"initialization\": [\n    \"F^{(0)} ...",
+    "epoch_03": "```json\n{\n  \"algorithm_name\": \"ADMM Phase Unwrapping with p-Shrinkage\",\n  \"initialization\": [\n    \"I...",
+    "epoch_04": "```json\n{\n  \"algorithm_name\": \"ADMM Phase Unwrapping\",\n  \"initialization\": [\n    \"Initialize primal ...",
+    "epoch_05": "```json\n{\n  \"algorithm_name\": \"ADMM Phase Unwrapping\",\n  \"initialization\": [\n    \"Initialize dual va...",
+    "epoch_06": "```json\n{\n  \"algorithm_name\": \"ADMM Phase Unwrapping\",\n  \"initialization\": [\n    \"Initialize dual va..."
+  },
+  "timestamp": "2026-01-29T18:48:19.368660"
+}

@@ -1,0 +1,53 @@
+{
+  "task_name": "flfm",
+  "golden_rating": 1085.692249845601,
+  "epoch_ratings": {
+    "epoch_01": 962.8252787522936,
+    "epoch_02": 1043.334122690423,
+    "epoch_03": 954.7409618155364,
+    "epoch_04": 986.4136927750054,
+    "epoch_05": 958.6711622824506,
+    "epoch_06": 1008.3225318386898
+  },
+  "similarity_scores": {
+    "epoch_01": {
+      "embedding_similarity": 0.66141277551651,
+      "structural_similarity": 0.0,
+      "combined_score": 0.330706387758255
+    },
+    "epoch_02": {
+      "embedding_similarity": 0.64997398853302,
+      "structural_similarity": 0.0,
+      "combined_score": 0.32498699426651
+    },
+    "epoch_03": {
+      "embedding_similarity": 0.6772406101226807,
+      "structural_similarity": 0.0,
+      "combined_score": 0.33862030506134033
+    },
+    "epoch_04": {
+      "embedding_similarity": 0.712297260761261,
+      "structural_similarity": 0.0,
+      "combined_score": 0.3561486303806305
+    },
+    "epoch_05": {
+      "embedding_similarity": 0.6882212162017822,
+      "structural_similarity": 0.0,
+      "combined_score": 0.3441106081008911
+    },
+    "epoch_06": {
+      "embedding_similarity": 0.6712774038314819,
+      "structural_similarity": 0.0,
+      "combined_score": 0.33563870191574097
+    }
+  },
+  "plans_summary": {
+    "epoch_01": "```json\n{\n  \"algorithm_name\": \"3D Richardson-Lucy Deconvolution\",\n  \"initialization\": [\n    \"Compute...",
+    "epoch_02": "```json\n{\n  \"algorithm_name\": \"Richardson-Lucy 3D Deconvolution\",\n  \"initialization\": [\n    \"Compute...",
+    "epoch_03": "```json\n{\n  \"algorithm_name\": \"Richardson-Lucy Deconvolution for 3D Fluorescence Microscopy\",\n  \"ini...",
+    "epoch_04": "```json\n{\n  \"algorithm_name\": \"Richardson-Lucy Deconvolution for 3D Widefield Microscopy\",\n  \"initia...",
+    "epoch_05": "```json\n{\n  \"algorithm_name\": \"Richardson-Lucy Deconvolution for 3D Microscopy\",\n  \"initialization\":...",
+    "epoch_06": "```json\n{\n  \"algorithm_name\": \"Richardson-Lucy Deconvolution\",\n  \"initialization\": [\n    \"Compute me..."
+  },
+  "timestamp": "2026-01-29T22:34:22.988549"
+}

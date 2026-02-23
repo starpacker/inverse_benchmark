@@ -1,0 +1,31 @@
+global:
+  default_settings:
+    max_rounds: 10
+    model_name: gemini-3-pro-preview
+  sandbox_root: /data/yjh/react_inverse_problem_sandboxes
+tasks:
+- expected_output_path: null
+  gt_code_path: /data/yjh/PyTomography-main/pytomography_standalone.py
+  input_path: null
+  name: PyTomography-main
+  working_folder: /data/yjh/PyTomography-main_sandbox
+- expected_output_path: null
+  gt_code_path: /data/yjh/s2ISM-main_sandbox/s2ISM_code.py
+  input_path: null
+  name: s2ISM-main
+  working_folder: /data/yjh/s2ISM-main_sandbox
+- expected_output_path: null
+  gt_code_path: /data/yjh/semiblindpsfdeconv-master/semiblind_demo.py
+  input_path: null
+  name: semiblindpsfdeconv-master
+  working_folder: /data/yjh/semiblindpsfdeconv-master_sandbox
+- expected_output_path: null
+  gt_code_path: /data/yjh/spectral_ct_examples-master_sandbox/spectral_ct_code.py
+  input_path: null
+  name: spectral_ct_examples-master
+  working_folder: /data/yjh/spectral_ct_examples-master_sandbox
+- expected_output_path: null
+  gt_code_path: /data/yjh/storm-analysis-master_sandbox/storm_code.py
+  input_path: null
+  name: storm-analysis-master
+  working_folder: /data/yjh/storm-analysis-master_sandbox

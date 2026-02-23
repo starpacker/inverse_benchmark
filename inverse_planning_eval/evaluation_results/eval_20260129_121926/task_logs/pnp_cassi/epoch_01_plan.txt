@@ -1,0 +1,267 @@
+```json
+{
+  "algorithm_name": "GAP-TV (Generalized Alternating Projection with Total Variation) for CASSI Reconstruction",
+  "initialization": [
+    "Compute extended measurement: y_ext[j,k,i] = y[j,k] for all i (broadcast y to 3D)",
+    "Adjoint initialization: x_tilde^{(0)} = A^T(y) = y_ext ⊙ Φ, shape (r, c', n_C)",
+    "Residual initialization: y_1^{(0)} = 0, shape (r, c')",
+    "Compute mask sum: Φ_sum = Σ_{i=1}^{n_C} Φ_i, shape (r, c')",
+    "Prevent division by zero: Φ_sum[j,k] ← 1 where Φ_sum[j,k] = 0",
+    "Initialize TV dual variables: p_1^{(0)} = 0, p_2^{(0)} = 0, divp^{(0)} = 0, all shape (r, c, n_C)"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Forward Projection",
+      "mathematical_description": "\\bar{\\mathbf{y}}^{(k)} = \\mathbf{A}(\\tilde{\\mathbf{x}}^{(k)}) = \\sum_{i=1}^{n_C} \\boldsymbol{\\Phi}_i \\odot \\tilde{\\mathbf{x}}^{(k)}_i",
+      "required_operators": [
+        "Hadamard_product",
+        "summation_over_spectral_bands"
+      ],
+      "inputs": [
+        "x_tilde^{(k)}",
+        "Phi"
+      ],
+      "outputs": [
+        "y_bar^{(k)}"
+      ]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Accumulate Measurement Residual",
+      "mathematical_description": "\\mathbf{y}_1^{(k+1)} = \\mathbf{y}_1^{(k)} + (\\mathbf{y} - \\bar{\\mathbf{y}}^{(k)})",
+      "required_operators": [
+        "elementwise_subtraction",
+        "elementwise_addition"
+      ],
+      "inputs": [
+        "y_1^{(k)}",
+        "y",
+        "y_bar^{(k)}"
+      ],
+      "outputs": [
+        "y_1^{(k+1)}"
+      ]
+    },
+    {
+      "step_order": 3,
+      "step_name": "GAP Data Update (Adjoint Backprojection)",
+      "mathematical_description": "\\tilde{\\mathbf{x}}^{(k+\\frac{1}{2})} = \\tilde{\\mathbf{x}}^{(k)} + \\lambda \\cdot \\mathbf{A}^T\\left(\\frac{\\mathbf{y}_1^{(k+1)} - \\bar{\\mathbf{y}}^{(k)}}{\\boldsymbol{\\Phi}_{sum}}\\right) = \\tilde{\\mathbf{x}}^{(k)} + \\lambda \\cdot \\left(\\frac{\\mathbf{y}_1^{(k+1)} - \\bar{\\mathbf{y}}^{(k)}}{\\boldsymbol{\\Phi}_{sum}}\\right)_{ext} \\odot \\boldsymbol{\\Phi}",
+      "required_operators": [
+        "elementwise_subtraction",
+        "elementwise_division",
+        "broadcast_to_3D",
+        "Hadamard_product",
+        "scalar_multiplication",
+        "elementwise_addition"
+      ],
+      "inputs": [
+        "x_tilde^{(k)}",
+        "y_1^{(k+1)}",
+        "y_bar^{(k)}",
+        "Phi_sum",
+        "Phi",
+        "lambda"
+      ],
+      "outputs": [
+        "x_tilde^{(k+1/2)}"
+      ]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Inverse Spectral Dispersion",
+      "mathematical_description": "[\\mathcal{S}^{-1}(\\tilde{\\mathbf{x}})]_{j,k,i} = \\tilde{\\mathbf{x}}_{j, k+i\\Delta, i} \\quad \\text{(extract band } i \\text{ from columns } i\\Delta \\text{ to } i\\Delta+c-1\\text{)}",
+      "required_operators": [
+        "inverse_spectral_dispersion"
+      ],
+      "inputs": [
+        "x_tilde^{(k+1/2)}",
+        "Delta"
+      ],
+      "outputs": [
+        "x^{(k+1/2)}"
+      ]
+    },
+    {
+      "step_order": 5,
+      "step_name": "TV Denoising via Chambolle's Algorithm",
+      "mathematical_description": "\\mathbf{x}^{(k+1)} = \\arg\\min_{\\mathbf{u}} \\frac{1}{2}\\|\\mathbf{u} - \\mathbf{x}^{(k+\\frac{1}{2})}\\|_2^2 + \\frac{1}{\\lambda_{TV}}\\text{TV}(\\mathbf{u})",
+      "required_operators": [
+        "TV_denoiser_Chambolle"
+      ],
+      "inputs": [
+        "x^{(k+1/2)}",
+        "lambda_TV",
+        "T"
+      ],
+      "outputs": [
+        "x^{(k+1)}"
+      ]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Forward Spectral Dispersion",
+      "mathematical_description": "[\\mathcal{S}(\\mathbf{x})]_{j,k,i} = \\begin{cases} \\mathbf{x}_{j, k-i\\Delta, i} & \\text{if } i\\Delta \\leq k < i\\Delta + c \\\\ 0 & \\text{otherwise} \\end{cases}",
+      "required_operators": [
+        "forward_spectral_dispersion"
+      ],
+      "inputs": [
+        "x^{(k+1)}",
+        "Delta"
+      ],
+      "outputs": [
+        "x_tilde^{(k+1)}"
+      ]
+    }
+  ],
+  "subroutines": {
+    "TV_denoiser_Chambolle": {
+      "description": "Chambolle's dual algorithm for TV denoising with output u* = f - (1/lambda_TV) * divp^{(T)}",
+      "initialization": [
+        "p_1^{(0)} = 0, shape (r, c, n_C)",
+        "p_2^{(0)} = 0, shape (r, c, n_C)",
+        "divp^{(0)} = 0, shape (r, c, n_C)",
+        "tau = 0.25 (fixed step size)"
+      ],
+      "iteration_loop": [
+        {
+          "step_order": 1,
+          "step_name": "Compute Intermediate Variable",
+          "mathematical_description": "\\mathbf{z}^{(t)} = \\text{divp}^{(t)} - \\lambda_{TV} \\cdot \\mathbf{f}",
+          "required_operators": [
+            "scalar_multiplication",
+            "elementwise_subtraction"
+          ],
+          "inputs": [
+            "divp^{(t)}",
+            "lambda_TV",
+            "f"
+          ],
+          "outputs": [
+            "z^{(t)}"
+          ]
+        },
+        {
+          "step_order": 2,
+          "step_name": "Horizontal Gradient",
+          "mathematical_description": "[\\nabla_h \\mathbf{z}]_{j,k,i} = \\mathbf{z}_{j,k+1,i} - \\mathbf{z}_{j,k,i} \\quad \\text{(Neumann BC: } \\nabla_h\\mathbf{z}_{j,c-1,i} = 0\\text{)}",
+          "required_operators": [
+            "horizontal_gradient_Neumann"
+          ],
+          "inputs": [
+            "z^{(t)}"
+          ],
+          "outputs": [
+            "z_1^{(t)}"
+          ]
+        },
+        {
+          "step_order": 3,
+          "step_name": "Vertical Gradient",
+          "mathematical_description": "[\\nabla_v \\mathbf{z}]_{j,k,i} = \\mathbf{z}_{j+1,k,i} - \\mathbf{z}_{j,k,i} \\quad \\text{(Neumann BC: } \\nabla_v\\mathbf{z}_{r-1,k,i} = 0\\text{)}",
+          "required_operators": [
+            "vertical_gradient_Neumann"
+          ],
+          "inputs": [
+            "z^{(t)}"
+          ],
+          "outputs": [
+            "z_2^{(t)}"
+          ]
+        },
+        {
+          "step_order": 4,
+          "step_name": "Gradient Magnitude (Spectral Sum)",
+          "mathematical_description": "\\mathbf{g}^{(t)}_{j,k} = \\sqrt{\\sum_{i=1}^{n_C} \\left([\\mathbf{z}_1^{(t)}]_{j,k,i}^2 + [\\mathbf{z}_2^{(t)}]_{j,k,i}^2\\right)}",
+          "required_operators": [
+            "elementwise_square",
+            "elementwise_addition",
+            "summation_over_spectral_bands",
+            "elementwise_sqrt"
+          ],
+          "inputs": [
+            "z_1^{(t)}",
+            "z_2^{(t)}"
+          ],
+          "outputs": [
+            "g^{(t)}"
+          ]
+        },
+        {
+          "step_order": 5,
+          "step_name": "Compute Denominator",
+          "mathematical_description": "\\mathbf{d}^{(t)}_{j,k,i} = 1 + \\tau \\cdot \\mathbf{g}^{(t)}_{j,k} \\quad \\text{(broadcast } \\mathbf{g} \\text{ across spectral dimension)}",
+          "required_operators": [
+            "scalar_multiplication",
+            "scalar_addition",
+            "broadcast_to_3D"
+          ],
+          "inputs": [
+            "g^{(t)}",
+            "tau"
+          ],
+          "outputs": [
+            "d^{(t)}"
+          ]
+        },
+        {
+          "step_order": 6,
+          "step_name": "Update Dual Variable p_1",
+          "mathematical_description": "\\mathbf{p}_1^{(t+1)} = \\frac{\\mathbf{p}_1^{(t)} + \\tau \\cdot \\mathbf{z}_1^{(t)}}{\\mathbf{d}^{(t)}}",
+          "required_operators": [
+            "scalar_multiplication",
+            "elementwise_addition",
+            "elementwise_division"
+          ],
+          "inputs": [
+            "p_1^{(t)}",
+            "z_1^{(t)}",
+            "tau",
+            "d^{(t)}"
+          ],
+          "outputs": [
+            "p_1^{(t+1)}"
+          ]
+        },
+        {
+          "step_order": 7,
+          "step_name": "Update Dual Variable p_2",
+          "mathematical_description": "\\mathbf{p}_2^{(t+1)} = \\frac{\\mathbf{p}_2^{(t)} + \\tau \\cdot \\mathbf{z}_2^{(t)}}{\\mathbf{d}^{(t)}}",
+          "required_operators": [
+            "scalar_multiplication",
+            "elementwise_addition",
+            "elementwise_division"
+          ],
+          "inputs": [
+            "p_2^{(t)}",
+            "z_2^{(t)}",
+            "tau",
+            "d^{(t)}"
+          ],
+          "outputs": [
+            "p_2^{(t+1)}"
+          ]
+        },
+        {
+          "step_order": 8,
+          "step_name": "Compute Divergence",
+          "mathematical_description": "\\text{divp}^{(t+1)} = \\nabla_h^* \\mathbf{p}_1^{(t+1)} + \\nabla_v^* \\mathbf{p}_2^{(t+1)}, \\quad [\\nabla_h^* \\mathbf{p}]_{j,k,i} = \\mathbf{p}_{j,k,i} - \\mathbf{p}_{j,k-1,i}, \\quad [\\nabla_v^* \\mathbf{p}]_{j,k,i} = \\mathbf{p}_{j,k,i} - \\mathbf{p}_{j-1,k,i}",
+          "required_operators": [
+            "adjoint_horizontal_gradient_Neumann",
+            "adjoint_vertical_gradient_Neumann",
+            "elementwise_addition"
+          ],
+          "inputs": [
+            "p_1^{(t+1)}",
+            "p_2^{(t+1)}"
+          ],
+          "outputs": [
+            "divp^{(t+1)}"
+          ]
+        }
+      ],
+      "output_formula": "\\mathbf{u}^* = \\mathbf{f} - \\frac{1}{\\lambda_{TV}} \\text{divp}^{(T)}"
+    }
+  }
+}
+```

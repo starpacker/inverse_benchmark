@@ -1,0 +1,31 @@
+global:
+  default_settings:
+    max_rounds: 10
+    model_name: gemini-3-pro-preview
+  sandbox_root: /data/yjh/react_inverse_problem_sandboxes
+tasks:
+- expected_output_path: null
+  gt_code_path: /data/yjh/DiffuserCam-Tutorial-master_sandbox/diffuser_cam_code.py
+  input_path: null
+  name: DiffuserCam-Tutorial-master
+  working_folder: /data/yjh/DiffuserCam-Tutorial-master_sandbox
+- expected_output_path: null
+  gt_code_path: /data/yjh/dmipy-master_sandbox/dmipy_code.py
+  input_path: null
+  name: dmipy-master
+  working_folder: /data/yjh/dmipy-master_sandbox
+- expected_output_path: null
+  gt_code_path: /data/yjh/hcipy-master/hcipy_standalone.py
+  input_path: null
+  name: hcipy-master
+  working_folder: /data/yjh/hcipy-master_sandbox
+- expected_output_path: null
+  gt_code_path: /data/yjh/mne-master_sandbox/mne_code.py
+  input_path: null
+  name: mne-master
+  working_folder: /data/yjh/mne-master_sandbox
+- expected_output_path: null
+  gt_code_path: /data/yjh/MPIRF-master_sandbox/mpirf_code.py
+  input_path: null
+  name: MPIRF-master
+  working_folder: /data/yjh/MPIRF-master_sandbox

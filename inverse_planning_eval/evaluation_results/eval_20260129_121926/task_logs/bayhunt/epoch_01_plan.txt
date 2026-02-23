@@ -1,0 +1,119 @@
+```json
+{
+  "algorithm_name": "Transdimensional Bayesian Inversion (Reversible Jump MCMC)",
+  "initialization": [
+    "Initialize $N_{chains} = 5$ parallel Markov chains",
+    "For each chain $c = 1, \\ldots, N_{chains}$: sample initial layer count $k^{(0)} \\sim \\mathcal{U}\\{1, 20\\}$",
+    "Sample initial shear velocities $v_{s,i}^{(0)} \\sim \\mathcal{U}[2.0, 5.0]$ km/s for $i = 1, \\ldots, k^{(0)}+1$",
+    "Sample initial interface depths $z_i^{(0)} \\sim \\mathcal{U}[0, 60]$ km for $i = 1, \\ldots, k^{(0)}$, then sort ascending",
+    "Compute layer thicknesses $h_i^{(0)} = z_i^{(0)} - z_{i-1}^{(0)}$ with $z_0 = 0$",
+    "Sample initial Vp/Vs ratio $(v_p/v_s)^{(0)} \\sim \\mathcal{U}[1.4, 2.1]$",
+    "Sample initial noise parameters $\\sigma_{swd}^{(0)}, \\sigma_{rf}^{(0)} \\sim \\text{LogUniform}[10^{-5}, 0.05]$",
+    "Initialize noise correlations $\\rho_{swd} = 0.0$, $\\rho_{rf} = 0.98$ (fixed)",
+    "Initialize proposal widths $\\delta_{vs} = 0.025$, $\\delta_z = 0.025$, $\\delta_{vpvs} = 0.015$, $\\delta_\\sigma = 0.005$",
+    "Compute initial predicted data: $\\mathbf{d}_{swd}^{pred,(0)} = \\mathcal{F}_{swd}(\\mathbf{h}^{(0)}, \\mathbf{v}_s^{(0)}, (v_p/v_s)^{(0)})$",
+    "Compute initial predicted RF: $\\mathbf{d}_{rf}^{pred,(0)} = \\mathcal{F}_{rf}(\\mathbf{h}^{(0)}, \\mathbf{v}_s^{(0)}, (v_p/v_s)^{(0)}; p=6.4, \\text{gauss}=1.0)$",
+    "Build covariance matrices $\\mathbf{C}_{swd}^{(0)}$, $\\mathbf{C}_{rf}^{(0)}$ from noise parameters",
+    "Compute initial log-likelihood $\\log\\mathcal{L}^{(0)} = \\log\\mathcal{L}_{SWD}^{(0)} + \\log\\mathcal{L}_{RF}^{(0)}$",
+    "Initialize iteration counter $t = 0$, acceptance counters for each move type"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Select Move Type",
+      "mathematical_description": "$\\tau \\sim \\text{Categorical}(\\mathbf{p}_{move})$ where $\\tau \\in \\{\\text{birth}, \\text{death}, \\text{perturb\\_vs}, \\text{perturb\\_z}, \\text{perturb\\_vpvs}, \\text{perturb\\_noise}\\}$",
+      "required_operators": ["categorical_sampling", "random_number_generator"],
+      "inputs": ["move_probabilities"],
+      "outputs": ["move_type"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Propose New State",
+      "mathematical_description": "Based on $\\tau$: (a) Birth: $k' = k + 1$, insert interface at $z' \\sim \\mathcal{U}[0, z_{max}]$, $v_s' \\sim \\mathcal{U}[2, 5]$; (b) Death: $k' = k - 1$, remove random interface; (c) Perturb Vs: $v_{s,i}' = v_{s,i} + \\mathcal{N}(0, \\delta_{vs}^2)$; (d) Perturb depth: $z_i' = z_i + \\mathcal{N}(0, \\delta_z^2)$; (e) Perturb vpvs: $(v_p/v_s)' = (v_p/v_s) + \\mathcal{N}(0, \\delta_{vpvs}^2)$; (f) Perturb noise: $\\sigma' = \\sigma + \\mathcal{N}(0, \\delta_\\sigma^2)$",
+      "required_operators": ["gaussian_perturbation", "uniform_sampling", "random_index_selection", "layer_insertion", "layer_deletion"],
+      "inputs": ["current_model", "move_type", "proposal_widths", "prior_bounds"],
+      "outputs": ["proposed_model", "proposal_ratio"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Check Prior Bounds",
+      "mathematical_description": "$\\text{valid} = \\mathbf{1}[\\mathbf{m}' \\in \\Omega]$ where $\\Omega$ enforces: $k' \\in [1, 20]$, $v_{s,i}' \\in [2.0, 5.0]$, $z_i' \\in [0, 60]$, $(v_p/v_s)' \\in [1.4, 2.1]$, $h_i' \\geq h_{min} = 0.1$ km, $\\sigma' \\in [10^{-5}, 0.05]$",
+      "required_operators": ["bound_checking", "constraint_validation"],
+      "inputs": ["proposed_model", "prior_bounds", "min_layer_thickness"],
+      "outputs": ["validity_flag"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Forward Model SWD",
+      "mathematical_description": "$\\mathbf{d}_{swd}^{pred} = \\mathcal{F}_{swd}(\\mathbf{h}', \\mathbf{v}_s', (v_p/v_s)')$ computing Rayleigh wave phase velocity dispersion at periods $\\mathbf{x}_{swd}$",
+      "required_operators": ["rayleigh_dispersion_forward_model", "velocity_model_construction"],
+      "inputs": ["proposed_layer_thicknesses", "proposed_shear_velocities", "proposed_vpvs_ratio", "swd_periods"],
+      "outputs": ["predicted_swd_dispersion"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "Forward Model RF",
+      "mathematical_description": "$\\mathbf{d}_{rf}^{pred} = \\mathcal{F}_{rf}(\\mathbf{h}', \\mathbf{v}_s', (v_p/v_s)'; p=6.4, \\text{gauss}=1.0, \\text{water}=0.01)$ computing P-wave receiver function",
+      "required_operators": ["receiver_function_forward_model", "reflectivity_computation"],
+      "inputs": ["proposed_layer_thicknesses", "proposed_shear_velocities", "proposed_vpvs_ratio", "ray_parameter", "gaussian_factor", "water_level", "rf_time_samples"],
+      "outputs": ["predicted_rf_waveform"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Build Covariance Matrices",
+      "mathematical_description": "$[\\mathbf{C}_{swd}]_{ij} = (\\sigma_{swd}')^2 \\exp\\left(-\\frac{|x_i - x_j|}{L_{swd}}\\right) \\cdot \\rho_{swd}^{|i-j|}$; $[\\mathbf{C}_{rf}]_{ij} = (\\sigma_{rf}')^2 \\exp\\left(-\\frac{(x_i - x_j)^2}{2L_{rf}^2}\\right) \\cdot \\rho_{rf}^{|i-j|}$",
+      "required_operators": ["exponential_covariance_construction", "gaussian_covariance_construction", "matrix_assembly"],
+      "inputs": ["proposed_sigma_swd", "proposed_sigma_rf", "rho_swd", "rho_rf", "swd_periods", "rf_time_samples"],
+      "outputs": ["covariance_matrix_swd", "covariance_matrix_rf"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "Compute Proposed Log-Likelihood",
+      "mathematical_description": "$\\log\\mathcal{L}' = \\log\\mathcal{L}_{SWD}' + \\log\\mathcal{L}_{RF}'$ where $\\log\\mathcal{L}_{SWD}' = -\\frac{1}{2}\\left[N_{swd}\\log(2\\pi) + \\log|\\mathbf{C}_{swd}| + (\\mathbf{d}_{swd}^{obs} - \\mathbf{d}_{swd}^{pred})^T \\mathbf{C}_{swd}^{-1} (\\mathbf{d}_{swd}^{obs} - \\mathbf{d}_{swd}^{pred})\\right]$ and analogously for RF",
+      "required_operators": ["matrix_determinant", "matrix_inverse", "quadratic_form_evaluation", "log_likelihood_computation"],
+      "inputs": ["observed_swd", "predicted_swd_dispersion", "covariance_matrix_swd", "observed_rf", "predicted_rf_waveform", "covariance_matrix_rf"],
+      "outputs": ["proposed_log_likelihood", "proposed_log_likelihood_swd", "proposed_log_likelihood_rf"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "Compute Acceptance Probability",
+      "mathematical_description": "For fixed-dimension: $\\alpha = \\min\\left(1, \\exp(\\log\\mathcal{L}' - \\log\\mathcal{L}^{(t-1)})\\right)$; For birth ($k \\to k+1$): $\\alpha = \\min\\left(1, \\frac{p(k+1)}{p(k)} \\cdot \\frac{1}{k+1} \\cdot \\Delta z \\cdot \\Delta v_s \\cdot \\exp(\\log\\mathcal{L}' - \\log\\mathcal{L}^{(t-1)})\\right)$; For death ($k \\to k-1$): $\\alpha = \\min\\left(1, \\frac{p(k-1)}{p(k)} \\cdot k \\cdot \\frac{1}{\\Delta z \\cdot \\Delta v_s} \\cdot \\exp(\\log\\mathcal{L}' - \\log\\mathcal{L}^{(t-1)})\\right)$",
+      "required_operators": ["acceptance_ratio_computation", "prior_ratio_computation", "proposal_ratio_computation", "exponential_function"],
+      "inputs": ["proposed_log_likelihood", "current_log_likelihood", "move_type", "proposal_ratio", "current_k", "prior_bounds"],
+      "outputs": ["acceptance_probability"]
+    },
+    {
+      "step_order": 9,
+      "step_name": "Accept or Reject Proposal",
+      "mathematical_description": "$u \\sim \\mathcal{U}[0,1]$; if $u < \\alpha$: $(\\mathbf{m}^{(t)}, \\log\\mathcal{L}^{(t)}) = (\\mathbf{m}', \\log\\mathcal{L}')$; else: $(\\mathbf{m}^{(t)}, \\log\\mathcal{L}^{(t)}) = (\\mathbf{m}^{(t-1)}, \\log\\mathcal{L}^{(t-1)})$",
+      "required_operators": ["uniform_random_sampling", "comparison", "state_update"],
+      "inputs": ["acceptance_probability", "proposed_model", "proposed_log_likelihood", "current_model", "current_log_likelihood"],
+      "outputs": ["updated_model", "updated_log_likelihood", "acceptance_flag"]
+    },
+    {
+      "step_order": 10,
+      "step_name": "Adaptive Proposal Tuning (Burn-in Only)",
+      "mathematical_description": "If $t \\leq N_{burnin}$: compute running acceptance rate $a = \\frac{\\text{accepted}}{\\text{proposed}}$ per move type; if $a < a_{min}=0.40$: decrease $\\delta$; if $a > a_{max}=0.45$: increase $\\delta$",
+      "required_operators": ["acceptance_rate_computation", "proposal_width_adjustment", "conditional_execution"],
+      "inputs": ["iteration_counter", "burn_in_length", "acceptance_counters", "current_proposal_widths", "target_acceptance_range"],
+      "outputs": ["updated_proposal_widths"]
+    },
+    {
+      "step_order": 11,
+      "step_name": "Store Sample (Main Phase Only)",
+      "mathematical_description": "If $t > N_{burnin}$ and $|\\{\\mathbf{m}_{saved}\\}| < M_{max}=50000$: append $(\\mathbf{m}^{(t)}, k^{(t)}, \\log\\mathcal{L}^{(t)})$ to posterior samples",
+      "required_operators": ["conditional_storage", "sample_appending"],
+      "inputs": ["iteration_counter", "burn_in_length", "updated_model", "updated_log_likelihood", "current_layer_count", "max_models_saved"],
+      "outputs": ["posterior_samples"]
+    },
+    {
+      "step_order": 12,
+      "step_name": "Check Termination Criterion",
+      "mathematical_description": "Continue if $t < N_{burnin} + N_{main} = 65536 + 32768 = 98304$; terminate when all $N_{chains}=5$ chains complete $N_{total}$ iterations",
+      "required_operators": ["iteration_comparison", "termination_check"],
+      "inputs": ["iteration_counter", "total_iterations", "chain_completion_status"],
+      "outputs": ["continue_flag"]
+    }
+  ]
+}
+```

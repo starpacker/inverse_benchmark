@@ -1,0 +1,110 @@
+```json
+{
+  "algorithm_name": "Gravitational Lens Modeling Inversion (PSO-MCMC Hybrid)",
+  "initialization": [
+    "Initialize parameter vector: $\\boldsymbol{\\theta}^{(0)} = \\boldsymbol{\\theta}_{\\text{init}}$ with step sizes $\\boldsymbol{\\sigma}_{\\theta}$",
+    "Initialize PSO swarm: For $p = 1, \\ldots, N_{\\text{particles}}$, sample $\\boldsymbol{\\theta}_p^{(0)} \\sim \\mathcal{U}(\\boldsymbol{\\theta}_{\\text{lower}}, \\boldsymbol{\\theta}_{\\text{upper}})$",
+    "Initialize velocities: $\\mathbf{v}_p^{(0)} \\sim \\mathcal{U}(-|\\boldsymbol{\\theta}_{\\text{upper}} - \\boldsymbol{\\theta}_{\\text{lower}}|, |\\boldsymbol{\\theta}_{\\text{upper}} - \\boldsymbol{\\theta}_{\\text{lower}}|)$",
+    "Set personal bests: $\\mathbf{p}_p^{\\text{best}} = \\boldsymbol{\\theta}_p^{(0)}$, $f_p^{\\text{best}} = f(\\boldsymbol{\\theta}_p^{(0)})$",
+    "Set global best: $\\mathbf{g}^{\\text{best}} = \\arg\\min_p f_p^{\\text{best}}$"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "PSO_velocity_update",
+      "mathematical_description": "$\\mathbf{v}_p^{(t)} = \\omega \\mathbf{v}_p^{(t-1)} + c_1 r_1 \\odot (\\mathbf{p}_p^{\\text{best}} - \\boldsymbol{\\theta}_p^{(t-1)}) + c_2 r_2 \\odot (\\mathbf{g}^{\\text{best}} - \\boldsymbol{\\theta}_p^{(t-1)})$ where $\\omega = 0.7298$, $c_1 = c_2 = 1.4962$, $r_1, r_2 \\sim \\mathcal{U}(0,1)^d$",
+      "required_operators": ["elementwise_multiplication", "uniform_random_sampling", "vector_addition"],
+      "inputs": ["v_p^{(t-1)}", "theta_p^{(t-1)}", "p_p^best", "g^best", "omega", "c_1", "c_2"],
+      "outputs": ["v_p^{(t)}"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "PSO_position_update",
+      "mathematical_description": "$\\tilde{\\boldsymbol{\\theta}}_p^{(t)} = \\boldsymbol{\\theta}_p^{(t-1)} + \\mathbf{v}_p^{(t)}$, $\\boldsymbol{\\theta}_p^{(t)} = \\text{clip}(\\tilde{\\boldsymbol{\\theta}}_p^{(t)}, \\boldsymbol{\\theta}_{\\text{lower}}, \\boldsymbol{\\theta}_{\\text{upper}})$",
+      "required_operators": ["vector_addition", "clip_to_bounds"],
+      "inputs": ["theta_p^{(t-1)}", "v_p^{(t)}", "theta_lower", "theta_upper"],
+      "outputs": ["theta_p^{(t)}"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "PSO_forward_model_evaluation",
+      "mathematical_description": "$m_{ij} = \\left[ \\mathbf{K}_{\\text{PSF}} * (I_{\\text{ll}} + I_{\\text{src}} + I_{\\text{ps}}) \\right]_{ij}$ where $I_{\\text{ll}}, I_{\\text{src}}$ are Sersic profiles and $I_{\\text{ps}}$ are point sources evaluated via lens equation $\\boldsymbol{\\beta} = \\mathbf{x} - \\boldsymbol{\\alpha}(\\mathbf{x})$",
+      "required_operators": ["lens_deflection_angle", "sersic_profile_evaluation", "psf_convolution", "linear_amplitude_solver"],
+      "inputs": ["theta_p^{(t)}", "K_PSF", "pixel_grid"],
+      "outputs": ["m"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "PSO_fitness_evaluation",
+      "mathematical_description": "$f_p^{(t)} = -\\ln \\mathcal{L}(\\mathbf{d} | \\boldsymbol{\\theta}_p^{(t)}) = \\frac{1}{2} \\sum_{i,j} \\left( \\frac{d_{ij} - m_{ij}}{\\sigma_{\\text{bkg}}} \\right)^2 + \\frac{1}{2} \\sum_{k=1}^{N_{\\text{img}}} \\frac{(\\mathbf{x}_k^{\\text{obs}} - \\mathbf{x}_k^{\\text{model}})^2}{\\sigma_{\\text{pos}}^2}$",
+      "required_operators": ["chi_squared_computation", "position_residual_computation"],
+      "inputs": ["d", "m", "sigma_bkg", "x_obs", "x_model", "sigma_pos"],
+      "outputs": ["f_p^{(t)}"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "PSO_personal_best_update",
+      "mathematical_description": "If $f_p^{(t)} < f_p^{\\text{best}}$: $\\mathbf{p}_p^{\\text{best}} \\leftarrow \\boldsymbol{\\theta}_p^{(t)}$, $f_p^{\\text{best}} \\leftarrow f_p^{(t)}$",
+      "required_operators": ["conditional_assignment", "scalar_comparison"],
+      "inputs": ["f_p^{(t)}", "f_p^best", "theta_p^{(t)}"],
+      "outputs": ["p_p^best", "f_p^best"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "PSO_global_best_update",
+      "mathematical_description": "$p^* = \\arg\\min_p f_p^{\\text{best}}$; If $f_{p^*}^{\\text{best}} < f(\\mathbf{g}^{\\text{best}})$: $\\mathbf{g}^{\\text{best}} \\leftarrow \\mathbf{p}_{p^*}^{\\text{best}}$",
+      "required_operators": ["argmin", "conditional_assignment"],
+      "inputs": ["f_p^best_all", "p_p^best_all", "g^best"],
+      "outputs": ["g^best"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "MCMC_walker_initialization",
+      "mathematical_description": "$\\boldsymbol{\\theta}_w^{(0)} = \\mathbf{g}^{\\text{best}} + \\sigma_{\\text{scale}} \\cdot \\boldsymbol{\\sigma}_{\\theta} \\odot \\boldsymbol{\\xi}_w$ where $\\boldsymbol{\\xi}_w \\sim \\mathcal{N}(0, \\mathbf{I})$ for $w = 1, \\ldots, N_{\\text{walkers}}$, $N_{\\text{walkers}} = r_{\\text{walker}} \\cdot d$",
+      "required_operators": ["gaussian_random_sampling", "elementwise_multiplication", "vector_addition"],
+      "inputs": ["g^best", "sigma_theta", "sigma_scale", "r_walker", "d"],
+      "outputs": ["theta_w^{(0)}_all"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "MCMC_stretch_move_proposal",
+      "mathematical_description": "Sample $z \\sim g(z) \\propto \\frac{1}{\\sqrt{z}}$ for $z \\in [1/a, a]$ with $a=2$; Select complementary walker $w' \\neq w$; $\\boldsymbol{\\theta}_w^{\\text{prop}} = \\boldsymbol{\\theta}_{w'}^{(t-1)} + z \\cdot (\\boldsymbol{\\theta}_w^{(t-1)} - \\boldsymbol{\\theta}_{w'}^{(t-1)})$",
+      "required_operators": ["stretch_factor_sampling", "complementary_walker_selection", "affine_combination"],
+      "inputs": ["theta_w^{(t-1)}", "theta_w_prime^{(t-1)}", "a"],
+      "outputs": ["theta_w^prop", "z"]
+    },
+    {
+      "step_order": 9,
+      "step_name": "MCMC_forward_model_evaluation",
+      "mathematical_description": "$m_{ij}^{\\text{prop}} = \\left[ \\mathbf{K}_{\\text{PSF}} * (I_{\\text{ll}} + I_{\\text{src}} + I_{\\text{ps}}) \\right]_{ij}$ evaluated at $\\boldsymbol{\\theta}_w^{\\text{prop}}$",
+      "required_operators": ["lens_deflection_angle", "sersic_profile_evaluation", "psf_convolution", "linear_amplitude_solver"],
+      "inputs": ["theta_w^prop", "K_PSF", "pixel_grid"],
+      "outputs": ["m^prop"]
+    },
+    {
+      "step_order": 10,
+      "step_name": "MCMC_acceptance_probability",
+      "mathematical_description": "$q = z^{d-1} \\cdot \\exp\\left( f(\\boldsymbol{\\theta}_w^{(t-1)}) - f(\\boldsymbol{\\theta}_w^{\\text{prop}}) \\right)$, $\\alpha = \\min(1, q)$",
+      "required_operators": ["negative_log_likelihood_evaluation", "exponential", "minimum"],
+      "inputs": ["z", "d", "f_current", "f_proposed"],
+      "outputs": ["alpha"]
+    },
+    {
+      "step_order": 11,
+      "step_name": "MCMC_accept_reject",
+      "mathematical_description": "$u \\sim \\mathcal{U}(0,1)$; $\\boldsymbol{\\theta}_w^{(t)} = \\boldsymbol{\\theta}_w^{\\text{prop}}$ if $u < \\alpha$, else $\\boldsymbol{\\theta}_w^{(t)} = \\boldsymbol{\\theta}_w^{(t-1)}$",
+      "required_operators": ["uniform_random_sampling", "conditional_assignment"],
+      "inputs": ["alpha", "theta_w^prop", "theta_w^{(t-1)}"],
+      "outputs": ["theta_w^{(t)}"]
+    },
+    {
+      "step_order": 12,
+      "step_name": "MCMC_chain_storage",
+      "mathematical_description": "For $t > N_{\\text{burn}}$: Store $\\{\\boldsymbol{\\theta}_w^{(t)}\\}_{w=1}^{N_{\\text{walkers}}}$ in posterior samples",
+      "required_operators": ["array_append"],
+      "inputs": ["theta_w^{(t)}_all", "t", "N_burn"],
+      "outputs": ["posterior_samples"]
+    }
+  ]
+}
+```

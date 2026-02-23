@@ -1,0 +1,158 @@
+```json
+{
+  "algorithm_name": "Deep Probabilistic Imaging for MRI Reconstruction",
+  "initialization": [
+    "Initialize RealNVP normalizing flow: f_θ ← RealNVP(n², K, affine=True) with K=16 coupling layers",
+    "Initialize log-scale parameter: log(s) ← log(Φ / (0.8 · n²)) where Φ is total flux of ground truth",
+    "Compute normalized weights: λ_L1 = w_L1^raw / Φ, λ_TV = (w_TV^raw · n) / Φ, w_logdet = w_logdet^raw / (0.5 · ||M||₁)",
+    "Compute mask mean: M̄ = (1 / (n² · 2)) · Σ_{i,j,c} M_{i,j,c}",
+    "Initialize Adam optimizer with parameters {θ, log(s)} and learning rate η = 10⁻⁵"
+  ],
+  "iteration_loop": [
+    {
+      "step_order": 1,
+      "step_name": "Sample Latent Codes",
+      "mathematical_description": "\\mathbf{Z} \\sim \\mathcal{N}(\\mathbf{0}, \\mathbf{I}_{B \\times n^2})",
+      "required_operators": ["gaussian_sampling"],
+      "inputs": ["B", "n"],
+      "outputs": ["Z"]
+    },
+    {
+      "step_order": 2,
+      "step_name": "Flow Forward Pass (Reverse Direction)",
+      "mathematical_description": "(\\tilde{\\mathbf{X}}_{\\text{flat}}, \\log|\\det J_f|) = f_\\theta^{-1}(\\mathbf{Z})",
+      "required_operators": ["realnvp_inverse"],
+      "inputs": ["Z", "theta"],
+      "outputs": ["X_tilde_flat", "log_det_J_f"]
+    },
+    {
+      "step_order": 3,
+      "step_name": "Reshape to Image",
+      "mathematical_description": "\\tilde{\\mathbf{X}} = \\text{reshape}(\\tilde{\\mathbf{X}}_{\\text{flat}}, (B, n, n))",
+      "required_operators": ["reshape"],
+      "inputs": ["X_tilde_flat", "B", "n"],
+      "outputs": ["X_tilde"]
+    },
+    {
+      "step_order": 4,
+      "step_name": "Compute Scale Factor",
+      "mathematical_description": "s = \\exp(\\log s)",
+      "required_operators": ["exponential"],
+      "inputs": ["log_s"],
+      "outputs": ["s"]
+    },
+    {
+      "step_order": 5,
+      "step_name": "Apply Softplus Activation and Scale",
+      "mathematical_description": "\\hat{\\mathbf{X}} = s \\cdot \\text{softplus}(\\tilde{\\mathbf{X}}) = s \\cdot \\log(1 + e^{\\tilde{\\mathbf{X}}})",
+      "required_operators": ["softplus", "scalar_multiply"],
+      "inputs": ["X_tilde", "s"],
+      "outputs": ["X_hat"]
+    },
+    {
+      "step_order": 6,
+      "step_name": "Compute Softplus Log-Determinant",
+      "mathematical_description": "\\log|\\det J_{\\text{sp}}|_b = \\sum_{i,j} \\left( \\tilde{X}_{b,i,j} - \\text{softplus}(\\tilde{X}_{b,i,j}) \\right)",
+      "required_operators": ["softplus", "elementwise_subtract", "sum_reduce"],
+      "inputs": ["X_tilde"],
+      "outputs": ["log_det_J_sp"]
+    },
+    {
+      "step_order": 7,
+      "step_name": "Compute Scale Log-Determinant",
+      "mathematical_description": "\\log|\\det J_s| = n^2 \\cdot \\log s",
+      "required_operators": ["scalar_multiply"],
+      "inputs": ["log_s", "n"],
+      "outputs": ["log_det_J_s"]
+    },
+    {
+      "step_order": 8,
+      "step_name": "Compute Total Log-Determinant",
+      "mathematical_description": "\\log|\\det J|_b = \\log|\\det J_f|_b + \\log|\\det J_{\\text{sp}}|_b + \\log|\\det J_s|",
+      "required_operators": ["elementwise_add"],
+      "inputs": ["log_det_J_f", "log_det_J_sp", "log_det_J_s"],
+      "outputs": ["log_det_J"]
+    },
+    {
+      "step_order": 9,
+      "step_name": "Forward Operator (2D FFT)",
+      "mathematical_description": "\\hat{\\mathbf{K}}_b = [\\Re(\\mathcal{F}(\\hat{\\mathbf{X}}_b)), \\Im(\\mathcal{F}(\\hat{\\mathbf{X}}_b))], \\quad \\mathcal{F}(\\mathbf{x}) = \\frac{1}{n}\\text{DFT}_{2D}(\\mathbf{x})",
+      "required_operators": ["fft2d_orthonormal", "stack_real_imag"],
+      "inputs": ["X_hat"],
+      "outputs": ["K_hat"]
+    },
+    {
+      "step_order": 10,
+      "step_name": "Apply Undersampling Mask",
+      "mathematical_description": "\\hat{\\mathbf{K}}_{\\text{masked}} = \\mathbf{M} \\odot \\hat{\\mathbf{K}}",
+      "required_operators": ["hadamard_product"],
+      "inputs": ["K_hat", "M"],
+      "outputs": ["K_hat_masked"]
+    },
+    {
+      "step_order": 11,
+      "step_name": "Compute Data Fidelity Loss",
+      "mathematical_description": "\\mathcal{L}_{\\text{data},b} = \\frac{1}{\\sigma^2 \\cdot \\bar{M}} \\cdot \\frac{1}{n^2 \\cdot 2} \\sum_{i,j,c} \\left( \\hat{K}_{b,i,j,c} - y_{i,j,c} \\right)^2",
+      "required_operators": ["elementwise_subtract", "square", "mean_reduce", "scalar_divide"],
+      "inputs": ["K_hat_masked", "y_masked", "sigma", "M_bar"],
+      "outputs": ["L_data"]
+    },
+    {
+      "step_order": 12,
+      "step_name": "Compute L1 Sparsity Loss",
+      "mathematical_description": "\\mathcal{R}_{\\text{L1},b} = \\frac{1}{n^2} \\sum_{i,j} |\\hat{X}_{b,i,j}|",
+      "required_operators": ["absolute_value", "mean_reduce"],
+      "inputs": ["X_hat"],
+      "outputs": ["R_L1"]
+    },
+    {
+      "step_order": 13,
+      "step_name": "Compute Anisotropic Total Variation Loss",
+      "mathematical_description": "\\mathcal{R}_{\\text{TV},b} = \\frac{1}{n(n-1)} \\sum_{i,j} |\\hat{X}_{b,i+1,j} - \\hat{X}_{b,i,j}| + \\frac{1}{n(n-1)} \\sum_{i,j} |\\hat{X}_{b,i,j+1} - \\hat{X}_{b,i,j}|",
+      "required_operators": ["finite_difference_vertical", "finite_difference_horizontal", "absolute_value", "mean_reduce"],
+      "inputs": ["X_hat"],
+      "outputs": ["R_TV"]
+    },
+    {
+      "step_order": 14,
+      "step_name": "Compute Prior Loss",
+      "mathematical_description": "\\mathcal{L}_{\\text{prior},b} = \\lambda_{\\text{L1}} \\cdot \\mathcal{R}_{\\text{L1},b} + \\lambda_{\\text{TV}} \\cdot \\mathcal{R}_{\\text{TV},b}",
+      "required_operators": ["scalar_multiply", "elementwise_add"],
+      "inputs": ["R_L1", "R_TV", "lambda_L1", "lambda_TV"],
+      "outputs": ["L_prior"]
+    },
+    {
+      "step_order": 15,
+      "step_name": "Compute Total Loss",
+      "mathematical_description": "\\mathcal{L} = \\frac{1}{B} \\sum_{b=1}^{B} \\left[ \\mathcal{L}_{\\text{data},b} + \\mathcal{L}_{\\text{prior},b} - w_{\\text{logdet}} \\cdot \\log|\\det J|_b \\right]",
+      "required_operators": ["elementwise_add", "elementwise_subtract", "scalar_multiply", "mean_reduce"],
+      "inputs": ["L_data", "L_prior", "log_det_J", "w_logdet", "B"],
+      "outputs": ["L_total"]
+    },
+    {
+      "step_order": 16,
+      "step_name": "Backpropagation",
+      "mathematical_description": "\\nabla_\\theta \\mathcal{L}, \\nabla_{\\log s} \\mathcal{L} \\leftarrow \\text{autograd}(\\mathcal{L})",
+      "required_operators": ["automatic_differentiation"],
+      "inputs": ["L_total", "theta", "log_s"],
+      "outputs": ["grad_theta", "grad_log_s"]
+    },
+    {
+      "step_order": 17,
+      "step_name": "Gradient Clipping",
+      "mathematical_description": "\\text{clip}(\\nabla, \\|\\cdot\\|_2 \\leq 10^{-2})",
+      "required_operators": ["gradient_clip_by_norm"],
+      "inputs": ["grad_theta", "grad_log_s"],
+      "outputs": ["grad_theta_clipped", "grad_log_s_clipped"]
+    },
+    {
+      "step_order": 18,
+      "step_name": "Adam Parameter Update",
+      "mathematical_description": "\\theta^{(k+1)}, (\\log s)^{(k+1)} \\leftarrow \\text{Adam}(\\theta^{(k)}, (\\log s)^{(k)}, \\nabla_{\\text{clipped}})",
+      "required_operators": ["adam_optimizer_step"],
+      "inputs": ["theta", "log_s", "grad_theta_clipped", "grad_log_s_clipped", "optimizer_state"],
+      "outputs": ["theta", "log_s", "optimizer_state"]
+    }
+  ]
+}
+```

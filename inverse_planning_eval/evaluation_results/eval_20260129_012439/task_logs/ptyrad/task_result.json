@@ -1,0 +1,23 @@
+{
+  "task_name": "ptyrad",
+  "golden_rating": 1016.0,
+  "epoch_ratings": {
+    "epoch_06": 984.0,
+    "epoch_01": 884.0,
+    "epoch_02": 884.0,
+    "epoch_03": 884.0,
+    "epoch_04": 884.0,
+    "epoch_05": 884.0
+  },
+  "similarity_scores": {
+    "epoch_06": {
+      "embedding_similarity": 0.6373525857925415,
+      "structural_similarity": 0.0,
+      "combined_score": 0.31867629289627075
+    }
+  },
+  "plans_summary": {
+    "epoch_06": "\n\n```json\n{\n  \"algorithm_name\": \"PtyRAD - Ptychographic Reconstruction via Automatic Differentiation..."
+  },
+  "timestamp": "2026-01-29T02:09:05.514447"
+}

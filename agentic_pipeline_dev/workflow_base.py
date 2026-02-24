@@ -293,7 +293,69 @@ class InverseProblemBase:
             if evidence: formatted += f"  Evidence: {evidence}...\n"
         return formatted
     
-    def _build_context_with_memory(self, base_context: Dict[str, Any], agent_role: str, current_ticket: str) -> Dict[str, Any]:
+    def _extract_function_signature(self, code: str, func_name: str) -> Optional[str]:
+        """
+        Extracts the full function signature (including decorators and docstring) for a given function name
+        from the provided code (usually skeleton).
+        """
+        try:
+            tree = ast.parse(code)
+            for node in ast.walk(tree):
+                if isinstance(node, ast.FunctionDef) and node.name == func_name:
+                    # Found the function. Extract source lines.
+                    # AST nodes have lineno (1-based).
+                    # We want to capture:
+                    # 1. Decorators (if any)
+                    # 2. def func(...) -> ...:
+                    # 3. Docstring (if strictly the first statement)
+                    
+                    lines = code.split('\n')
+                    start_line = node.lineno - 1
+                    
+                    # Adjust start_line to include decorators
+                    if node.decorator_list:
+                        start_line = node.decorator_list[0].lineno - 1
+                    
+                    # Find end of signature (:)
+                    # This is tricky with multi-line args.
+                    # We can approximate by looking for the docstring or the first statement.
+                    
+                    end_line = node.lineno # At least the def line
+                    
+                    # Check for docstring
+                    docstring = ast.get_docstring(node)
+                    if docstring:
+                        # If docstring exists, the signature block effectively ends after the docstring?
+                        # Or do we want just the signature?
+                        # User requested "signature + docstring".
+                        
+                        # Find the docstring node in body
+                        if node.body and isinstance(node.body[0], ast.Expr) and isinstance(node.body[0].value, (ast.Str, ast.Constant)):
+                             doc_node = node.body[0]
+                             end_line = doc_node.end_lineno if hasattr(doc_node, 'end_lineno') else doc_node.lineno
+                    else:
+                        # No docstring, try to find the colon of def?
+                        # Or just take the first few lines until body starts?
+                        if node.body:
+                            # The body starts at the first statement
+                            # We want everything BEFORE the first statement (excluding docstring if we already handled it)
+                            # Actually, let's just grab the text from start_line to the line before first body statement
+                            first_stmt = node.body[0]
+                            end_line = first_stmt.lineno - 2 # Line before the statement
+                            if end_line < start_line: end_line = start_line # Fallback
+                        else:
+                            end_line = start_line # Empty body
+                            
+                    # Extract snippet
+                    snippet = "\n".join(lines[start_line : end_line + 1])
+                    return snippet.strip()
+                    
+        except Exception as e:
+            self._log(f"[System] Signature extraction failed for {func_name}: {e}")
+        
+        return None
+
+    def _build_context_with_memory(self, base_context: Dict[str, Any], agent_role: str, current_ticket: str, retrieval_query: str = None) -> Dict[str, Any]:
         MAX_HISTORY_LEN = 3
         if len(self.failure_history) > MAX_HISTORY_LEN:
             self.failure_history = sorted(self.failure_history, key=lambda x: x.get('iteration', 0), reverse=True)[:MAX_HISTORY_LEN]
@@ -336,11 +398,17 @@ class InverseProblemBase:
         # 3. Knowledge Injection
         if self.skill_manager:
             try:
-                raw_task_desc = self.task_desc.split("### 🛡️ CORE KNOWLEDGE")[0].strip()
+                # Determine Retrieval Query
+                if retrieval_query:
+                    query_text = retrieval_query
+                else:
+                    # Fallback to default (Task Desc)
+                    query_text = self.task_desc.split("### 🛡️ CORE KNOWLEDGE")[0].strip()
+                
                 top_k = 4 if agent_role == "Coder" else 3
                 
                 knowledge = self.skill_manager.retrieve_knowledge(
-                    task_desc=raw_task_desc, 
+                    task_desc=query_text, 
                     agent_role=agent_role, 
                     top_k=top_k
                 )
@@ -354,8 +422,8 @@ class InverseProblemBase:
                 knowledge_prompt = self.skill_manager.format_knowledge_for_prompt(knowledge)
                 
                 if knowledge_prompt:
-                    current_desc = context.get("task_desc", "")
-                    context["task_desc"] = knowledge_prompt + "\n\n" + current_desc
+                    # Use dedicated knowledge_context field
+                    context["knowledge_context"] = knowledge_prompt
                     
             except Exception as e:
                 self._log(f"  [System] Knowledge injection failed: {e}")
@@ -418,11 +486,30 @@ class InverseProblemBase:
         gt_path = os.path.join(self.sandbox_dir, "dataset/gt_output.npy")
         baseline_path = os.path.join(self.sandbox_dir, "dataset/baseline.npy")
         
+        # Load GT code snippet for context
+        gt_code_content = "N/A"
+        try:
+            # Assume GT code is in 'solver.py' or similar in the gt_code folder
+            gt_folder = os.path.join(self.sandbox_dir, "gt_code")
+            # Find the first python file
+            py_files = [f for f in os.listdir(gt_folder) if f.endswith('.py')]
+            if py_files:
+                with open(os.path.join(gt_folder, py_files[0]), 'r') as f:
+                    gt_code_content = f.read()[:2000] # Truncate if too long
+        except Exception as e:
+            self._log(f"  ⚠️ Failed to load GT code content: {e}")
+
         if os.path.exists(input_path) and os.path.exists(gt_path) and os.path.exists(baseline_path):
              self._log("  [Step 1] Data files found. Skipping Data Generation.")
         else:
             self._log("  [Step 1] Generating Data Generation Script...")
-            gen_ctx = {'task_desc': self.task_desc, 'gt_code_snippet': f"Check folder: {os.path.join(self.sandbox_dir, 'gt_code')}"}
+            
+            # Inject actual GT code content instead of just path
+            gen_ctx = {
+                'task_desc': self.task_desc, 
+                'gt_code_snippet': f"Here is a snippet of the Ground Truth code for reference on data structure:\n```python\n{gt_code_content}\n```"
+            }
+            
             for attempt in range(3):
                 code = self.data_gen_agent.generate(gen_ctx)
                 self._write_file("data_gen.py", code)
@@ -446,7 +533,15 @@ class InverseProblemBase:
         eval_script_path = os.path.join(self.sandbox_dir, "eval_script.py")
         if not os.path.exists(eval_script_path):
             self._log("  [Step 2] Generating Evaluation Script...")
-            eval_ctx = {'task_desc': self.task_desc, 'data_shape_hint': "See dataset/gt_output.npy"}
+            
+            # Inject actual shape info instead of file path
+            shape_info = f"Input Shape: {self.input_shape}, Output Shape: {self.output_shape}" if self.input_shape else "Unknown Shape"
+            
+            eval_ctx = {
+                'task_desc': self.task_desc, 
+                'data_shape_hint': f"Data Shapes: {shape_info}. The evaluation script must load 'output.npy' and compare it against 'dataset/baseline.npy' or 'dataset/gt_output.npy'."
+            }
+            
             for attempt in range(3):
                 code = self.eval_gen_agent.generate(eval_ctx)
                 self._write_file("eval_script.py", code)

@@ -93,15 +93,19 @@ class InverseProblemWorkflow(InverseProblemBase):
                 self._log(">>> [Agent] Architect...")
                 # action_sequence.append(f"Iteration {iter_id}: Architect") removed
 
+                # Custom Retrieval Query for Architect: Task + Plan
+                architect_query = f"{self.task_desc}\n\nPLAN CONTEXT:\n{self.current_plan}"
+                
                 arch_ctx = self._build_context_with_memory(
                     base_context={
-                        'task_desc': self.task_desc,
+                        'task_desc': self.task_desc, # Still pass original for prompt
                         'plan': self.current_plan,
                         'previous_skeleton': self.current_skeleton if self.current_skeleton.strip() else None,
                         'feedback': feedback.get('feedback') if isinstance(feedback, dict) and feedback.get('ticket') == 'Architect' else None
                     },
                     agent_role="Architect",
-                    current_ticket="Architect"
+                    current_ticket="Architect",
+                    retrieval_query=architect_query # Pass custom query
                 )
 
                 # Architect 生成包含 Class 定义和 pass 方法的骨架
@@ -252,6 +256,27 @@ class InverseProblemWorkflow(InverseProblemBase):
                 for task_type, task_name in coding_tasks:
                     print(f"  [Coder] Processing {task_type}" + (f": {task_name}" if task_name else "") + "...")
                     
+                    # --- Custom Retrieval Query for Coder ---
+                    # Focus on Function Signature + Task Name (Constraint) + Plan Summary
+                    
+                    func_signature = None
+                    if task_type == 'function' and self.current_skeleton:
+                         # Use robust AST-based extraction
+                         func_signature = self._extract_function_signature(self.current_skeleton, task_name)
+                    
+                    # Extract Plan Summary (First 500 chars)
+                    plan_summary = self.current_plan[:500] if self.current_plan else "No Plan Available"
+                    
+                    if func_signature:
+                        # Use precise signature + docstring + Plan
+                        coder_query = f"Python Implementation for:\n{func_signature}\n\nContext: {self.task_name}\nPlan: {plan_summary}"
+                    else:
+                        # Fallback
+                        coder_query = f"Python Implementation for function: {task_name if task_name else 'Global Scope'}\nContext: {self.task_name}\nPlan: {plan_summary}"
+                    
+                    if is_patch_mode and feedback.get('analysis'):
+                         coder_query += f"\nError Analysis: {feedback.get('analysis')}"
+                    
                     ctx = {
                         'target_type': task_type,
                         'skeleton_code': self.current_skeleton,
@@ -260,6 +285,7 @@ class InverseProblemWorkflow(InverseProblemBase):
                         'task_desc': self.task_desc,                 # ✅ Pass task_desc (with skills) to Coder
                         'package_list': self.package_list,
                         'feedback': feedback.get('feedback') if is_patch_mode and isinstance(feedback, dict) else None,
+                        'analysis': feedback.get('analysis') if is_patch_mode and isinstance(feedback, dict) else None, # ✅ Inject Analysis
                         'fix_target': target if is_patch_mode else None
                     }
                     
@@ -270,7 +296,8 @@ class InverseProblemWorkflow(InverseProblemBase):
                     ctx = self._build_context_with_memory(
                         base_context=ctx,
                         agent_role="Coder",
-                        current_ticket="Coder"
+                        current_ticket="Coder",
+                        retrieval_query=coder_query # Pass custom query
                     )
 
                     # 调用 Coder Agent
@@ -477,11 +504,18 @@ class InverseProblemWorkflow(InverseProblemBase):
                     'current_code_snippet': self.current_code 
                 }
                 
+                # Custom Retrieval Query for Judge: Task + Error Logs + Low Metrics
+                # Focus on "Diagnosis" skills
+                judge_query = f"{clean_task_desc}\n\nEXECUTION LOGS (Error Focus):\n{stderr[-500:]}"
+                if metrics:
+                    judge_query += f"\nMETRICS: {metrics}"
+                
                 # Inject Knowledge (Core & Experience) using the standard pipeline
                 judge_ctx = self._build_context_with_memory(
                     base_context=judge_base_ctx,
                     agent_role="Judge",
-                    current_ticket="Judge"
+                    current_ticket="Judge",
+                    retrieval_query=judge_query # Pass custom query
                 )
                 
                 judgment = self.judge.generate(judge_ctx)

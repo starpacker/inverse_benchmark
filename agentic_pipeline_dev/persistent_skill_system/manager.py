@@ -402,7 +402,7 @@ class SkillManager:
         # 3. UUIDs
         text = re.sub(r'\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b', '{uuid}', text)
         
-        # 4. Numbers >= 3 digits
-        text = re.sub(r'\b\d{3,}\b', '{number}', text)
+        # 4. Numbers >= 3 digits - REMOVED per user request
+        # text = re.sub(r'\b\d{3,}\b', '{number}', text)
         
         return text

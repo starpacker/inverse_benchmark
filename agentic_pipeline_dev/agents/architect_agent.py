@@ -56,8 +56,17 @@ class ArchitectAgent(BaseAgent):
                 ### PLAN TO IMPLEMENT
                 {context['plan']}"""
 
-        # Explicitly prompt to use injected skills if present in task_desc
-        if "RELEVANT SKILLS" in context.get('task_desc', ''):
+        # Explicitly prompt to use injected skills if provided in dedicated field
+        if context.get('knowledge_context'):
+            prompt += "\n\n" + context['knowledge_context'] + "\n"
+            prompt += "\n### 🧠 SKILL UTILIZATION\n"
+            prompt += "The section above contains 'RELEVANT SKILLS' from past experiences.\n"
+            prompt += "1. **Check Applicability**: Ensure the skill's architectural suggestions (e.g., pre-computing kernels) fit the current problem.\n"
+            prompt += "2. **Support**: If applicable, add necessary attributes in `__init__` or helper methods to support the skill.\n"
+            prompt += "3. **Ignore Mismatches**: If a skill suggests a structure that conflicts with the current Plan, follow the Plan.\n"
+
+        # Legacy Fallback
+        elif "RELEVANT SKILLS" in context.get('task_desc', ''):
             prompt += "\n\n### 🧠 SKILL UTILIZATION\n"
             prompt += "The Task Description includes 'RELEVANT SKILLS'.\n"
             prompt += "1. **Check Applicability**: Ensure the skill's architectural suggestions (e.g., pre-computing kernels) fit the current problem.\n"

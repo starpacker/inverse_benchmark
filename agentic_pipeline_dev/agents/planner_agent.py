@@ -36,11 +36,22 @@ class PlannerAgent(BaseAgent):
         context needs:
         - 'task_desc': Task description.
         - 'feedback': (Optional) String containing feedback from Critic or Judge.
+        - 'knowledge_context': (Optional) Injected skills/knowledge string.
         """
         prompt = f"### Task Description\n{context['task_desc']}\n"
         
-        # Explicitly prompt to use injected skills if present in task_desc
-        if "RELEVANT SKILLS" in context['task_desc']:
+        # Explicitly prompt to use injected skills if provided in dedicated field
+        if context.get('knowledge_context'):
+            prompt += "\n" + context['knowledge_context'] + "\n"
+            prompt += "\n### 🧠 SKILL UTILIZATION\n"
+            prompt += "The section above contains 'RELEVANT SKILLS' from past experiences.\n"
+            prompt += "1. **Analyze Applicability**: Determine if these skills apply to the CURRENT task. \n"
+            prompt += "   - If the task context (e.g., noise type, operator) is different, DO NOT blindly follow the skill.\n"
+            prompt += "2. **Explicit Reference**: If applicable, explicitly mention which skill you are using in your plan.\n"
+            prompt += "3. **Adaptation**: If the skill suggests a general strategy (e.g., 'Use ADMM'), adapt the specific formulas to the current forward model.\n"
+        
+        # Fallback for legacy handling (if knowledge is still in task_desc)
+        elif "RELEVANT SKILLS" in context['task_desc']:
             prompt += "\n### 🧠 SKILL UTILIZATION\n"
             prompt += "The Task Description above includes 'RELEVANT SKILLS' from past experiences.\n"
             prompt += "1. **Analyze Applicability**: Determine if these skills apply to the CURRENT task. \n"

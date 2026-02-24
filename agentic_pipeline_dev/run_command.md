@@ -36,7 +36,7 @@ python3 agentic_pipeline/manage_knowledge.py
 ## 2. 导出所有知识 (Experience, Instance, Core Knowledge)
 将数据库中的所有知识导出为人类可读的 Markdown 报告（生成在 `/home/yjh/knowledge_export_YYYYMMDD_HHMMSS`）。
 ```bash
-python3 agentic_pipeline/export_knowledge_report.py
+python3 agentic_pipeline_dev/export_knowledge_report.py
 ```
 
 ## 3. 启动离线进化 (Offline Evolution Daemon)

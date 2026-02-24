@@ -65,9 +65,20 @@ class CoderAgent(BaseAgent):
         target_type = context.get('target_type', 'function')
         target_name = context.get('target_function', context.get('target_name', target_type))
 
-        # Extract Skill Section if present
+        # Extract Skill Section if provided in dedicated field
         skill_section = ""
-        if "### 🧠 RELEVANT SKILLS" in task_desc:
+        skill_instruction = ""
+        
+        if context.get('knowledge_context'):
+            skill_section = context['knowledge_context']
+            skill_block = f"\n\n{skill_section}\n(Use these skills to guide your implementation style/logic)"
+            skill_instruction = "\n### 🧠 SKILL UTILIZATION\nReview the 'RELEVANT SKILLS' above.\n"
+            skill_instruction += "- If a skill provides a specific implementation pattern relevant to the current plan, you SHOULD follow it.\n"
+            skill_instruction += "- However, if the skill contradicts the specific requirements of the current plan or task, PRIORITIZE the current Plan/Task over the skill.\n"
+            skill_instruction += "- Skills are historical references, not absolute laws. Use judgment."
+        
+        # Legacy Fallback
+        elif "### 🧠 RELEVANT SKILLS" in task_desc:
             # Extract until the next major header or end of relevant section
             try:
                 start_idx = task_desc.find("### 🧠 RELEVANT SKILLS")
@@ -81,15 +92,15 @@ class CoderAgent(BaseAgent):
                 # So we can split by "\n\n" and take the first part
                 skill_section = skill_part.split("\n\n###")[0] 
                 if len(skill_section) > 2000: skill_section = skill_section[:2000] + "..."
+                
+                skill_block = f"\n\n{skill_section}\n(Use these skills to guide your implementation style/logic)"
+                skill_instruction = "\n### 🧠 SKILL UTILIZATION\nReview the 'RELEVANT SKILLS' above.\n"
+                skill_instruction += "- If a skill provides a specific implementation pattern relevant to the current plan, you SHOULD follow it.\n"
+                skill_instruction += "- However, if the skill contradicts the specific requirements of the current plan or task, PRIORITIZE the current Plan/Task over the skill.\n"
+                skill_instruction += "- Skills are historical references, not absolute laws. Use judgment."
             except:
-                pass
-        
-        if skill_section:
-            skill_block = f"\n\n{skill_section}\n(Use these skills to guide your implementation style/logic)"
-            skill_instruction = "\n### 🧠 SKILL UTILIZATION\nReview the 'RELEVANT SKILLS' above.\n"
-            skill_instruction += "- If a skill provides a specific implementation pattern relevant to the current plan, you SHOULD follow it.\n"
-            skill_instruction += "- However, if the skill contradicts the specific requirements of the current plan or task, PRIORITIZE the current Plan/Task over the skill.\n"
-            skill_instruction += "- Skills are historical references, not absolute laws. Use judgment."
+                skill_block = ""
+                skill_instruction = ""
         else:
             skill_block = ""
             skill_instruction = ""

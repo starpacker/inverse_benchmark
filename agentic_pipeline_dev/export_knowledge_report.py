@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Dict, Any
 
 # Configuration
-DB_PATH = "/home/yjh/agentic_pipeline/persistent_skill_system/skills_new.db"
+DB_PATH = "/home/yjh/agentic_pipeline_dev/persistent_skill_system/skills_token_budget.db"
 EXPORT_ROOT = f"/home/yjh/knowledge_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
 def setup_directories():

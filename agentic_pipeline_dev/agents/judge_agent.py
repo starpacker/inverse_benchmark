@@ -84,13 +84,13 @@ Diagnose the failure using the 4-step protocol.
 
 """
         # [Skill Context Optimization]
-        # Only include skills if provided, and explicitly state they are REFERENCES, not rules.
-        if context.get('skill_summary'):
-            prompt += "### 🧠 REFERENCE SKILLS (Optional Context)\n"
-            prompt += f"{context.get('skill_summary')}\n"
+        # Only include skills if provided via 'knowledge_context'
+        if context.get('knowledge_context'):
+            prompt += "### 🧠 REFERENCE SKILLS (Troubleshooting & Pitfalls)\n"
+            prompt += f"{context.get('knowledge_context')}\n"
             prompt += "NOTE: These skills describe pitfalls from *previous* similar tasks.\n"
-            prompt += "- If the current failure matches a known pitfall, mention it.\n"
-            prompt += "- If the current task requires a DIFFERENT approach, IGNORE the skills. Do NOT enforce them blindly.\n\n"
+            prompt += "- If the current failure matches a known pitfall, mention it in your analysis.\n"
+            prompt += "- Use these skills to speed up your root cause diagnosis.\n\n"
             
         prompt += "Output STRICT JSON."
         return prompt

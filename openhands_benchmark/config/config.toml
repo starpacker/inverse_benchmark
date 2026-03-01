@@ -1,0 +1,79 @@
+###################### OpenHands Configuration ######################
+# Configured for Inverse Problem Benchmark
+# Using Claude 4.6 via OpenAI-compatible API gateway
+######################################################################
+
+[core]
+# Use local runtime (no Docker required)
+runtime = "local"
+
+# Workspace base directory (will be overridden per task)
+workspace_base = "/data/openhands_workspace"
+
+# Save trajectories for analysis
+save_trajectory_path = "/data/openhands_results/trajectories"
+
+# Disable browser (not needed for inverse problem tasks)
+enable_browser = false
+
+# Use in-memory file store to avoid session persistence between runs
+file_store = "memory"
+
+# Max iterations per task
+max_iterations = 100
+
+# Default agent
+default_agent = "CodeActAgent"
+
+#################################### LLM #####################################
+[llm]
+# Example: Claude 4.6 via OpenAI-compatible gateway
+# Replace with your own model and API key
+model = "openai/cds/Claude-4.6-opus"
+api_key = "<YOUR_API_KEY>"
+base_url = "https://your-api-gateway.example.com/v1"
+temperature = 0.7
+
+# Token limits
+max_message_chars = 30000
+num_retries = 5
+retry_max_wait = 120
+retry_min_wait = 15
+
+# Drop unmapped params to avoid errors with custom providers
+drop_params = true
+
+#################################### Agent ###################################
+[agent]
+# Disable browser tools (not needed)
+enable_browsing = false
+
+# Enable code editing and execution tools
+enable_editor = true
+enable_jupyter = true
+enable_cmd = true
+enable_think = true
+enable_finish = true
+
+# Enable prompt extensions
+enable_prompt_extensions = true
+
+# Enable history truncation for long sessions
+enable_history_truncation = true
+
+#################################### Sandbox ###################################
+[sandbox]
+# Longer timeout for scientific computing tasks
+timeout = 600
+
+# Enable GPU support
+enable_gpu = true
+
+#################################### Security ###################################
+[security]
+# Disable confirmation mode for headless execution
+confirmation_mode = false
+
+#################################### Condenser #################################
+[condenser]
+type = "noop"

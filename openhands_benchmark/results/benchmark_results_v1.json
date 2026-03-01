@@ -1,0 +1,377 @@
+{
+  "timestamp": "20260301_050511",
+  "framework": "OpenHands v1.4.0",
+  "agent": "CodeActAgent",
+  "model": "cds/Claude-4.6-opus",
+  "max_iterations": 50,
+  "total_tasks": 26,
+  "successful": 9,
+  "output_produced": 19,
+  "failed": 17,
+  "total_time_sec": 21823.98,
+  "results": [
+    {
+      "task_name": "AMICO-master",
+      "success": false,
+      "output_exists": true,
+      "solver_exists": true,
+      "cheat_detected": false,
+      "elapsed_sec": 1699.72,
+      "error": "RuntimeError: Agent reached maximum iteration. Current iteration: 50, max iteration: 50",
+      "iterations": 0,
+      "agent_state": "AgentState.ERROR",
+      "eval_result": {
+        "psnr": 18.8604,
+        "ssim": 0.7248
+      }
+    },
+    {
+      "task_name": "carspy-main",
+      "success": false,
+      "output_exists": true,
+      "solver_exists": true,
+      "cheat_detected": false,
+      "elapsed_sec": 1679.6,
+      "error": "RuntimeError: Agent reached maximum iteration. Current iteration: 50, max iteration: 50",
+      "iterations": 0,
+      "agent_state": "AgentState.ERROR",
+      "eval_result": {
+        "psnr": 89.4352,
+        "ssim": 1.0
+      }
+    },
+    {
+      "task_name": "caustics-main",
+      "success": true,
+      "output_exists": true,
+      "solver_exists": true,
+      "cheat_detected": false,
+      "elapsed_sec": 561.46,
+      "error": null,
+      "iterations": 0,
+      "agent_state": "AgentState.FINISHED",
+      "eval_result": {
+        "psnr": 39.6479,
+        "ssim": 0.9635
+      }
+    },
+    {
+      "task_name": "CT-and-MR-Perfusion-Tool-main",
+      "success": false,
+      "output_exists": false,
+      "solver_exists": false,
+      "cheat_detected": false,
+      "elapsed_sec": 480.51,
+      "error": "AgentStuckInLoopError: Agent got stuck in a loop",
+      "iterations": 0,
+      "agent_state": "AgentState.ERROR",
+      "eval_result": null
+    },
+    {
+      "task_name": "DiffuserCam-Tutorial-master",
+      "success": false,
+      "output_exists": false,
+      "solver_exists": false,
+      "cheat_detected": false,
+      "elapsed_sec": 202.16,
+      "error": "AgentStuckInLoopError: Agent got stuck in a loop",
+      "iterations": 0,
+      "agent_state": "AgentState.ERROR",
+      "eval_result": null
+    },
+    {
+      "task_name": "dmipy-master",
+      "success": false,
+      "output_exists": true,
+      "solver_exists": true,
+      "cheat_detected": false,
+      "elapsed_sec": 485.56,
+      "error": "AgentStuckInLoopError: Agent got stuck in a loop",
+      "iterations": 0,
+      "agent_state": "AgentState.ERROR",
+      "eval_result": {
+        "psnr": 8.744762,
+        "ssim": 0.320382
+      }
+    },
+    {
+      "task_name": "hcipy-master",
+      "success": false,
+      "output_exists": true,
+      "solver_exists": true,
+      "cheat_detected": false,
+      "elapsed_sec": 1359.48,
+      "error": "AgentStuckInLoopError: Agent got stuck in a loop",
+      "iterations": 0,
+      "agent_state": "AgentState.ERROR",
+      "eval_result": {
+        "psnr": 0.0,
+        "ssim": 0.0
+      }
+    },
+    {
+      "task_name": "mne-master",
+      "success": true,
+      "output_exists": true,
+      "solver_exists": true,
+      "cheat_detected": false,
+      "elapsed_sec": 150.1,
+      "error": null,
+      "iterations": 0,
+      "agent_state": "AgentState.FINISHED",
+      "eval_result": {
+        "psnr": 319.1973,
+        "ssim": 1.0
+      }
+    },
+    {
+      "task_name": "MPIRF-master",
+      "success": false,
+      "output_exists": false,
+      "solver_exists": false,
+      "cheat_detected": false,
+      "elapsed_sec": 275.2,
+      "error": "AgentStuckInLoopError: Agent got stuck in a loop",
+      "iterations": 0,
+      "agent_state": "AgentState.ERROR",
+      "eval_result": null
+    },
+    {
+      "task_name": "MRE-elast-master",
+      "success": false,
+      "output_exists": true,
+      "solver_exists": true,
+      "cheat_detected": false,
+      "elapsed_sec": 472.33,
+      "error": "AgentStuckInLoopError: Agent got stuck in a loop",
+      "iterations": 0,
+      "agent_state": "AgentState.ERROR",
+      "eval_result": {
+        "psnr": 8.6508,
+        "ssim": 0.1466
+      }
+    },
+    {
+      "task_name": "mrf-reconstruction-mlmir2020-master",
+      "success": false,
+      "output_exists": true,
+      "solver_exists": true,
+      "cheat_detected": false,
+      "elapsed_sec": 922.81,
+      "error": "AgentStuckInLoopError: Agent got stuck in a loop",
+      "iterations": 0,
+      "agent_state": "AgentState.ERROR",
+      "eval_result": {
+        "psnr": 12.98717,
+        "ssim": 0.440379
+      }
+    },
+    {
+      "task_name": "mripy-master",
+      "success": true,
+      "output_exists": true,
+      "solver_exists": true,
+      "cheat_detected": false,
+      "elapsed_sec": 1947.79,
+      "error": null,
+      "iterations": 0,
+      "agent_state": "AgentState.FINISHED",
+      "eval_result": {
+        "psnr": 45.607,
+        "ssim": 0.967
+      }
+    },
+    {
+      "task_name": "oct-cbort-main",
+      "success": false,
+      "output_exists": true,
+      "solver_exists": true,
+      "cheat_detected": false,
+      "elapsed_sec": 761.6,
+      "error": "AgentStuckInLoopError: Agent got stuck in a loop",
+      "iterations": 0,
+      "agent_state": "AgentState.ERROR",
+      "eval_result": {
+        "psnr": 7.625,
+        "ssim": 0.1618
+      }
+    },
+    {
+      "task_name": "phasorpy-main",
+      "success": false,
+      "output_exists": true,
+      "solver_exists": true,
+      "cheat_detected": true,
+      "elapsed_sec": 241.18,
+      "error": "CHEAT DETECTED: output.npy is identical to gt_output.npy",
+      "iterations": 0,
+      "agent_state": "AgentState.FINISHED",
+      "eval_result": null
+    },
+    {
+      "task_name": "PtyLab-main",
+      "success": true,
+      "output_exists": true,
+      "solver_exists": true,
+      "cheat_detected": false,
+      "elapsed_sec": 556.44,
+      "error": null,
+      "iterations": 0,
+      "agent_state": "AgentState.FINISHED",
+      "eval_result": {
+        "psnr": 49.6026,
+        "ssim": 0.9563
+      }
+    },
+    {
+      "task_name": "PyAbel-master",
+      "success": false,
+      "output_exists": true,
+      "solver_exists": true,
+      "cheat_detected": false,
+      "elapsed_sec": 1936.67,
+      "error": "AgentStuckInLoopError: Agent got stuck in a loop",
+      "iterations": 0,
+      "agent_state": "AgentState.ERROR",
+      "eval_result": {
+        "psnr": 27.5452,
+        "ssim": 0.7386
+      }
+    },
+    {
+      "task_name": "pyDHM-master",
+      "success": true,
+      "output_exists": true,
+      "solver_exists": true,
+      "cheat_detected": false,
+      "elapsed_sec": 407.22,
+      "error": null,
+      "iterations": 0,
+      "agent_state": "AgentState.FINISHED",
+      "eval_result": {
+        "psnr": 53.6268,
+        "ssim": 0.9966
+      }
+    },
+    {
+      "task_name": "PyHoloscope-main",
+      "success": true,
+      "output_exists": true,
+      "solver_exists": true,
+      "cheat_detected": false,
+      "elapsed_sec": 476.9,
+      "error": null,
+      "iterations": 0,
+      "agent_state": "AgentState.FINISHED",
+      "eval_result": {
+        "psnr": 33.9005,
+        "ssim": 0.8516
+      }
+    },
+    {
+      "task_name": "PySMLFM-main",
+      "success": false,
+      "output_exists": false,
+      "solver_exists": false,
+      "cheat_detected": false,
+      "elapsed_sec": 2206.04,
+      "error": "AgentStuckInLoopError: Agent got stuck in a loop",
+      "iterations": 0,
+      "agent_state": "AgentState.ERROR",
+      "eval_result": null
+    },
+    {
+      "task_name": "spectral_ct_examples-master",
+      "success": false,
+      "output_exists": false,
+      "solver_exists": false,
+      "cheat_detected": false,
+      "elapsed_sec": 1433.71,
+      "error": "AgentStuckInLoopError: Agent got stuck in a loop",
+      "iterations": 0,
+      "agent_state": "AgentState.ERROR",
+      "eval_result": null
+    },
+    {
+      "task_name": "storm-analysis-master",
+      "success": true,
+      "output_exists": true,
+      "solver_exists": true,
+      "cheat_detected": false,
+      "elapsed_sec": 1009.81,
+      "error": null,
+      "iterations": 0,
+      "agent_state": "AgentState.FINISHED",
+      "eval_result": {
+        "psnr": 172.2682,
+        "ssim": 1.0
+      }
+    },
+    {
+      "task_name": "structured-light-python-main",
+      "success": false,
+      "output_exists": true,
+      "solver_exists": true,
+      "cheat_detected": true,
+      "elapsed_sec": 829.21,
+      "error": "CHEAT DETECTED: output.npy is identical to gt_output.npy",
+      "iterations": 0,
+      "agent_state": "AgentState.FINISHED",
+      "eval_result": null
+    },
+    {
+      "task_name": "svmbir-master",
+      "success": false,
+      "output_exists": false,
+      "solver_exists": false,
+      "cheat_detected": false,
+      "elapsed_sec": 267.3,
+      "error": "AgentStuckInLoopError: Agent got stuck in a loop",
+      "iterations": 0,
+      "agent_state": "AgentState.ERROR",
+      "eval_result": null
+    },
+    {
+      "task_name": "tomopy-master",
+      "success": false,
+      "output_exists": false,
+      "solver_exists": false,
+      "cheat_detected": false,
+      "elapsed_sec": 205.04,
+      "error": "AgentStuckInLoopError: Agent got stuck in a loop",
+      "iterations": 0,
+      "agent_state": "AgentState.ERROR",
+      "eval_result": null
+    },
+    {
+      "task_name": "us-beamform-linarray-master",
+      "success": true,
+      "output_exists": true,
+      "solver_exists": true,
+      "cheat_detected": false,
+      "elapsed_sec": 1015.88,
+      "error": null,
+      "iterations": 0,
+      "agent_state": "AgentState.FINISHED",
+      "eval_result": {
+        "psnr": 24.4916,
+        "ssim": 0.967
+      }
+    },
+    {
+      "task_name": "nirfaster-FF-main_2",
+      "success": true,
+      "output_exists": true,
+      "solver_exists": true,
+      "cheat_detected": false,
+      "elapsed_sec": 240.26,
+      "error": null,
+      "iterations": 0,
+      "agent_state": "AgentState.FINISHED",
+      "eval_result": {
+        "psnr": 74.853136,
+        "ssim": 0.999891
+      }
+    }
+  ]
+}

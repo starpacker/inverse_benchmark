@@ -1,0 +1,32 @@
+# Sample Task Configuration for OpenHands Benchmark
+# Each task defines an inverse problem to solve
+# 
+# Required fields:
+#   name: unique task identifier (matches sandbox directory name)
+#   python_path: path to Python interpreter with required packages
+#
+# The benchmark runner will:
+#   1. Copy dataset/ and eval_script.py from the sandbox
+#   2. Build a detailed prompt with task description
+#   3. Let the CodeActAgent solve the inverse problem
+#   4. Evaluate using eval_script.py
+
+tasks:
+  - name: "mne-master"
+    python_path: "/path/to/mne_env/bin/python"
+  
+  - name: "mripy-master"
+    python_path: "/path/to/mripy_env/bin/python"
+  
+  - name: "caustics-main"
+    python_path: "/path/to/caustics_env/bin/python"
+  
+  - name: "PtyLab-main"
+    python_path: "/path/to/ptylab_env/bin/python"
+  
+  - name: "storm-analysis-master"
+    python_path: "/path/to/storm_env/bin/python"
+  
+  # ... add more tasks as needed
+  # Total benchmark includes 26 inverse problem tasks
+  # spanning MRI, optics, ultrasound, spectroscopy, etc.

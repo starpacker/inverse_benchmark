@@ -1,0 +1,123 @@
+diff --git a/openhands/agenthub/codeact_agent/tools/bash.py b/openhands/agenthub/codeact_agent/tools/bash.py
+index 62980b543..03f6885d5 100644
+--- a/openhands/agenthub/codeact_agent/tools/bash.py
++++ b/openhands/agenthub/codeact_agent/tools/bash.py
+@@ -83,7 +83,7 @@ def create_cmd_run_tool(
+                         'enum': RISK_LEVELS,
+                     },
+                 },
+-                'required': ['command', 'security_risk'],
++                'required': ['command'],
+             },
+         ),
+     )
+diff --git a/openhands/agenthub/codeact_agent/tools/browser.py b/openhands/agenthub/codeact_agent/tools/browser.py
+index d27274d76..c741c0111 100644
+--- a/openhands/agenthub/codeact_agent/tools/browser.py
++++ b/openhands/agenthub/codeact_agent/tools/browser.py
+@@ -172,7 +172,7 @@ BrowserTool = ChatCompletionToolParam(
+                     'enum': RISK_LEVELS,
+                 },
+             },
+-            'required': ['code', 'security_risk'],
++            'required': ['code'],
+         },
+     ),
+ )
+diff --git a/openhands/agenthub/codeact_agent/tools/finish.py b/openhands/agenthub/codeact_agent/tools/finish.py
+index 415c02f5c..d64f16ed8 100644
+--- a/openhands/agenthub/codeact_agent/tools/finish.py
++++ b/openhands/agenthub/codeact_agent/tools/finish.py
+@@ -29,7 +29,7 @@ FinishTool = ChatCompletionToolParam(
+         description=_FINISH_DESCRIPTION,
+         parameters={
+             'type': 'object',
+-            'required': ['message'],
++            'required': [],
+             'properties': {
+                 'message': {
+                     'type': 'string',
+diff --git a/openhands/agenthub/codeact_agent/tools/ipython.py b/openhands/agenthub/codeact_agent/tools/ipython.py
+index a28040b80..3c0405809 100644
+--- a/openhands/agenthub/codeact_agent/tools/ipython.py
++++ b/openhands/agenthub/codeact_agent/tools/ipython.py
+@@ -35,7 +35,7 @@ IPythonTool = ChatCompletionToolParam(
+                     'enum': RISK_LEVELS,
+                 },
+             },
+-            'required': ['code', 'security_risk'],
++            'required': ['code'],
+         },
+     ),
+ )
+diff --git a/openhands/agenthub/codeact_agent/tools/str_replace_editor.py b/openhands/agenthub/codeact_agent/tools/str_replace_editor.py
+index 158ec2e5e..d1069aa76 100644
+--- a/openhands/agenthub/codeact_agent/tools/str_replace_editor.py
++++ b/openhands/agenthub/codeact_agent/tools/str_replace_editor.py
+@@ -162,7 +162,7 @@ def create_str_replace_editor_tool(
+                         'enum': RISK_LEVELS,
+                     },
+                 },
+-                'required': ['command', 'path', 'security_risk'],
++                'required': ['command', 'path'],
+             },
+         ),
+     )
+diff --git a/openhands/agenthub/codeact_agent/tools/think.py b/openhands/agenthub/codeact_agent/tools/think.py
+index 9e24418fd..88a5c6093 100644
+--- a/openhands/agenthub/codeact_agent/tools/think.py
++++ b/openhands/agenthub/codeact_agent/tools/think.py
+@@ -28,7 +28,7 @@ ThinkTool = ChatCompletionToolParam(
+             'properties': {
+                 'thought': {'type': 'string', 'description': 'The thought to log.'},
+             },
+-            'required': ['thought'],
++            'required': [],
+         },
+     ),
+ )
+diff --git a/openhands/core/config/agent_config.py b/openhands/core/config/agent_config.py
+index c93c8b905..298fac81b 100644
+--- a/openhands/core/config/agent_config.py
++++ b/openhands/core/config/agent_config.py
+@@ -58,7 +58,7 @@ class AgentConfig(BaseModel):
+     """Whether to enable SoM (Set of Marks) visual browsing."""
+     enable_plan_mode: bool = Field(default=True)
+     """Whether to enable plan mode, which uses the long horizon system message and add the new tool - task_tracker - for planning, tracking and executing complex tasks."""
+-    enable_stuck_detection: bool = Field(default=True)
++    enable_stuck_detection: bool = Field(default=False)
+     """Whether to enable stuck/loop detection. When disabled, the agent will not automatically detect and recover from loops."""
+     condenser: CondenserConfig = Field(
+         # The default condenser is set to the conversation window condenser -- if
+diff --git a/openhands/events/action/agent.py b/openhands/events/action/agent.py
+index 41fe0a4d0..2e8766fbf 100644
+--- a/openhands/events/action/agent.py
++++ b/openhands/events/action/agent.py
+@@ -96,11 +96,13 @@ class RecallAction(Action):
+ 
+     @property
+     def message(self) -> str:
+-        return f'Retrieving content for: {self.query[:50]}'
++        q = str(self.query) if self.query else ''
++        return f'Retrieving content for: {q[:50]}'
+ 
+     def __str__(self) -> str:
++        q = str(self.query) if self.query else ''
+         ret = '**RecallAction**\n'
+-        ret += f'QUERY: {self.query[:50]}'
++        ret += f'QUERY: {q[:50]}'
+         return ret
+ 
+ 
+diff --git a/openhands/llm/llm.py b/openhands/llm/llm.py
+index 1a0734a6e..21835cd05 100644
+--- a/openhands/llm/llm.py
++++ b/openhands/llm/llm.py
+@@ -207,6 +207,7 @@ class LLM(RetryMixin, DebugMixin):
+             or ('claude-opus-4-5' in _model_lower)
+             or ('claude-opus-4-6' in _model_lower)
+             or ('claude-sonnet-4' in _model_lower)
++            or ('claude-4.6' in _model_lower)
+         ) and ('temperature' in kwargs and 'top_p' in kwargs):
+             kwargs.pop('top_p', None)
+ 

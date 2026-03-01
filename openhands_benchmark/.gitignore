@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Results (large files)
+results/*.json
+!results/benchmark_results_v1.json
+
+# Workspace artifacts
+*_workspace/
+*.npy
+
+# Environment
+.env
+*.log

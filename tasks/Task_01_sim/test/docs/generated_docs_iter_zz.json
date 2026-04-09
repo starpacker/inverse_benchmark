@@ -1,0 +1,5 @@
+{
+    "function_explanation": "The function 'iter_zz' performs iterative updates on a 3D tensor using forward and backward finite differences and a shrinkage operation.",
+    "function_docstring": "Iteratively updates a 3D tensor using finite difference methods and shrinkage.\n\nArgs:\n    g (np.ndarray): A 3D tensor of shape (R, N, M) representing the input data.\n    bzz (np.ndarray): A 3D tensor of shape (R, N, M) representing the bias term.\n    para (float): A scalar parameter used in the update calculation.\n    mu (float): A scalar parameter used in the shrinkage operation.\n\nReturns:\n    Tuple[np.ndarray, np.ndarray]:\n        - Lzz (np.ndarray): A 3D tensor of shape (R, N, M) representing the updated data after applying finite differences and shrinkage.\n        - bzz (np.ndarray): A 3D tensor of shape (R, N, M) representing the updated bias term.",
+    "usage_example": "import numpy as np\n\ng = np.random.randn(3, 4, 5).astype(np.float32)\nbzz = np.random.randn(3, 4, 5).astype(np.float32)\npara = 0.5\nmu = 1.0\n\nLzz, bzz_out = iter_zz(g, bzz, para, mu)\nprint('Updated Lzz:', Lzz)\nprint('Updated bzz:', bzz_out)"
+}

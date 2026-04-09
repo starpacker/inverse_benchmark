@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Applies Chambolle's Total Variation denoising algorithm to a 3D tensor.",
+    "function_docstring": "def TV_denoiser(x, _lambda, n_iter_max):\n    \"\"\"\n    Applies Chambolle's Total Variation denoising algorithm to a 3D tensor.\n\n    Args:\n        x (np.ndarray): A 3D tensor representing the input data to be denoised, with shape (D, H, W).\n        _lambda (float): Regularization parameter controlling the strength of the denoising.\n        n_iter_max (int): Maximum number of iterations for the denoising process.\n\n    Returns:\n        np.ndarray: A 3D tensor of the same shape as `x`, representing the denoised output.\n    \"\"\"",
+    "usage_example": "import numpy as np\n\n# Example usage\nx = np.random.rand(64, 64, 64)  # Input tensor\n_lambda = 0.1  # Regularization parameter\nn_iter_max = 100  # Maximum iterations\n\n# Apply TV denoiser\ndenoised_x = TV_denoiser(x, _lambda, n_iter_max)\nprint(denoised_x.shape)  # Output shape should be (64, 64, 64)"
+}

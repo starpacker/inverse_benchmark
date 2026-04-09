@@ -1,0 +1,11 @@
+[
+    "load_and_preprocess_data",
+    "forward_operator",
+    "backward_operator",
+    "shift",
+    "shift_back",
+    "psnr",
+    "TV_denoiser",
+    "run_inversion",
+    "evaluate_results"
+]

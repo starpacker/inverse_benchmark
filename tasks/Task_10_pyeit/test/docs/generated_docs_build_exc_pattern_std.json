@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Generates a scan matrix for electrode excitation patterns in adjacent mode.",
+    "function_docstring": "def build_exc_pattern_std(n_el: int = 16, dist: int = 1) -> np.ndarray:\n    \"\"\"\n    Generates a scan matrix for electrode excitation patterns in adjacent mode.\n\n    Args:\n        n_el (int): The number of electrodes. Defaults to 16.\n        dist (int): The distance between electrodes in the excitation pattern. Defaults to 1.\n\n    Returns:\n        np.ndarray: A 2D array of shape (n_el, 2) where each row represents a pair of electrodes\n        to be excited together, with the first column being the starting electrode and the second\n        column being the adjacent electrode determined by the distance.\n    \"\"\"",
+    "usage_example": "import numpy as np\n\n# Example usage of build_exc_pattern_std\nn_el = 8\nexcitation_pattern = build_exc_pattern_std(n_el)\nprint(excitation_pattern)\n# Output: array([[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 7], [7, 0]])"
+}

@@ -1,0 +1,24 @@
+{
+    "questions": [
+        {
+            "function_name": "Order_inverse",
+            "question_prompt": "Write a function named `Order_inverse` that calculates the inverse permutation of a given index array. The goal is to allow the user to 'un-shuffle' dimensions that were permuted during a normalizing flow operation. The method should iterate through the input array such that if the input `order` has value `k` at index `i` (i.e., `order[i] == k`), the output array should have value `i` at index `k` (i.e., `order_inv[k] = i`). Input argument: `order` (a list or numpy array of integers representing a permutation). Output: A numpy array representing the inverse permutation."
+        },
+        {
+            "function_name": "torch_complex_matmul",
+            "question_prompt": "Write a function named `torch_complex_matmul` to perform matrix multiplication between a real-valued input tensor and a complex-valued matrix stored as a real tensor with a specific shape. The method must handle real and imaginary components explicitly using the formula `Re(Output) = x @ Re(Matrix)` and `Im(Output) = x @ Im(Matrix)` (assuming the input `x` is real). Input arguments: `x` (a PyTorch Tensor of shape `(Batch, N_pixels)` representing image intensity), and `F` (a PyTorch Tensor of shape `(N_pixels, N_visibilities, 2)` where the last dimension holds the real and imaginary parts of the DFT matrix). Output: A PyTorch Tensor of shape `(Batch, 2, N_visibilities)`, where dimension 1 contains the stacked real and imaginary results."
+        },
+        {
+            "function_name": "forward_operator",
+            "question_prompt": "Write a function named `forward_operator` that acts as the physics simulator for interferometric radio imaging. The goal is to transform an image into four specific observables: complex visibilities, visibility amplitudes, closure phases, and log closure amplitudes. The method must first perform a Discrete Fourier Transform (DFT) using `torch_complex_matmul`, then compute amplitudes via the Pythagorean theorem. It should then compute Closure Phase (sum of phases around a triangle of telescopes) and Log Closure Amplitude (log-ratio of amplitudes in a quadrangle). Input arguments: `x` (input image tensor or numpy array), `dft_mat` (Fourier matrix), `cphase_ind_list` (list of index tensors for triangles), `cphase_sign_list` (list of signs for triangles), `camp_ind_list` (list of index tensors for quadrangles), `npix` (integer image size), and `device`. Output: A tuple containing four tensors: `vis_torch` (complex visibilities), `vis_amp` (amplitudes), `cphase` (degrees), and `logcamp`."
+        },
+        {
+            "function_name": "run_inversion",
+            "question_prompt": "Write a function named `run_inversion` that executes the main optimization loop for Deep Probabilistic Imaging. The goal is to train a RealNVP Normalizing Flow to approximate the posterior distribution of images given observational data. The method must initialize a `RealNVP` network and a `SimpleCrescentNuisanceFloor_Param2Img` generator. Inside the training loop, it should sample latent vectors `z`, reverse the flow to get parameters, generate an image, pass it through `forward_operator`, and compute a loss combining data fidelity (Chi-squared difference between simulated and real observables) and a negative log-likelihood (entropy/prior) term. It must support gradient clipping and specific loss weighting. Input arguments: `preprocessed_data` (dictionary containing telescope data and operators), along with hyperparameters `n_flow`, `n_gaussian`, `n_epoch`, `lr`, `clip`, `beta`, `divergence_type`, etc. Output: A dictionary containing `model_state_dict` (trained weights), `final_loss`, `nparams`, and `n_flow`."
+        },
+        {
+            "function_name": "evaluate_results",
+            "question_prompt": "Write a function named `evaluate_results` to assess the quality of a trained Deep Probabilistic Imaging model. The goal is to compute statistical summaries of the generated images and quantify how well the mean reconstruction fits the observed data. The method must load the trained model weights from the `result` dictionary, sample `n_samples` latent vectors, and generate the corresponding images. It should then calculate the pixel-wise mean and standard deviation of these images. Finally, it must pass the mean image through the `forward_operator` and calculate the reduced Chi-squared ($\\chi^2$) error for both Closure Phase and Log Closure Amplitude compared to the ground truth in `preprocessed_data`. Input arguments: `result` (dictionary output from `run_inversion`), `preprocessed_data` (dictionary with ground truth), `n_samples` (int), `n_gaussian` (int), and `device`. Output: A dictionary containing `mean_image`, `std_image`, `sample_images`, `total_flux_mean`, `cphase_chi2`, `logcamp_chi2`, and `final_loss`."
+        }
+    ]
+}

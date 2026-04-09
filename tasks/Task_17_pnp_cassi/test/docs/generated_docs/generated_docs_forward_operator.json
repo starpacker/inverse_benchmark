@@ -1,0 +1,5 @@
+{
+    "function_explanation": "The function computes the forward model of snapshot compressive imaging by collapsing multiple encoded frames into a single measurement using a sensing matrix.",
+    "function_docstring": "def forward_operator(x: np.ndarray, Phi: np.ndarray) -> np.ndarray:\n    \"\"\"\n    Computes the forward model of snapshot compressive imaging (SCI) by collapsing multiple encoded frames into a single measurement.\n\n    Args:\n        x (np.ndarray): A 3D array representing multiple encoded frames, with shape (M, N, T), where M and N are spatial dimensions and T is the number of frames.\n        Phi (np.ndarray): A 3D sensing matrix (mask) with the same shape as `x`, used to encode the frames.\n\n    Returns:\n        np.ndarray: A 2D array representing the collapsed measurement, with shape (M, N).\n    \"\"\"",
+    "usage_example": "import numpy as np\n\n# Example data\nx = np.random.rand(64, 64, 10)  # 64x64 spatial dimensions, 10 frames\nPhi = np.random.rand(64, 64, 10)  # Sensing matrix with the same shape\n\n# Compute the forward model\nmeasurement = forward_operator(x, Phi)\nprint(measurement.shape)  # Output shape should be (64, 64)"
+}

@@ -1,0 +1,12 @@
+[
+    "reorient_to_ras",
+    "downsample_image",
+    "gamma_variate",
+    "fit_gamma_variate",
+    "calculate_signal_smoothness",
+    "_determine_aif_logic",
+    "load_and_preprocess_data",
+    "forward_operator",
+    "run_inversion",
+    "evaluate_results"
+]

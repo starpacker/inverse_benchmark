@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Calculates the divergence of a vector field or scalar field represented by an N-dimensional NumPy array by summing its gradients along all axes.",
+    "function_docstring": "Calculates the divergence of an N-dimensional array.\n\n    The divergence is computed as the sum of the partial derivatives (gradients) along each axis.\n    Mathematically, for a vector field F, div(F) = sum(dF_i/dx_i).\n\n    Args:\n        F (numpy.ndarray): An N-dimensional input array representing a scalar or vector field.\n            If F has shape (N, M, ...), the function computes gradients along all dimensions\n            and sums them element-wise.\n\n    Returns:\n        numpy.ndarray: An array of the same shape as the input `F`, representing the\n        divergence field.",
+    "usage_example": "import numpy as np\nfrom agent_divergence import divergence\n\n# Create a 2D array (scalar field)\nF = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])\n\n# Calculate divergence\nresult = divergence(F)\nprint(result)\n# Output will be the sum of gradients along axis 0 and axis 1"
+}

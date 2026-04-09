@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Calculates and prints statistical metrics for a set of reconstructed 3D points, including depth accuracy relative to a theoretical value and surface planarity (PSNR).",
+    "function_docstring": "Args:\n    points_3d (np.ndarray): A numpy array of shape (N, 3) representing the reconstructed 3D point cloud, where the columns correspond to X, Y, and Z coordinates respectively.\n    expected_depth (float, optional): The theoretical expected Z-depth value in millimeters to compare against the mean reconstructed depth. Defaults to 5000.0.\n\nReturns:\n    None: This function prints the evaluation report to standard output and does not return a value.",
+    "usage_example": "import numpy as np\n\n# Generate synthetic 3D points (N=100)\n# Random X, Y, and Z around 5000mm with some noise\nN = 100\npoints = np.zeros((N, 3))\npoints[:, 0] = np.random.rand(N) * 100  # X\npoints[:, 1] = np.random.rand(N) * 100  # Y\npoints[:, 2] = 5000.0 + np.random.normal(0, 1.0, N)  # Z with noise\n\n# Evaluate the results\nevaluate_results(points_3d=points, expected_depth=5000.0)"
+}

@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Calculates statistical metrics (mean, std, min, max) for an input image array and saves a grayscale visualization to a file.",
+    "function_docstring": "Computes statistics and saves the resulting image.\n\nArgs:\n    image_result (numpy.ndarray): A 2D array of shape (H, W) representing the image data,\n        typically an OCT structure reconstruction where H corresponds to Depth (Z) and W to A-Lines.\n\nReturns:\n    str: The filename of the saved visualization image (\"oct_reconstruction_refactored.png\").",
+    "usage_example": "import numpy as np\nfrom agent_evaluate_results import evaluate_results\n\n# Generate a dummy 2D image array (e.g., 100 depth pixels x 50 A-lines)\ndummy_oct_image = np.random.rand(100, 50).astype(np.float32)\n\n# Run evaluation, which prints stats and saves a plot\nsaved_filename = evaluate_results(dummy_oct_image)\nprint(f\"Visualization saved to: {saved_filename}\")"
+}

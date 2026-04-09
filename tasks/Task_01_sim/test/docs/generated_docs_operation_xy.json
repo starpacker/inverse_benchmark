@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Computes the Fourier transform of a specific 2D delta array and returns the result for a given grid size.",
+    "function_docstring": "Performs a Fourier transform on a predefined 2D delta array and returns the result for a specified grid size.\n\nArgs:\n    gsize (tuple of int): A tuple representing the grid size for the Fourier transform, typically in the form (height, width).\n\nReturns:\n    numpy.ndarray: A complex-valued array representing the result of the Fourier transform operation, with the same shape as the specified grid size.",
+    "usage_example": "import numpy as np\n\n# Define the grid size\ngrid_size = (4, 4)\n\n# Perform the operation\nresult = operation_xy(grid_size)\n\n# Output the result\nprint(result)"
+}

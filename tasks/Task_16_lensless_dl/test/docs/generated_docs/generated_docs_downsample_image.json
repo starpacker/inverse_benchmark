@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Downsamples a given image by a specified factor using slicing.",
+    "function_docstring": "def downsample_image(img, factor):\n    \"\"\"\n    Downsample an image by a specified factor using simple slicing.\n\n    Args:\n        img (numpy.ndarray or torch.Tensor): An image represented as a 2D or 3D array.\n            If 2D, the shape is (H, W). If 3D, the shape is (H, W, C), where C is the number of channels.\n        factor (int): The downsampling factor. If factor is 1, the image is returned unchanged.\n\n    Returns:\n        numpy.ndarray or torch.Tensor: The downsampled image. The shape will be reduced by the factor in the height and width dimensions.\n    \"\"\"",
+    "usage_example": "import numpy as np\n\n# Create a sample image\nimage = np.random.rand(100, 100, 3)  # 3D image with 3 channels\n\n# Downsample the image by a factor of 2\ndownsampled_image = downsample_image(image, 2)\n\nprint(downsampled_image.shape)  # Output shape will be (50, 50, 3)"
+}

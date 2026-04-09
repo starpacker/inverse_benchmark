@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Loads and preprocesses PSF and measurement data for reconstruction.",
+    "function_docstring": "def load_and_preprocess_data(psf_path, data_path, downsample=4):\n    \"\"\"\n    Load PSF and measurement data, preprocess them for reconstruction.\n\n    Args:\n        psf_path (str): Path to the PSF image file.\n        data_path (str): Path to the measurement/raw data image file.\n        downsample (int, optional): Downsampling factor for loading data. Defaults to 4.\n\n    Returns:\n        dict: A dictionary containing 'psf' and 'data' numpy arrays, where 'psf' is the point spread function and 'data' is the measurement data, both preprocessed for reconstruction.\n    \"\"\"\n",
+    "usage_example": "psf_path = 'path/to/psf_image.png'\ndata_path = 'path/to/data_image.png'\nresult = load_and_preprocess_data(psf_path, data_path, downsample=2)\nprint(result['psf'].shape)\nprint(result['data'].shape)"
+}

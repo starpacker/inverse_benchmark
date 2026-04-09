@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Computes the second-order finite difference and updates auxiliary variables for optimization.",
+    "function_docstring": "    \"\"\"\n    Computes the second-order finite difference of a 3D array and updates auxiliary variables for optimization.\n\n    Args:\n        g (np.ndarray): A 3D numpy array representing the input data with shape (R, N, M).\n        bxx (np.ndarray): A 3D numpy array of the same shape as `g`, used as an auxiliary variable.\n        para (float): A parameter used to scale the result of the backward difference operation.\n        mu (float): A parameter used in the shrinkage operation to control the threshold.\n\n    Returns:\n        Tuple[np.ndarray, np.ndarray]:\n            - Lxx (np.ndarray): A 3D numpy array representing the updated result after applying the backward difference.\n            - bxx (np.ndarray): A 3D numpy array representing the updated auxiliary variable.\n    \"\"\"\n",
+    "usage_example": "import numpy as np\n\ng = np.random.rand(10, 20, 30)\nbxx = np.zeros_like(g)\npara = 0.5\nmu = 1.0\n\nLxx, updated_bxx = iter_xx(g, bxx, para, mu)\nprint(Lxx.shape, updated_bxx.shape)"
+}

@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Creates a uniform Cartesian grid centered at the origin, typically used to represent a pupil plane with defined dimensions and physical diameter.",
+    "function_docstring": "Args:\n    dims (int or array_like): The number of pixels per dimension. If a scalar is provided, the grid is assumed to be square with shape (dims, dims).\n    diameter (float or array_like): The physical extent (diameter) of the grid in each dimension. If a scalar is provided, the extent is assumed to be the same in both x and y.\n\nReturns:\n    CartesianGrid: A grid object containing the flattened coordinates (x, y) and integration weights, with attributes `dims` and `delta` set to reflect the grid structure.",
+    "usage_example": "import numpy as np\nfrom agent_make_pupil_grid import make_pupil_grid\n\n# Create a 128x128 grid with a physical diameter of 10 meters\ngrid = make_pupil_grid(128, 10.0)\n\n# Access grid properties\nprint(f\"Grid size: {grid.size}\")\nprint(f\"X coordinates shape: {grid.x.shape}\")\nprint(f\"Grid dimensions: {grid.dims}\")\n\n# Create a field on this grid\nfield = grid.ones()\nprint(f\"Field shape: {field.shape}\")"
+}

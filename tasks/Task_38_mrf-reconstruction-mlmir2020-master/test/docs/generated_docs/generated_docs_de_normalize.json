@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Reverses a min-max normalization process by scaling the input data back to its original range using the provided minimum and maximum values.",
+    "function_docstring": "Args:\n    data (np.ndarray): The normalized input data array to be restored.\n    minmax_tuple (tuple): A tuple containing two values `(min_val, max_val)` representing the original minimum and maximum values used for normalization.\n\nReturns:\n    np.ndarray: The de-normalized data, scaled back to the range `[min_val, max_val]`.",
+    "usage_example": "import numpy as np\n\n# Example normalized data (e.g., in range [0, 1])\nnormalized_data = np.array([0.0, 0.5, 1.0])\n\n# Original range was [10, 20]\nmin_max = (10, 20)\n\n# Restore original values\noriginal_data = de_normalize(normalized_data, min_max)\nprint(original_data)\n# Output: [10. 15. 20.]"
+}

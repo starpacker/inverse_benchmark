@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Generates a 2D binary mask for random undersampling with a fully sampled central square region.",
+    "function_docstring": "Args:\n    nx (int): The size of the first dimension (height/rows).\n    ny (int): The size of the second dimension (width/columns).\n    center_r (int, optional): The radius of the fully sampled square region at the center. Defaults to 15.\n    undersampling (float, optional): The fraction of total pixels to randomly sample (set to 1). Defaults to 0.5.\n\nReturns:\n    numpy.ndarray: A 2D binary mask of shape (nx, ny) containing 1s (sampled) and 0s (unsampled).",
+    "usage_example": "import numpy as np\nfrom agent_mask2d import mask2d\n\n# Generate a mask for a 256x256 image with 25% random sampling\n# and a fully sampled center of radius 20\nmask = mask2d(nx=256, ny=256, center_r=20, undersampling=0.25)\n\nprint(mask.shape)\n# Output: (256, 256)\n\nprint(mask.dtype)\n# Output: float64 (based on np.zeros default)"
+}

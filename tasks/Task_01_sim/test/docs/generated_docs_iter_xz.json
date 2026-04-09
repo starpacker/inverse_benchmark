@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Computes the Lxz and updated bxz using forward and backward finite differences and shrinkage operations.",
+    "function_docstring": "    \"\"\"\n    Computes the Lxz and updated bxz using forward and backward finite differences and shrinkage operations.\n\n    Args:\n        g (np.ndarray): A 3D numpy array of shape (R, N, M) representing the input data.\n        bxz (np.ndarray): A 3D numpy array of shape (R, N, M) representing the bxz data.\n        para (float): A scalar parameter used in the computation of Lxz.\n        mu (float): A scalar parameter used in the shrinkage operation.\n\n    Returns:\n        Tuple[np.ndarray, np.ndarray]:\n            - Lxz: A 3D numpy array of shape (R, N, M) representing the computed Lxz.\n            - bxz: A 3D numpy array of shape (R, N, M) representing the updated bxz.\n    \"\"\"\n",
+    "usage_example": "import numpy as np\n\ng = np.random.randn(3, 4, 5).astype(np.float32)\nbxz = np.random.randn(3, 4, 5).astype(np.float32)\npara = 0.1\nmu = 0.5\n\nLxz, bxz_out = iter_xz(g, bxz, para, mu)\nprint(f\"Lxz shape: {Lxz.shape}, bxz_out shape: {bxz_out.shape}\")"
+}

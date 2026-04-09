@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Applies a 2D rotation transformation to vector components (vx, vy) by an angle phi, effectively derotating or rotating the coordinate system.",
+    "function_docstring": "Args:\n    vx (Tensor): The x-component of the vector field. Can be a scalar or a tensor of arbitrary shape.\n    vy (Tensor): The y-component of the vector field. Must be broadcastable to the shape of `vx`.\n    phi (Optional[Tensor]): The rotation angle in radians. If provided, the vector (vx, vy) is rotated by this angle. If None, the original components are returned unchanged. Defaults to None.\n\nReturns:\n    Tuple[Tensor, Tensor]: A tuple containing the rotated x and y components (vx_rot, vy_rot), matching the shape of the broadcasted inputs.",
+    "usage_example": "import torch\nfrom agent_derotate import derotate\n\n# Define vector components\nvx = torch.tensor([1.0, 0.0])\nvy = torch.tensor([0.0, 1.0])\n\n# Define rotation angle (e.g., 90 degrees or pi/2 radians)\nphi = torch.tensor([3.14159 / 2, 3.14159 / 2])\n\n# Apply rotation\nvx_rot, vy_rot = derotate(vx, vy, phi)\nprint(vx_rot)\nprint(vy_rot)"
+}

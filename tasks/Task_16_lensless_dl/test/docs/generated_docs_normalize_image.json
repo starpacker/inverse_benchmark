@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Normalizes an image tensor to the [0, 1] range.",
+    "function_docstring": "def normalize_image(img: torch.Tensor) -> torch.Tensor:\n    \"\"\"\n    Normalize an image tensor to the [0, 1] range.\n\n    Args:\n        img (torch.Tensor): A tensor representing an image, with arbitrary shape.\n            The tensor can have any dtype compatible with min and max operations.\n\n    Returns:\n        torch.Tensor: A tensor of the same shape as `img`, with values normalized\n        to the [0, 1] range.\n    \"\"\"",
+    "usage_example": "import torch\n\n# Create a sample image tensor\nimg = torch.tensor([[0, 50, 100], [150, 200, 255]], dtype=torch.float32)\n\n# Normalize the image\nnormalized_img = normalize_image(img)\n\nprint(normalized_img)"
+}

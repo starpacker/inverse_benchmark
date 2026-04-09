@@ -1,0 +1,70 @@
+import numpy as np
+
+import matplotlib
+
+matplotlib.use('Agg')
+
+from scipy.spatial.transform import Rotation
+
+from scipy.ndimage import gaussian_filter
+
+def create_phantom(N):
+    """Create a synthetic 3D protein-like phantom volume."""
+    vol = np.zeros((N, N, N), dtype=np.float64)
+    center = N / 2.0
+    z, y, x = np.mgrid[0:N, 0:N, 0:N].astype(np.float64)
+
+    r2 = (x - center)**2 + (y - center)**2 + (z - center)**2
+    vol += 1.0 * np.exp(-r2 / (2 * (N * 0.15)**2))
+
+    cx1, cy1, cz1 = center + N*0.18, center + N*0.12, center
+    r2_1 = (x - cx1)**2 + (y - cy1)**2 + (z - cz1)**2
+    vol += 0.8 * np.exp(-r2_1 / (2 * (N * 0.10)**2))
+
+    cx2, cy2, cz2 = center - N*0.15, center - N*0.10, center + N*0.12
+    r2_2 = (x - cx2)**2 + (y - cy2)**2 + (z - cz2)**2
+    vol += 0.7 * np.exp(-r2_2 / (2 * (N * 0.08)**2))
+
+    dist_cyl = np.sqrt((x - center - N*0.05)**2 + (y - center + N*0.15)**2)
+    mask_cyl = (dist_cyl < N * 0.04) & (z > center - N*0.2) & (z < center + N*0.2)
+    vol[mask_cyl] += 0.6
+
+    for (dx, dy, dz) in [(0.1, 0.1, 0.15), (-0.12, 0.08, -0.1), (0.05, -0.15, 0.05)]:
+        cx_s, cy_s, cz_s = center + N*dx, center + N*dy, center + N*dz
+        r2_s = (x - cx_s)**2 + (y - cy_s)**2 + (z - cz_s)**2
+        vol += 1.2 * np.exp(-r2_s / (2 * (N * 0.03)**2))
+
+    vol = gaussian_filter(vol, sigma=1.0)
+    vol = (vol - vol.min()) / (vol.max() - vol.min() + 1e-10)
+    return vol.astype(np.float32)
+
+def generate_rotations(n_proj):
+    """Generate random rotation matrices for projections."""
+    return Rotation.random(n_proj, random_state=42).as_matrix().astype(np.float64)
+
+def load_and_preprocess_data(vol_size, n_projections):
+    """
+    Load and preprocess data: Create phantom and generate rotation matrices.
+    
+    Parameters:
+    -----------
+    vol_size : int
+        Size of the 3D volume (cubic).
+    n_projections : int
+        Number of projections to generate.
+    
+    Returns:
+    --------
+    ground_truth : np.ndarray
+        The ground truth 3D phantom volume.
+    rot_mats : np.ndarray
+        Array of rotation matrices for each projection.
+    """
+    print(f"Creating 3D phantom of size {vol_size}...")
+    ground_truth = create_phantom(vol_size)
+    print(f"  Shape: {ground_truth.shape}")
+    
+    print(f"Generating {n_projections} orientations...")
+    rot_mats = generate_rotations(n_projections)
+    
+    return ground_truth, rot_mats

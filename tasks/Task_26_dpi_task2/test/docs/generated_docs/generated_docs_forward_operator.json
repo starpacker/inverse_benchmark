@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Computes the masked k-space representation of an input image by applying a 2D Fast Fourier Transform (FFT) and multiplying the result by a specified undersampling mask.",
+    "function_docstring": "Args:\n    img (torch.Tensor): Input image tensor with shape (B, H, W), where B is the batch size, and H, W are spatial dimensions. The input is treated as real-valued.\n    mask_tensor (torch.Tensor): K-space mask tensor with shape (H, W, 2) or broadcastable to (B, H, W, 2). The last dimension represents the real and imaginary components of the mask.\n\nReturns:\n    torch.Tensor: The masked k-space tensor with shape (B, H, W, 2), containing the real and imaginary components stacked in the last dimension.",
+    "usage_example": "import torch\n\n# Create a dummy batch of images (Batch=2, Height=32, Width=32)\nimg = torch.randn(2, 32, 32)\n\n# Create a dummy mask (Height=32, Width=32, Complex=2)\nmask_tensor = torch.ones(32, 32, 2)\n\n# Apply the forward operator\nmasked_kspace = forward_operator(img, mask_tensor)\n\nprint(masked_kspace.shape)\n# Output: torch.Size([2, 32, 32, 2])"
+}

@@ -1,0 +1,5 @@
+[
+    "load_and_preprocess_data",
+    "run_inversion",
+    "evaluate_results"
+]

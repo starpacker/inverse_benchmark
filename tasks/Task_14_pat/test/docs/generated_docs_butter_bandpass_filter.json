@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Applies a bandpass Butterworth filter to the input data along the last axis.",
+    "function_docstring": "def butter_bandpass_filter(data, lowcut, highcut, fs, order=5):\n    \"\"\"\n    Apply a bandpass Butterworth filter to the input data along the last axis.\n\n    Args:\n        data (ndarray): Input data array to be filtered, with shape (..., N), where N is the length of the data along the last axis.\n        lowcut (float): The lower frequency boundary for the bandpass filter.\n        highcut (float): The upper frequency boundary for the bandpass filter.\n        fs (float): The sampling frequency of the input data.\n        order (int, optional): The order of the Butterworth filter. Default is 5.\n\n    Returns:\n        ndarray: The filtered data array with the same shape as the input data.\n    \"\"\"\n",
+    "usage_example": "import numpy as np\nfrom scipy.signal import butter_bandpass_filter\n\n# Example data\ndata = np.random.randn(1000)\nlowcut = 0.1\nhighcut = 0.3\nfs = 1.0\norder = 5\n\n# Apply bandpass filter\nfiltered_data = butter_bandpass_filter(data, lowcut, highcut, fs, order)\nprint(filtered_data)"
+}

@@ -1,0 +1,3 @@
+{
+    "error": "Error code: 400 - {'error': {'message': 'litellm.BadRequestError: OpenAIException - {\"error\":{\"type\":\"\\\\u003cnil\\\\u003e\",\"message\":\"您已达到总请求数限制：1分钟内最多请求200次，包括失败次数，请检查您的请求是否正确 (request id: 20260316175413708118692eByj6gib) (request id: 20260316175413610560295WFuIGYfs) (request id: 20260316175413248983571RSiPMRH5) (request id: 20260316175410989909619rHZaaG3f)\"},\"type\":\"error\"}  tid:1773683650321-a3ab0a46-bd6d-45cf-8e93-26f97efe071e (request id: 20260317015407379956884ddnl7ozm). Received Model Group=cds/Claude-4.6-opus\\nAvailable Model Group Fallbacks=None', 'type': None, 'param': None, 'code': '400'}}"
+}

@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Loads an image file to use as amplitude, generates a synthetic spherical phase component, and combines them to produce a complex-valued optical field.",
+    "function_docstring": "Loads the ground truth amplitude, synthesizes phase, and creates the complex field.\n\nArgs:\n    image_path (str): The file path to the input image used for ground truth amplitude.\n    target_shape (tuple[int, int], optional): The desired output shape (Height, Width) to resize the image. Defaults to None.\n\nReturns:\n    tuple:\n        - field_input (numpy.ndarray): The complex object field with shape (H, W).\n        - gt_amp (numpy.ndarray): The ground truth amplitude normalized to the range [0, 1] with shape (H, W).\n        - gt_phase (numpy.ndarray): The synthesized ground truth phase with shape (H, W).",
+    "usage_example": "import numpy as np\nimport cv2\n\n# Assuming 'sample.png' exists in the current directory\n# and we want to resize it to 512x512\nfield, amp, phase = load_and_preprocess_data('sample.png', target_shape=(512, 512))\n\nprint(f\"Field shape: {field.shape}\")\nprint(f\"Amplitude range: [{amp.min()}, {amp.max()}]\")"
+}

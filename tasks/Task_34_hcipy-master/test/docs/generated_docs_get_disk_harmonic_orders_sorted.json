@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Calculates and returns a list of disk harmonic orders (n, m) sorted by their associated energy levels (eigenvalues) for a specified boundary condition.",
+    "function_docstring": "Args:\n    num_modes (int): The number of harmonic modes to return.\n    bc (str, optional): The boundary condition to apply, either 'dirichlet' (default) or 'neumann'.\n\nReturns:\n    list[tuple[int, int]]: A list of tuples `(n, m)` representing the radial and azimuthal orders of the disk harmonics, sorted by increasing energy.",
+    "usage_example": "import numpy as np\nimport scipy.special\n\n# Get the first 10 disk harmonic orders with Dirichlet boundary conditions\nmodes = get_disk_harmonic_orders_sorted(10, bc='dirichlet')\nprint(modes)\n# Output might look like: [(1, 0), (1, 1), (1, -1), (1, 2), (1, -2), ...]"
+}

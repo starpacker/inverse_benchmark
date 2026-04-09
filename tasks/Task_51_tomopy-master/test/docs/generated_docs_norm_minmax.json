@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Performs min-max normalization on the input data, scaling the values to the range [0, 1].",
+    "function_docstring": "Performs min-max normalization on the input array or tensor.\n\n    The function calculates the normalized values using the formula:\n    .. math::\n        x_{norm} = \\frac{x - \\min(x)}{\\max(x) - \\min(x)}\n\n    Args:\n        x (Union[numpy.ndarray, torch.Tensor]): Input data of arbitrary shape (N, ...). Must support\n            `.min()` and `.max()` methods and element-wise arithmetic operations.\n\n    Returns:\n        Union[numpy.ndarray, torch.Tensor]: The normalized data with the same shape and type as the input,\n        where values are scaled between 0 and 1.",
+    "usage_example": "import numpy as np\nfrom agent_norm_minmax import norm_minmax\n\n# Create sample data\ndata = np.array([10.0, 20.0, 30.0, 40.0, 50.0])\n\n# Normalize the data\nnormalized_data = norm_minmax(data)\nprint(normalized_data)\n# Output: [0.   0.25 0.5  0.75 1.  ]"
+}

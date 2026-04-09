@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Finalizes the evaluation process by closing logs and cleaning up distributed processes.",
+    "function_docstring": "def evaluate_results(results):\n    \"\"\"\n    Finalizes the evaluation process by closing logs and cleaning up distributed processes.\n\n    Args:\n        results (dict): A dictionary containing evaluation results. Expected keys are:\n            - 'model': The model used for evaluation.\n            - 'logger': An instance of CustomLogger used for logging during evaluation.\n\n    Returns:\n        None\n    \"\"\"",
+    "usage_example": "import torch.distributed as dist\nfrom ptyrad.utils import CustomLogger\n\ndef example_usage():\n    # Assuming 'model' and 'logger' are defined elsewhere\n    results = {\n        'model': model,\n        'logger': CustomLogger()\n    }\n    evaluate_results(results)\n\nexample_usage()"
+}

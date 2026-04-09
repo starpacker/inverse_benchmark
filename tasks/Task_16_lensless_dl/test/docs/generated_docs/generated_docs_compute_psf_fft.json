@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Computes the FFT of a padded Point Spread Function (PSF) using a setup configuration.",
+    "function_docstring": "def compute_psf_fft(setup: dict) -> np.ndarray:\n    \"\"\"\n    Computes the Fast Fourier Transform (FFT) of a padded Point Spread Function (PSF).\n\n    Args:\n        setup (dict): A dictionary containing the following keys:\n            - 'psf': A numpy array representing the Point Spread Function to be transformed.\n            - 'padded_shape': A tuple indicating the shape to pad the PSF to.\n            - 'start_idx': A tuple indicating the starting indices for padding.\n            - 'end_idx': A tuple indicating the ending indices for padding.\n\n    Returns:\n        np.ndarray: The FFT of the padded PSF, computed over the last two axes with orthogonal normalization.\n    \"\"\"",
+    "usage_example": "import numpy as np\nfrom scipy import fft\n\nsetup = {\n    'psf': np.random.rand(64, 64, 3),\n    'padded_shape': (128, 128, 3),\n    'start_idx': (32, 32),\n    'end_idx': (96, 96)\n}\n\nresult = compute_psf_fft(setup)\nprint(result.shape)  # Expected output shape will depend on the padded_shape"
+}

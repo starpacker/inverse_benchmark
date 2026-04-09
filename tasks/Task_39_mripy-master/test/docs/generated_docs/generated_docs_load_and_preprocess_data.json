@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Loads MRI k-space data from a .mat file, performs ESPIRiT calibration to estimate coil sensitivities, generates an undersampling mask, and prepares scaled observed data and ground truth images.",
+    "function_docstring": "Args:\n    data_path (str): Path to the .mat file containing the k-space data under the key 'DATA'.\n    undersampling_rate (float, optional): The fraction of k-space data to retain in the undersampling mask. Defaults to 0.25.\n\nReturns:\n    tuple: A tuple containing four elements:\n        - **b_scaled** (numpy.ndarray): The undersampled and scaled k-space measurements with shape (N_x, N_y, N_coils).\n        - **mask** (numpy.ndarray): The binary undersampling mask with shape (N_x, N_y).\n        - **Vim** (numpy.ndarray): The estimated coil sensitivity maps with shape (N_x, N_y, N_coils).\n        - **im_ref** (numpy.ndarray): The ground truth reference image (root-sum-of-squares) with shape (N_x, N_y).",
+    "usage_example": "b_scaled, mask, Vim, im_ref = load_and_preprocess_data('data/brain_mri.mat', undersampling_rate=0.25)"
+}

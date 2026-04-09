@@ -1,0 +1,5 @@
+{
+    "function_explanation": "The function performs a regularized iterative update using Fourier transforms on input data.",
+    "function_docstring": "Performs a regularized iterative update using Fourier transforms.\n\nArgs:\n    yk (np.ndarray): A complex-valued tensor representing the current estimate in the frequency domain.\n    data (np.ndarray): A complex-valued tensor representing the observed data in the spatial domain.\n    otf (np.ndarray): A complex-valued tensor representing the optical transfer function in the frequency domain.\n\nReturns:\n    np.ndarray: A complex-valued tensor representing the updated estimate in the frequency domain.",
+    "usage_example": "import numpy as np\n\n# Define complex-valued tensors for yk, data, and otf\nyk = np.ones((N, M), dtype=np.complex128)\ndata = np.ones((N, M), dtype=np.complex128)\notf = np.ones((N, M), dtype=np.complex128)\n\n# Perform the regularized iterative update\nresult = rliter(yk, data, otf)\n\n# result is a complex-valued tensor in the frequency domain"
+}

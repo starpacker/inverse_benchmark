@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Applies a proximal operator to enforce non-negativity on the input array.",
+    "function_docstring": "def prox_nonneg(x: np.ndarray) -> np.ndarray:\n    \"\"\"\n    Applies a proximal operator to enforce non-negativity on the input array.\n\n    Args:\n        x (np.ndarray): An array of any shape containing numerical values.\n\n    Returns:\n        np.ndarray: An array of the same shape as `x`, where all negative values are replaced by zero.\n    \"\"\"",
+    "usage_example": "import numpy as np\n\n# Example usage of prox_nonneg\nx = np.array([-1, 2, -3, 4])\nresult = prox_nonneg(x)\nprint(result)  # Output: [0, 2, 0, 4]"
+}

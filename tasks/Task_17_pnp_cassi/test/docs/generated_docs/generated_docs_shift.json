@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Simulates a spatial shift effect on a 3D tensor by dispersing its channels across a wider spatial dimension.",
+    "function_docstring": "```python\ndef shift(inputs, step):\n    \"\"\"\n    Simulates the dispersion effect by spatially shifting the channels of a 3D tensor.\n\n    Args:\n        inputs (numpy.ndarray): A 3D tensor with shape (R, C, N), where R is the number of rows, C is the number of columns, and N is the number of channels.\n        step (int): The number of columns to shift each channel.\n\n    Returns:\n        numpy.ndarray: A 3D tensor with shape (R, C + (N - 1) * step, N), where each channel is shifted by the specified step.\n    \"\"\"\n```",
+    "usage_example": "```python\nimport numpy as np\nfrom agent_shift import shift\n\n# Example usage\ninputs = np.random.rand(10, 10, 3)  # A 3D tensor with shape (10, 10, 3)\nstep = 2\nshifted_output = shift(inputs, step)\nprint(shifted_output.shape)  # Output shape will be (10, 14, 3)\n```"
+}

@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Pads a projection tensor along its second-to-last dimension (height) to accommodate rotation without cropping, using a calculated padding size based on the square root of 2.",
+    "function_docstring": "Args:\n    proj (torch.Tensor): The input projection tensor with shape (..., H, W), where H is the height dimension used to calculate padding.\n    mode (str, optional): The padding mode to use (e.g., 'constant', 'reflect', 'replicate'). Defaults to 'constant'.\n    value (float, optional): The fill value for 'constant' padding. Defaults to 0.\n\nReturns:\n    torch.Tensor: The padded tensor with shape (..., H + 2*pad_size, W), where `pad_size` is calculated as ceil((sqrt(2)*H - H)/2).",
+    "usage_example": "import torch\nfrom agent_pad_proj import pad_proj\n\n# Create a dummy projection tensor of shape (Batch, Channels, Height, Width)\nproj = torch.randn(1, 1, 128, 128)\n\n# Pad the projection\npadded_proj = pad_proj(proj, mode='constant', value=0)\n\nprint(f\"Original shape: {proj.shape}\")\nprint(f\"Padded shape: {padded_proj.shape}\")"
+}

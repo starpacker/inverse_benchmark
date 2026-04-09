@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Generates a 2D Shepp-Logan phantom image by summing multiple ellipses with specific parameters on a defined grid.",
+    "function_docstring": "Generates the Shepp-Logan phantom.\n\n    This function creates a synthetic phantom image commonly used for testing image reconstruction algorithms.\n    It constructs the image by superimposing multiple ellipses with varying gray levels, sizes, and orientations\n    onto a grid of specified dimensions.\n\n    Args:\n        num_rows (int): The number of rows (height) of the generated image.\n        num_cols (int): The number of columns (width) of the generated image.\n\n    Returns:\n        numpy.ndarray: A 2D array of shape (num_rows, num_cols) containing the generated Shepp-Logan phantom image.",
+    "usage_example": "import numpy as np\nfrom agent__gen_shepp_logan import _gen_shepp_logan\n\n# Generate a 256x256 Shepp-Logan phantom\nphantom = _gen_shepp_logan(num_rows=256, num_cols=256)\n\nprint(f\"Generated phantom shape: {phantom.shape}\")\n# Output: Generated phantom shape: (256, 256)"
+}

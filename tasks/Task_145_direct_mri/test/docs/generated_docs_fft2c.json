@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Performs a centered 2D Fast Fourier Transform (FFT) to convert an image from spatial domain to k-space (frequency domain).",
+    "function_docstring": "Performs a centered 2D Fast Fourier Transform on an input image.\n\nThis function converts an image from the spatial domain to k-space (frequency\ndomain) using a centered FFT. The centering is achieved by applying ifftshift\nbefore the FFT and fftshift after, which moves the zero-frequency component\nto the center of the spectrum.\n\nArgs:\n    img: A 2D numpy array representing the input image in spatial domain.\n        Can be real or complex valued with shape (H, W) where H is height\n        and W is width.\n\nReturns:\n    A complex numpy array of the same shape as the input, representing\n    the centered k-space (frequency domain) data.",
+    "usage_example": "import numpy as np\n\n# Create a sample 2D image\nimage = np.random.randn(128, 128)\n\n# Transform to centered k-space\nkspace = fft2c(image)\n\n# kspace is now a complex array with zero-frequency at center\nprint(kspace.shape)  # (128, 128)\nprint(kspace.dtype)  # complex128"
+}

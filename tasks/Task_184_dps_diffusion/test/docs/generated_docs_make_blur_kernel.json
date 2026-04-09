@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Creates a 2-D Gaussian blur kernel with specified size and standard deviation.",
+    "function_docstring": "Create a 2-D Gaussian blur kernel.\n\nGenerates a normalized 2D Gaussian kernel by computing the outer product\nof a 1D Gaussian distribution with itself. The kernel is centered and\nnormalized so that all values sum to 1.\n\nArgs:\n    ksize: The size of the kernel (both width and height). The kernel\n        will be a square matrix of shape (ksize, ksize).\n    sigma: The standard deviation of the Gaussian distribution. Controls\n        the spread of the blur effect.\n\nReturns:\n    A 2D tensor of shape (ksize, ksize) containing the normalized Gaussian\n    blur kernel with dtype float32.",
+    "usage_example": "import torch\n\n# Create a 5x5 Gaussian blur kernel with sigma=1.0\nkernel = make_blur_kernel(ksize=5, sigma=1.0)\nprint(kernel.shape)  # torch.Size([5, 5])\nprint(kernel.sum())  # tensor(1.0)\n\n# Create a larger 11x11 kernel with wider spread\nkernel_large = make_blur_kernel(ksize=11, sigma=2.5)\nprint(kernel_large.shape)  # torch.Size([11, 11])"
+}

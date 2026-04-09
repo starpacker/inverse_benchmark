@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Loads a source image (either from a file or synthetically generated) and simulates a gravitational lensing observation by creating a lens system with a predefined cosmology, lens model, and source model, returning both the ground truth source and the noisy observed image.",
+    "function_docstring": "Args:\n    device (torch.device): The computation device (CPU or GPU) where tensors will be allocated.\n\nReturns:\n    Tuple[torch.Tensor, torch.Tensor]: A tuple containing two tensors:\n        - The preprocessed ground truth source image with shape (H, W).\n        - The simulated noisy observation image (lensed source) with shape (H, W).",
+    "usage_example": "import torch\n\n# Define the device\ndevice = torch.device('cuda' if torch.cuda.is_available() else 'cpu')\n\n# Load data and generate observation\ntrue_source, observation = load_and_preprocess_data(device)\n\nprint(f\"Source shape: {true_source.shape}\")\nprint(f\"Observation shape: {observation.shape}\")"
+}

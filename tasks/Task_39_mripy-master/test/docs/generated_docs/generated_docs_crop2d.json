@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Crops a 2D region from the center of a multi-dimensional array based on a specified radius.",
+    "function_docstring": "Args:\n    data (numpy.ndarray): The input array to be cropped. It must have at least 2 dimensions, where the first two dimensions correspond to the spatial axes (height, width) to be cropped.\n    center_r (int, optional): The radius of the crop from the center. The resulting crop will have a height and width of `2 * center_r`. Defaults to 15.\n\nReturns:\n    numpy.ndarray: The cropped array with shape `(2*center_r, 2*center_r, ...)` containing the central region of the input data.",
+    "usage_example": "import numpy as np\n\n# Create a sample 100x100 array\ndata = np.random.rand(100, 100)\n\n# Crop the central 30x30 region (radius=15)\ncropped_data = crop2d(data, center_r=15)\nprint(cropped_data.shape)  # Output: (30, 30)\n\n# Create a sample 3D array (e.g., an image with channels)\ndata_3d = np.random.rand(64, 64, 3)\n\n# Crop the central 20x20 region (radius=10)\ncropped_3d = crop2d(data_3d, center_r=10)\nprint(cropped_3d.shape)  # Output: (20, 20, 3)"
+}

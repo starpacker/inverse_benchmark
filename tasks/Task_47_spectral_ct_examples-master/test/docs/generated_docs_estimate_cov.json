@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Estimates the noise covariance between two 2D images by applying a Laplacian filter to isolate high-frequency components before computing the scalar product.",
+    "function_docstring": "Estimate the covariance of I1 and I2 using a Laplacian-like filter.\n\nThis function emphasizes high-frequency noise by convolving the inputs with a\nLaplacian kernel to filter out smooth signals. It computes the sum of the\nproduct of the filtered images, normalized by the image dimensions and a\nkernel-specific factor.\n\nArgs:\n    I1 (numpy.ndarray): The first input image with shape (H, W).\n    I2 (numpy.ndarray): The second input image with shape (H, W). Must match\n        the shape of I1.\n\nReturns:\n    float: The estimated covariance scalar.",
+    "usage_example": "import numpy as np\nfrom scipy import signal\n\n# Generate two random 2D images (H, W)\nH, W = 128, 128\nimage1 = np.random.normal(0, 1, (H, W))\nimage2 = np.random.normal(0, 1, (H, W))\n\n# Estimate the covariance between the noise in the two images\ncovariance_val = estimate_cov(image1, image2)\nprint(f\"Estimated Covariance: {covariance_val}\")"
+}

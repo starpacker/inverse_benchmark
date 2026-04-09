@@ -1,0 +1,5 @@
+{
+    "function_explanation": "The function applies a shrinkage operation to an input array, reducing its magnitude based on a given threshold.",
+    "function_docstring": "Applies a shrinkage operation to an input array, reducing its magnitude based on a given threshold.\n\nArgs:\n    x (np.ndarray): A NumPy array of any shape containing the input values to be shrunk.\n    L (float): A positive scalar value representing the shrinkage threshold.\n\nReturns:\n    np.ndarray: A NumPy array of the same shape as `x`, where each element is the result of the shrinkage operation `sign(x) * max(|x| - 1/L, 0)`.",
+    "usage_example": "import numpy as np\n\nx = np.array([2.0, -3.0, 0.5, -0.5, 0.0])\nL = 2.0\nresult = shrink(x, L)\nprint(result)  # Output: [ 1.5 -2.5  0.   0.   0. ]"
+}

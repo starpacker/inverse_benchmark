@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Converts a point spread function (PSF) to an optical transfer function (OTF) using zero-padding and Fourier transformation.",
+    "function_docstring": "Converts a point spread function (PSF) to an optical transfer function (OTF) using zero-padding and Fourier transformation.\n\nArgs:\n    psf (np.ndarray): A 2D array representing the point spread function with shape (H, W).\n    outSize (tuple): A tuple of two integers specifying the desired output size (H_out, W_out).\n\nReturns:\n    np.ndarray: A 2D array representing the optical transfer function with shape (H_out, W_out).",
+    "usage_example": "import numpy as np\n\n# Define a simple PSF\npsf = np.array([[1, 2], [3, 4]], dtype=np.float64)\n\n# Define the desired output size\noutSize = (4, 4)\n\n# Convert PSF to OTF\notf = psf2otf(psf, outSize)\n\nprint(otf)"
+}

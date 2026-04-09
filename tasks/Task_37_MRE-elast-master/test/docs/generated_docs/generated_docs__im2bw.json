@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Converts an input image or array into a binary image based on a specified threshold level.",
+    "function_docstring": "Args:\n    Ig (numpy.ndarray): The input grayscale image or array of any shape (e.g., (H, W) or (N, H, W)).\n    level (float or int): The threshold level. Values in `Ig` greater than this level become 1, and values less than or equal to this level become 0.\n\nReturns:\n    numpy.ndarray: A binary array of the same shape as `Ig`, containing only 0s and 1s.",
+    "usage_example": "import numpy as np\nfrom agent__im2bw import _im2bw\n\n# Create a sample grayscale image (5x5)\nimage = np.array([\n    [0.1, 0.5, 0.9, 0.2, 0.8],\n    [0.3, 0.4, 0.6, 0.7, 0.1],\n    [0.0, 1.0, 0.5, 0.5, 0.2],\n    [0.9, 0.8, 0.7, 0.6, 0.5],\n    [0.2, 0.3, 0.4, 0.1, 0.0]\n])\n\n# Threshold level\nthreshold = 0.5\n\n# Convert to binary\nbinary_image = _im2bw(image, threshold)\n\nprint(\"Original Image:\\n\", image)\nprint(\"Binary Image (Threshold={}):\\n\".format(threshold), binary_image)"
+}

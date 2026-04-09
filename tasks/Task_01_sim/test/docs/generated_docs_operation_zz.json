@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Computes the Fourier transform of a specific 3D kernel and its conjugate, returning their product.",
+    "function_docstring": "Computes the Fourier transform of a predefined 3D kernel and its conjugate, returning their product.\n\nArgs:\n    gsize (tuple of int): A tuple representing the size of the grid for the FFT computation. It should be a 3D shape, e.g., (N, M, L).\n\nReturns:\n    numpy.ndarray: A complex-valued 3D array representing the product of the Fourier transform of the kernel and its conjugate, with the same shape as specified by `gsize`.",
+    "usage_example": "import numpy as np\n\n# Define the grid size for the FFT computation\ngsize = (4, 4, 4)\n\n# Compute the FFT product of the kernel and its conjugate\nresult = operation_zz(gsize)\n\n# Output the result\nprint(f'Result shape: {result.shape}')\nprint(f'Result dtype: {result.dtype}')"
+}

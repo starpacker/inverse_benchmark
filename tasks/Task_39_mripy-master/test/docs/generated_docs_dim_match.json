@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Adjusts two shape tuples to have the same length by appending dimensions of size 1 to the shorter tuple.",
+    "function_docstring": "Args:\n    A_shape (tuple): The first shape tuple (e.g., representing tensor dimensions).\n    B_shape (tuple): The second shape tuple.\n\nReturns:\n    tuple: A tuple containing two elements:\n        - A_out_shape (tuple): The adjusted version of `A_shape`.\n        - B_out_shape (tuple): The adjusted version of `B_shape`.\n        Both output shapes will have the same length, equal to `max(len(A_shape), len(B_shape))`. The shorter shape is padded with trailing ones.",
+    "usage_example": "shape1 = (3, 4)\nshape2 = (3, 4, 5, 6)\n\n# Adjust shapes to match lengths\nnew_shape1, new_shape2 = dim_match(shape1, shape2)\n\nprint(new_shape1)  # Output: (3, 4, 1, 1)\nprint(new_shape2)  # Output: (3, 4, 5, 6)"
+}

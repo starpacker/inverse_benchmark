@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Calculates the local stiffness matrix for a tetrahedron given its vertex coordinates.",
+    "function_docstring": "\"\"\"\nCalculate the local stiffness matrix for a tetrahedron.\n\nArgs:\n    xy (np.ndarray): A NumPy array of shape (4, 3) representing the coordinates of the four vertices of a tetrahedron in 3D space.\n\nReturns:\n    np.ndarray: A 4x4 NumPy array representing the local stiffness matrix of the tetrahedron.\n\"\"\"",
+    "usage_example": "import numpy as np\n\n# Example coordinates for a tetrahedron's vertices\nxy = np.array([\n    [0.0, 0.0, 0.0],\n    [1.0, 0.0, 0.0],\n    [0.0, 1.0, 0.0],\n    [0.0, 0.0, 1.0]\n])\n\n# Calculate the local stiffness matrix\nstiffness_matrix = _k_tetrahedron(xy)\nprint(stiffness_matrix)"
+}

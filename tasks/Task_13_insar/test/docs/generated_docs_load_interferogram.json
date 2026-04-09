@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Loads a binary complex interferogram file and reshapes it based on metadata from an optional .rsc file.",
+    "function_docstring": "Loads a binary complex interferogram file and reshapes it based on metadata from an optional .rsc file.\n\nArgs:\n    filename (str): The path to the binary complex interferogram file.\n    dtype (numpy.dtype, optional): The data type of the interferogram. Defaults to np.complex64.\n    columns (int, optional): The number of columns to reshape the data into. If not provided, it will be inferred from the .rsc file.\n    rsc_file (str, optional): The path to the .rsc file containing metadata. If not provided, it defaults to the filename with a .rsc extension.\n\nReturns:\n    numpy.ndarray: A reshaped array of the interferogram data with shape (-1, columns).",
+    "usage_example": "import numpy as np\n\n# Load an interferogram file\ninterferogram = load_interferogram('path/to/interferogram', dtype=np.complex64)\n\n# Use the loaded interferogram data\nprint(interferogram.shape)"
+}

@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Computes the backward difference along a specified dimension of a 3D numpy array.",
+    "function_docstring": "Computes the backward difference of a 3D numpy array along a specified dimension.\n\nArgs:\n    data (np.ndarray): A 3D numpy array of shape (R, N, M) representing the input data.\n    step (float): A scalar value representing the step size for the backward difference calculation.\n    dim (int): An integer (0, 1, or 2) specifying the dimension along which to compute the backward difference.\n\nReturns:\n    np.ndarray: A 3D numpy array of the same shape as `data`, containing the backward differences along the specified dimension.",
+    "usage_example": "import numpy as np\n\n# Create test data\nR, N, M = 2, 3, 4\ntest_data = np.random.rand(R, N, M).astype('float32')\ntest_step = 0.1\ntest_dim = 0\n\n# Compute backward difference\nresult = back_diff(test_data, test_step, test_dim)\nprint(result)"
+}

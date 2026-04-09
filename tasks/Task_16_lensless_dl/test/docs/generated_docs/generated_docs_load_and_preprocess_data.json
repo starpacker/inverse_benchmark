@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Loads and preprocesses data and point spread function (PSF) from specified file paths.",
+    "function_docstring": "def load_and_preprocess_data(psf_path, data_path, downsample=4):\n    \"\"\"\n    Loads and preprocesses data and point spread function (PSF) from specified file paths.\n\n    Args:\n        psf_path (str): The file path to the point spread function (PSF) data.\n        data_path (str): The file path to the data to be loaded and preprocessed.\n        downsample (int, optional): The factor by which to downsample the data. Defaults to 4.\n\n    Returns:\n        dict: A dictionary containing the preprocessed PSF and data.\n            - 'psf': A tensor representing the point spread function.\n            - 'data': A tensor representing the preprocessed data.\n    \"\"\"",
+    "usage_example": "psf_path = 'path/to/psf_file'\ndata_path = 'path/to/data_file'\nresult = load_and_preprocess_data(psf_path, data_path)\nprint(result['psf'].shape)\nprint(result['data'].shape)"
+}

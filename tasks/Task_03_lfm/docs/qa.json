@@ -1,0 +1,20 @@
+{
+    "questions": [
+        {
+            "function_name": "normalize_to_uint8",
+            "question_prompt": "Function Name: normalize_to_uint8\nTarget/Goal: Convert an image with arbitrary floating-point values to a uint8 format for visualization.\nBrief Explanation of Method: Normalize the input image data such that its values span from 0 to 255 while simultaneously addressing scale and type conversion.\nDetailed Explanation of Inputs and Outputs: \n- Input: A NumPy array (of any shape and data type) representing the image data. The values can be float or int, potentially with a wide range.\n- Output: A NumPy array of the same shape as the input, but with dtype=uint8, indicating the normalized pixel values suitable for image display in standard image formats and visualization tools."
+        },
+        {
+            "function_name": "load_and_preprocess_data",
+            "question_prompt": "Function Name: load_and_preprocess_data\nTarget/Goal: Load essential light field microscopy data and preprocess it for 3D reconstruction.\nBrief Explanation of Method: Perform geometric rectification and intensity normalization on raw sensor data to prepare it for deconvolution.\nDetailed Explanation of Inputs and Outputs:\n- Input:\n  - data_path: A string representing the directory path containing necessary data files.\n  - depth_range: A list specifying the range of depths to be considered for the reconstruction.\n  - depth_step: A float denoting the step increment in depth during reconstruction.\n  - super_res_factor: An integer indicating the factor by which resolution should be enhanced.\n  - new_spacing_px: An integer specifying the new spacing for pixels during processing.\n  - use_gpu: A boolean flag dictating whether GPU acceleration should be used.\n- Output: A dictionary containing preprocessed light field data, including transformed and normalized images, computed geometry parameters, and operator matrices for forward and backward projection."
+        },
+        {
+            "function_name": "run_inversion",
+            "question_prompt": "Function Name: run_inversion\nTarget/Goal: Perform an iterative deconvolution to reconstruct a 3D volume from 2D light field images.\nBrief Explanation of Method: Use a modified Richardson-Lucy algorithm with enhancements such as GPU acceleration and adaptive filtering to solve the inverse problem of light field reconstruction.\nDetailed Explanation of Inputs and Outputs:\n- Input:\n  - data_dict: A dictionary containing preprocessed light field data, including images, operator matrices, and configurations.\n  - niter: An integer representing the number of iterations the algorithm should perform.\n  - filter_flag: A boolean indicating if a depth-adaptive anti-aliasing filter should be applied.\n  - lanczos_window_size: An integer defining the size of the window for the Lanczos filter.\n- Output: A dictionary with the reconstructed 3D volume data and its convergence metrics, providing insights into the reconstruction quality and process performance."
+        },
+        {
+            "function_name": "evaluate_results",
+            "question_prompt": "Function Name: evaluate_results\nTarget/Goal: Analyze and visualize the results of a 3D light field microscopy reconstruction to assess the quality and accuracy of the output volume.\nBrief Explanation of Method: Generate summary plots with convergence data and perform side-by-side comparison of reconstructed volume slices with raw input images using metrics like Mean Absolute Error.\nDetailed Explanation of Inputs and Outputs:\n- Input:\n  - data_dict: A dictionary containing the original data used for reconstruction, including raw lenslet images.\n  - result_dict: A dictionary with the results from the reconstruction process, including the reconstructed volume and error metrics.\n- Output: No direct output; generates visual plots that include error convergence data and image comparisons. Provides summaries of final reconstruction statistics through printed console messages."
+        }
+    ]
+}

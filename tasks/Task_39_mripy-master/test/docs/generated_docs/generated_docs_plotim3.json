@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Visualizes a 2D image array by flipping it vertically and plotting it in grayscale, with an option to save the resulting figure to a file.",
+    "function_docstring": "Visualizes a 2D image array by flipping it vertically and plotting it in grayscale.\n\nThe function flips the input image along the first axis (axis 0), displays it\nusing a grayscale colormap with the origin set to 'lower', and turns off the axes.\nIf a save path is provided, the plot is saved to that location; otherwise, the\nfigure is closed immediately.\n\nArgs:\n    im (numpy.ndarray): Input image array with shape (H, W) or (H, W, C).\n    save_path (str, optional): The file path where the image should be saved.\n        If None, the plot is created and then closed without saving. Defaults to None.\n\nReturns:\n    None",
+    "usage_example": "import numpy as np\nfrom agent_plotim3 import plotim3\n\n# Create a dummy image (gradient)\nimage_data = np.linspace(0, 1, 100 * 100).reshape(100, 100)\n\n# Plot and save the image to a file\nplotim3(image_data, save_path=\"output_image.png\")"
+}

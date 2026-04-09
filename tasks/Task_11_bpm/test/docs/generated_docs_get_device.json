@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Determines the appropriate device (CPU or CUDA) for PyTorch operations based on availability.",
+    "function_docstring": "Determines the appropriate device for PyTorch operations.\n\nThis function checks if CUDA is available and returns a CUDA device if possible, otherwise it returns a CPU device.\n\nArgs:\n    None\n\nReturns:\n    torch.device: A PyTorch device object representing either a CUDA device or a CPU device, depending on availability.",
+    "usage_example": "import torch\nfrom agent_get_device import get_device\n\ndevice = get_device()\nprint(f\"Using device: {device}\")\n\n# Example usage in a PyTorch tensor operation\ntensor = torch.tensor([1, 2, 3], device=device)\nprint(tensor)"
+}

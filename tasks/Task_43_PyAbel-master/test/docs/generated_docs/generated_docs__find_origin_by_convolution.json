@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Calculates the center of an image by finding the maximum of the autoconvolution of its projections along specified axes.",
+    "function_docstring": "Args:\n    IM (numpy.ndarray): A 2D input image array of shape (H, W).\n    axes (int or tuple of ints, optional): The axes along which to calculate the origin. \n        Can be an integer (0 or 1) or a tuple of integers (e.g., (0, 1)). \n        Defaults to (0, 1).\n\nReturns:\n    tuple: A tuple containing the calculated (row, column) coordinates of the image origin (center). \n        If an axis is not processed, the default center (shape // 2) is returned for that coordinate.",
+    "usage_example": "import numpy as np\nfrom agent__find_origin_by_convolution import _find_origin_by_convolution\n\n# Create a synthetic 2D Gaussian image centered at (30, 40)\ny, x = np.ogrid[-50:50, -50:50]\ncenter_y, center_x = 30, 40\nimage = np.exp(-((x - center_x)**2 + (y - center_y)**2) / (2 * 10**2))\n\n# Find the origin\norigin = _find_origin_by_convolution(image)\nprint(f\"Calculated origin: {origin}\")"
+}

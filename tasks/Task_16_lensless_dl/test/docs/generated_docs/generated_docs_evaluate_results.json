@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Saves a reconstruction image and its numpy array representation to specified file paths.",
+    "function_docstring": "def evaluate_results(reconstruction, output_path='result.png'):\n    \"\"\"\n    Saves a reconstruction image and its numpy array representation to specified file paths.\n\n    Args:\n        reconstruction (numpy.ndarray): A numpy array representing the reconstructed image data.\n        output_path (str, optional): The file path where the image will be saved. Defaults to 'result.png'.\n\n    Returns:\n        None\n    \"\"\"",
+    "usage_example": "import numpy as np\nfrom agent_evaluate_results import evaluate_results\n\n# Example reconstruction data\nreconstruction = np.random.rand(256, 256)\n\n# Save the reconstruction image and numpy array\nevaluate_results(reconstruction, 'output_image.png')"
+}

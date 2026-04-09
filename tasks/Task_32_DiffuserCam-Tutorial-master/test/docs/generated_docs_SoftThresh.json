@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Applies the soft thresholding operator to an input array, shrinking values towards zero by a specified threshold amount.",
+    "function_docstring": "Soft thresholding operator.\n\n    This function applies the soft thresholding operation element-wise to the input array `x`.\n    It shrinks the magnitude of each element by `tau` towards zero. If the magnitude is less\n    than `tau`, the result is zero. Mathematically, it is defined as:\n    `sign(x) * max(0, |x| - tau)`.\n\n    Args:\n        x (numpy.ndarray): The input array of any shape (N, ...) containing numerical data.\n        tau (float or numpy.ndarray): The threshold value. Must be non-negative. Can be a scalar\n            or an array broadcastable to the shape of `x`.\n\n    Returns:\n        numpy.ndarray: An array of the same shape as `x` with the soft-thresholded values.",
+    "usage_example": "import numpy as np\n\nx = np.array([-2.5, -0.5, 0.0, 0.5, 2.5])\ntau = 1.0\nresult = SoftThresh(x, tau)\nprint(result)\n# Output: [-1.5, -0. ,  0. ,  0. ,  1.5]"
+}

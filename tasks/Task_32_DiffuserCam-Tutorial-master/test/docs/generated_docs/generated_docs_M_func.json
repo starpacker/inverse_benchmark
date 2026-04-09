@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Performs a convolution operation in the frequency domain by computing the real part of the inverse FFT of the product of the input's FFT and a transfer function, handling necessary FFT shifts.",
+    "function_docstring": "Args:\n    vk (numpy.ndarray): The input array (e.g., an image or signal) to be convolved. It should have a shape compatible with 2D FFT operations (H, W).\n    H_fft (numpy.ndarray): The transfer function (kernel) already transformed into the frequency domain. It must be broadcastable to the shape of `vk`.\n\nReturns:\n    numpy.ndarray: The real-valued result of the convolution, with the same shape as `vk` (H, W).",
+    "usage_example": "import numpy as np\nimport numpy.fft as fft\nfrom agent_M_func import M_func\n\n# Create a dummy input image (64x64)\nvk = np.random.rand(64, 64)\n\n# Create a dummy transfer function in frequency domain\n# Typically this is the FFT of a PSF (Point Spread Function)\nH = np.random.rand(64, 64)\nH_fft = fft.fft2(fft.ifftshift(H))\n\n# Apply the convolution operator\nresult = M_func(vk, H_fft)\nprint(result.shape)  # Output: (64, 64)"
+}

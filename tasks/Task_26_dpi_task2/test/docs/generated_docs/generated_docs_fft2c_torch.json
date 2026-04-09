@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Computes the normalized 2D Fast Fourier Transform (FFT) of a real-valued input tensor, returning the result with real and imaginary parts stacked in the last dimension.",
+    "function_docstring": "Args:\n    img (torch.Tensor): The input real-valued tensor with shape (..., H, W).\n\nReturns:\n    torch.Tensor: The orthonormal 2D FFT of the input. The output has shape (..., H, W, 2), where the last dimension contains the real and imaginary components respectively.",
+    "usage_example": "import torch\n\n# Create a dummy input tensor (e.g., Batch, Height, Width)\nimg = torch.randn(4, 32, 32)\n\n# Compute the 2D FFT\n# The output will have shape (4, 32, 32, 2)\nkspace = fft2c_torch(img)\n\nprint(f\"Input shape: {img.shape}\")\nprint(f\"Output shape: {kspace.shape}\")"
+}

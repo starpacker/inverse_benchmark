@@ -1,0 +1,12 @@
+[
+    "make_differentiation_matrices",
+    "est_wrapped_gradient",
+    "p_shrink",
+    "make_laplace_kernel",
+    "load_dem_rsc",
+    "load_interferogram",
+    "load_and_preprocess_data",
+    "forward_operator",
+    "run_inversion",
+    "evaluate_results"
+]

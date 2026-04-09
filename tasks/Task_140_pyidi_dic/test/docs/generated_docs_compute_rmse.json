@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Computes the Root Mean Square Error (RMSE) between a reference array and a test array.",
+    "function_docstring": "Compute Root Mean Square Error between two arrays.\n\nCalculates the RMSE by taking the square root of the mean of squared\ndifferences between the reference and test arrays.\n\nArgs:\n    ref: Reference array of numerical values. Can be any array-like\n        structure that supports NumPy operations with shape (...).\n    test: Test array of numerical values to compare against the reference.\n        Must be broadcastable with ref, typically the same shape (...).\n\nReturns:\n    float: The Root Mean Square Error value, representing the standard\n        deviation of the residuals (prediction errors) between the\n        reference and test arrays.",
+    "usage_example": "import numpy as np\nfrom agent_compute_rmse import compute_rmse\n\n# Create reference and test arrays\nref = np.array([1.0, 2.0, 3.0, 4.0, 5.0])\ntest = np.array([1.1, 2.2, 2.9, 4.1, 5.2])\n\n# Compute RMSE\nrmse = compute_rmse(ref, test)\nprint(f\"RMSE: {rmse}\")  # Output: RMSE: 0.1414..."
+}

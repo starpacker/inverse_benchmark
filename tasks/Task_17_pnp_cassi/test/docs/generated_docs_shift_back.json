@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Reverses the dispersion effect on a 3D array by shifting its columns.",
+    "function_docstring": "```python\ndef shift_back(inputs, step):\n    \"\"\"\n    Reverses the dispersion effect on a 3D array by shifting its columns.\n\n    Args:\n        inputs (np.ndarray): A 3D numpy array with shape (row, col, nC), representing the input data where\n            'row' is the number of rows, 'col' is the number of columns, and 'nC' is the number of channels.\n        step (int): An integer representing the step size for shifting columns.\n\n    Returns:\n        np.ndarray: A 3D numpy array with shape (row, col - step * (nC - 1), nC), where the columns have been\n        shifted to reverse the dispersion effect.\n    \"\"\"\n```",
+    "usage_example": "```python\nimport numpy as np\n\n# Example input\ninputs = np.random.rand(10, 20, 3)  # 3D array with shape (10, 20, 3)\nstep = 2\n\n# Reverse dispersion effect\noutput = shift_back(inputs, step)\nprint(output.shape)  # Output shape will be (10, 16, 3)\n```"
+}

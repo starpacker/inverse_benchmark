@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Performs a gradient-descent-based inversion to reconstruct a source image from a lensed observation using a fixed gravitational lensing model.",
+    "function_docstring": "Args:\n    observation (torch.Tensor): The observed lensed image tensor with shape (H, W).\n    device (torch.device): The torch device (CPU or GPU) to perform the optimization on.\n    iterations (int, optional): The number of gradient descent steps to perform. Defaults to 100.\n\nReturns:\n    torch.Tensor: The reconstructed source image tensor with shape (H, W), detached from the computation graph.",
+    "usage_example": "import torch\n\n# Define device\ndevice = torch.device(\"cuda\" if torch.cuda.is_available() else \"cpu\")\n\n# Create a dummy observation (usually this comes from real data or simulation)\nobservation = torch.randn(128, 128, device=device)\n\n# Run the inversion to reconstruct the source\nreconstructed_source = run_inversion(observation, device, iterations=200)\n\nprint(f\"Reconstructed source shape: {reconstructed_source.shape}\")"
+}

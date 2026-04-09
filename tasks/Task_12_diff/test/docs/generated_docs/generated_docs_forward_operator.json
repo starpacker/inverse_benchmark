@@ -1,0 +1,5 @@
+{
+    "function_explanation": "The function performs ray tracing or image rendering based on the specified mode using a metrology object.",
+    "function_docstring": "\"\"\"\nForward operator that performs ray tracing or rendering.\n\nArgs:\n    DM (DiffMetrology): A metrology object containing scene and lens group information.\n    angle (float): The rotation angle for the measurement.\n    valid_cap (torch.Tensor): A tensor representing the valid pixel mask, with shape (..., H, W).\n    mode (str): Specifies the operation mode, either 'trace' for ray tracing or 'render' for image rendering.\n\nReturns:\n    torch.Tensor: A tensor containing either intersection points (mode='trace') or rendered images (mode='render'), with shape (..., H, W).\n\"\"\"",
+    "usage_example": "import torch\n\n# Assuming DM is a properly initialized DiffMetrology object\nangle = 45.0\nvalid_cap = torch.ones((64, 64))  # Example valid pixel mask\nmode = 'trace'\n\nresult = forward_operator(DM, angle, valid_cap, mode)\nprint(result)"
+}

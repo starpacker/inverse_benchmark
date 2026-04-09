@@ -1,0 +1,6 @@
+[
+    "load_and_preprocess_data",
+    "forward_operator",
+    "run_inversion",
+    "evaluate_results"
+]

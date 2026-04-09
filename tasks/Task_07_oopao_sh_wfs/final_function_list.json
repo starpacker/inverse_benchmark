@@ -1,0 +1,8 @@
+[
+    "load_and_preprocess_data",
+    "_get_slopes_diffractive",
+    "forward_operator",
+    "run_inversion",
+    "_compute_strehl",
+    "evaluate_results"
+]

@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Removes padding from the second-to-last dimension of a projection tensor, calculating the crop size based on a geometric formula involving the dimension's width.",
+    "function_docstring": "Args:\n    proj (torch.Tensor): The input projection tensor with shape (..., H, W), where H is the dimension to be unpadded.\n\nReturns:\n    torch.Tensor: The unpadded tensor with shape (..., H_unpadded, W), where H_unpadded is the original height before padding was applied.",
+    "usage_example": "import torch\nimport numpy as np\nfrom agent_unpad_proj import unpad_proj\n\n# Create a dummy tensor with a specific shape\n# Let's assume the padded height is 128\nproj = torch.randn(1, 128, 128)\n\n# Apply unpadding\nunpadded_proj = unpad_proj(proj)\n\nprint(f\"Original shape: {proj.shape}\")\nprint(f\"Unpadded shape: {unpadded_proj.shape}\")"
+}

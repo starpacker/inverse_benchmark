@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Calculates the Peak Signal-to-Noise Ratio (PSNR) between two images.",
+    "function_docstring": "def psnr(ref, img):\n    \"\"\"\n    Calculate the Peak Signal-to-Noise Ratio (PSNR) between two images.\n\n    Args:\n        ref (numpy.ndarray): A reference image represented as a NumPy array with arbitrary shape.\n        img (numpy.ndarray): An image to compare against the reference, represented as a NumPy array with the same shape as `ref`.\n\n    Returns:\n        float: The PSNR value, indicating the quality of the image compared to the reference.\n    \"\"\"",
+    "usage_example": "import numpy as np\n\n# Example images\nref_image = np.random.rand(256, 256)\nimg = np.random.rand(256, 256)\n\n# Calculate PSNR\npsnr_value = psnr(ref_image, img)\nprint(f\"PSNR: {psnr_value}\")"
+}

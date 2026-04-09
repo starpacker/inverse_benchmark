@@ -1,0 +1,40 @@
+{
+    "questions": [
+        {
+            "function_name": "resize_array",
+            "question_prompt": "Write a function named 'resize_array' that resizes a given 2D floating-point image array to a specified square dimension. The goal is to perform high-quality image resizing suitable for continuous data. Use the PIL (Python Imaging Library) method `Image.fromarray` with mode 'F' (32-bit floating point) and `img.resize` with `Image.BILINEAR` interpolation. The input `arr` is a 2D numpy array of floats, and `new_size` is an integer specifying the target width and height. The output should be a 2D numpy array of the resized image."
+        },
+        {
+            "function_name": "fft2c",
+            "question_prompt": "Write a function named 'fft2c' that computes the 2D Fast Fourier Transform of a spatial domain image and formats it for complex number handling in subsequent processing steps. The method should use `numpy.fft.fft2` with `norm='ortho'` to ensure unitary transformation (energy preservation). The input `data` is a 2D numpy array representing the image. The output should be a 3D numpy array of shape (H, W, 2), where the last dimension stacks the real and imaginary components of the frequency domain data."
+        },
+        {
+            "function_name": "load_and_preprocess_data",
+            "question_prompt": "Write a function named 'load_and_preprocess_data' to simulate the MRI data acquisition process. The goal is to load a ground truth image and a sampling mask, and then generate noisy k-space measurements. The method involves: 1) Loading the target image from a pickle file and resizing it; 2) Computing its FFT (using a helper like `fft2c`) and adding Gaussian noise; 3) Loading and resizing the binary mask, forcing the center 16x16 region to be fully sampled (1s), and applying an FFT shift; 4) Calculating the total image flux. The inputs are file paths `impath` and `maskpath`, integer `npix` (target size), and float `sigma` (noise level). The output must be a dictionary containing keys: 'img_true', 'kspace', 'mask', 'flux', 'npix', and 'sigma'."
+        },
+        {
+            "function_name": "fft2c_torch",
+            "question_prompt": "Write a function named 'fft2c_torch' designed to perform a 2D FFT on PyTorch tensors, formatting the result as a real-valued tensor with a complex channel. The method should: 1) Take a real-valued input tensor (e.g., shape [..., H, W]), 2) Unsqueeze and stack a zero-filled imaginary component to create a shape [..., H, W, 2], 3) View this as a native complex tensor, 4) Apply `torch.fft.fft2` with `norm='ortho'`, and 5) Return the result viewed back as real numbers with the last dimension representing (real, imag). The input is a PyTorch tensor, and the output is a PyTorch tensor of shape [..., H, W, 2]."
+        },
+        {
+            "function_name": "forward_operator",
+            "question_prompt": "Write a function named 'forward_operator' that simulates the physical forward model of an MRI scanner. The goal is to map an image to its undersampled k-space measurements. The method should first apply the 2D FFT (using a helper like `fft2c_torch`) to the input image, and then perform an element-wise multiplication with the provided sampling mask. The inputs are `img` (a batch of images, shape [batch, npix, npix]) and `mask_tensor` (the sampling pattern, shape [npix, npix, 2]). The output should be the masked k-space tensor of shape [batch, npix, npix, 2]."
+        },
+        {
+            "function_name": "Loss_kspace_diff2",
+            "question_prompt": "Write a function named 'Loss_kspace_diff2' that creates a data fidelity loss function for MRI reconstruction. The goal is to return a closure (a function) that calculates the normalized Mean Squared Error between observed and predicted k-space data. The method should accept a noise standard deviation `sigma` as input and return an inner function `func(y_true, y_pred)`. This inner function computes the mean squared difference between `y_pred` and `y_true` (averaged over dimensions 1, 2, 3), divided by `sigma` squared. The inputs are floats or tensors, and the output of the inner function is a scalar tensor representing the loss."
+        },
+        {
+            "function_name": "Loss_TV",
+            "question_prompt": "Write a function named 'Loss_TV' that computes the Total Variation (TV) regularization loss for an image. The goal is to encourage smoothness by penalizing pixel differences. The method calculates the mean absolute difference between adjacent pixels in the vertical direction (row `i` vs `i+1`) and adds it to the mean absolute difference in the horizontal direction (column `j` vs `j+1`). The input `y_pred` is a batch of images (PyTorch tensor). The output is a scalar tensor representing the sum of vertical and horizontal variations."
+        },
+        {
+            "function_name": "run_inversion",
+            "question_prompt": "Write a function named 'run_inversion' that executes the Deep Probabilistic Imaging optimization loop. The goal is to recover an MRI image by optimizing the weights of a generative flow model to minimize a loss function combining data fidelity, priors, and regularization. The method initializes a `RealNVP` model and a learnable log-scale factor. It iterates `n_epoch` times, where in each step it: samples latent vectors `z`, generates images, applies physical scaling and Softplus, computes the forward model (k-space), and calculates a loss composed of Data Fidelity (k-space MSE), L1, TV, and a negative log-determinant term. It must perform backpropagation to update the model. The input is a `data` dictionary (measurements) and hyperparameters (n_flow, n_epoch, lr, weights). The output is a dictionary containing the trained 'model', 'logscale' factor, 'reconstructed' samples, and 'loss_history'."
+        },
+        {
+            "function_name": "evaluate_results",
+            "question_prompt": "Write a function named 'evaluate_results' to assess the quality of the reconstruction. The goal is to compute quantitative metrics and save artifacts. The method should: 1) Compute the mean image across the batch of reconstructed samples provided in `results['reconstructed']`; 2) Calculate the Root Mean Squared Error (RMSE) between this mean image and the ground truth `data['img_true']`; 3) Calculate the Peak Signal-to-Noise Ratio (PSNR) using the dynamic range of the ground truth; 4) Save the model state dict, the raw reconstruction samples, and the mean reconstruction to disk at `save_path`. The inputs are `data` (dict with ground truth), `results` (dict with reconstruction samples), and `save_path` (string). The output is a dictionary containing 'mean_reconstruction', 'rmse', and 'psnr'."
+        }
+    ]
+}

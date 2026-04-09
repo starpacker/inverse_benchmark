@@ -1,0 +1,7 @@
+[
+    "symmetric_gaussian_2d",
+    "load_and_preprocess_data",
+    "forward_operator",
+    "run_inversion",
+    "evaluate_results"
+]

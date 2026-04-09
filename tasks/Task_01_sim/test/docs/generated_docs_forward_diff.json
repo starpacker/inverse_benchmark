@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Computes the forward difference of a 3D numpy array along a specified dimension.",
+    "function_docstring": "Computes the forward difference of a 3D numpy array along a specified dimension.\n\nArgs:\n    data (np.ndarray): A 3D numpy array of shape (R, N, M) representing the input data.\n    step (float): A scalar value representing the step size for the forward difference calculation.\n    dim (int): An integer (0, 1, or 2) indicating the dimension along which to compute the forward difference.\n\nReturns:\n    np.ndarray: A 3D numpy array of the same shape as `data`, containing the forward difference along the specified dimension.",
+    "usage_example": "import numpy as np\n\n# Sample 3D data\nsample_data = np.random.randn(2, 4, 4).astype('float32')\nstep_size = 0.1\ndimension = 0\n\n# Compute forward difference\nresult = forward_diff(sample_data, step_size, dimension)\nprint(result)"
+}

@@ -1,80 +1,124 @@
-# Inverse Benchmark — LLM-Driven Scientific Inverse Problem Solving
+# Inverse Benchmark — LLM-Driven Scientific Inverse Problem Research
 
-A comprehensive benchmark suite for evaluating and leveraging Large Language Models (LLMs) on **scientific inverse problems** — tasks that recover hidden parameters from observed data, spanning computational imaging, seismic inversion, medical imaging, remote sensing, and more.
+A consolidated research repository covering **LLM-driven approaches to scientific inverse problems** — tasks that recover hidden parameters from observed data, spanning computational imaging, medical imaging, spectroscopy, astrophysics, geophysics, and beyond.
 
-## Projects
+This umbrella repo brings together the full research line: a 200-task standardized benchmark, multiple paper-to-code generation pipelines, evaluation harnesses, agent variants, and a public showcase website.
 
-This repository contains six interconnected projects:
+---
 
-| Project | Description |
-|---------|-------------|
-| [**agentic_pipeline_dev**](./agentic_pipeline_dev/) | Multi-agent system (Planner→Architect→Coder→Judge) for automatic solver code generation with a persistent knowledge system |
-| [**agentic_reproduce**](./agentic_reproduce/) | Paper-driven code reproduction — reads a research paper and autonomously generates working solver implementations |
-| [**inverse_agent_whole**](./inverse_agent_whole/) | End-to-end agent pipeline with typed feedback loops (Plan Error / Code Bug / Tuning) and multi-phase autonomous solving |
-| [**inverse_planning_eval**](./inverse_planning_eval/) | Planning evaluation framework with TextGrad prompt optimization and multi-judge ELO tournament |
-| [**new_flow**](./new_flow/) | Automated pipeline for transforming scientific code into structured tutorials and benchmark questions |
-| [**react_inverse_problem**](./react_inverse_problem/) | Multi-model benchmark evaluating 7+ LLMs on function-level scientific code generation via ReAct loops |
-
-## System Overview
+## 📁 Repository Layout
 
 ```
-                    ┌─────────────────────────────┐
-                    │     Research Papers (PDF)     │
-                    └──────────────┬──────────────┘
-                                   │
-         ┌─────────────────────────┼─────────────────────────┐
-         ▼                         ▼                          ▼
-┌─────────────────┐     ┌─────────────────┐       ┌─────────────────┐
-│  new_flow        │     │ agentic_reproduce│       │ agentic_pipeline│
-│  (Tutorial &     │     │ (Paper → Code   │       │ (GT Code →      │
-│   Question Gen)  │     │  Reproduction)  │       │  Auto Solver)   │
-└────────┬────────┘     └─────────────────┘       └─────────────────┘
-         │
-    ┌────┴─────────────────────┐
-    ▼                          ▼
-┌─────────────────┐  ┌──────────────────────┐
-│react_inverse_   │  │inverse_planning_eval │
-│problem           │  │(Plan Quality         │
-│(Code Generation  │  │ Evaluation + ELO)    │
-│ Benchmark)       │  └──────────────────────┘
-└─────────────────┘
-         │
-         ▼
-┌──────────────────────┐
-│inverse_agent_whole   │
-│(End-to-End Agent     │
-│ Pipeline Evaluation) │
-└──────────────────────┘
+inverse_benchmark/
+├── tasks/        ← 200 standardized inverse-problem tasks (the benchmark itself)
+├── pipelines/    ← Different paper→code generation pipelines (3 implementations)
+├── harnesses/    ← Evaluation harnesses for grading LLM agent outputs
+├── agents/       ← Agent implementations / variants used by the harnesses
+└── website/      ← Next.js showcase frontend
 ```
 
-### Workflow
+| Folder | What it is | Origin |
+|---|---|---|
+| [`tasks/`](./tasks/) | 200 standardized inverse problem tasks across 8 categories. Each task ships with `src/`, `test/`, `data/`, `notebook.ipynb`, `requirements.txt`, `metadata.json`. | originally `inverse_benchmark_details` |
+| [`pipelines/`](./pipelines/) | Three different "paper → executable code" pipelines: `paper2executable` (4-phase), `agentic_reproduce` (multi-agent), `new_flow` (tutorial-driven). | merged from `Paper2Executable` + previously here |
+| [`harnesses/`](./harnesses/) | Evaluation harnesses. The standard is `inverse_101` — 3 modes (plan/function/end2end) × 3 frameworks (claude_code/multi_agent/react). | originally `inverse-101`; replaces deprecated `inverse_planning_eval` |
+| [`agents/`](./agents/) | Specialised agent implementations: `agentic_pipeline_dev` (multi-agent solver), `inverse_agent_whole` (typed-feedback E2E), `react_inverse_problem` (ReAct multi-LLM), `openhands_benchmark` (OpenHands wrapper). | previously here |
+| [`website/`](./website/) | The Next.js gallery showing task results, comparisons, and reproductions. | originally `agent-imaging-website` |
 
-1. **new_flow** processes scientific code and papers → produces tutorials and coding questions
-2. **react_inverse_problem** uses those questions to benchmark multiple LLMs (GPT-5.2, Claude Opus 4.5, Gemini 3 Pro, DeepSeek, Qwen, etc.)
-3. **inverse_planning_eval** evaluates LLM plan generation quality via similarity metrics and ELO tournament
-4. **inverse_agent_whole** runs end-to-end agent evaluation with typed feedback (plan error → recode → tune)
-5. **agentic_pipeline_dev** provides end-to-end solver generation with multi-agent collaboration and knowledge accumulation
-6. **agentic_reproduce** extends the pipeline to work directly from research papers without ground truth code
+---
 
-## Covered Domains
+## 🧠 The Big Picture
 
-- **Optical Imaging**: Microscopy deconvolution, phase retrieval, holographic imaging, ptychography
-- **Medical Imaging**: CT reconstruction, MRI, PET, MR elastography
-- **Seismology**: Full waveform inversion, seismic tomography, velocity modeling
-- **Remote Sensing**: InSAR phase unwrapping, SAR imaging
-- **Signal Processing**: Spectral unmixing, compressed sensing, blind deconvolution
-- **Physics**: Gravitational lensing, quantum state tomography, electromagnetic inversion
+```
+                  ┌─────────────────────────────┐
+                  │     Research Papers (PDF)    │
+                  └──────────────┬──────────────┘
+                                 │
+                                 ▼
+                  ┌─────────────────────────────┐
+                  │   pipelines/  (paper→code)   │
+                  │  • paper2executable          │
+                  │  • agentic_reproduce         │
+                  │  • new_flow                  │
+                  └──────────────┬──────────────┘
+                                 │
+                                 ▼
+                  ┌─────────────────────────────┐
+                  │   tasks/   (200 standardized) │
+                  │   curated benchmark suite    │
+                  └──────────────┬──────────────┘
+                                 │
+                                 ▼
+                  ┌─────────────────────────────┐
+                  │   agents/  +  harnesses/     │
+                  │   solve & evaluate           │
+                  └──────────────┬──────────────┘
+                                 │
+                                 ▼
+                  ┌─────────────────────────────┐
+                  │   website/  (public gallery) │
+                  └─────────────────────────────┘
+```
 
-## Supported LLMs
+**Flow:** papers in → standardized tasks out → agents try to solve them → harnesses score the attempts → results published on the website.
 
-GPT-5.2 · Claude Opus 4.5 · Gemini 3 Pro · DeepSeek V3.2 · Qwen3 Max · GLM-4.7 · Kimi K2 · Grok 3 · and more
+---
 
-## Getting Started
+## 🗂️ Task Categories (200 tasks)
 
-See each project's README for specific setup and usage instructions:
-- [agentic_pipeline_dev/README.md](./agentic_pipeline_dev/README.md)
-- [agentic_reproduce/README.md](./agentic_reproduce/README.md)
-- [inverse_agent_whole/README.md](./inverse_agent_whole/README.md)
-- [inverse_planning_eval/README.md](./inverse_planning_eval/README.md)
-- [new_flow/README.md](./new_flow/README.md)
-- [react_inverse_problem/README.md](./react_inverse_problem/README.md)
+| Category | Tasks | Examples |
+|----------|-------|---------|
+| Computational Imaging | 50+ | Ptychography, FPM, Lensless, Holography, Light Field |
+| Medical Imaging | 30+ | CT, MRI, PET, Ultrasound, OCT |
+| Spectroscopy | 20+ | Raman, NMR, X-ray, EIS |
+| Astrophysics | 15+ | Gravitational Lensing, Radio Imaging, Stellar Spectroscopy |
+| Geophysics | 15+ | Seismic, GPR, ERT, InSAR |
+| Signal Processing | 20+ | Source Separation, DOA, Spike Sorting |
+| Microscopy | 15+ | Super-resolution, Deconvolution, Phase Retrieval |
+| Other | 30+ | DIC, Modal Analysis, Rheology, Diffusion |
+
+See [`tasks/METHODOLOGY.md`](./tasks/METHODOLOGY.md) for how tasks were curated and standardized.
+
+---
+
+## 🚀 Quick Start
+
+Each subfolder is independently runnable. Pick the entry point that matches what you're trying to do:
+
+| You want to… | Go here |
+|---|---|
+| Browse the 200-task benchmark | [`tasks/`](./tasks/) |
+| Generate executable code from a paper | [`pipelines/paper2executable/`](./pipelines/paper2executable/) or [`pipelines/agentic_reproduce/`](./pipelines/agentic_reproduce/) |
+| Evaluate an LLM agent on the benchmark | [`harnesses/inverse_101/`](./harnesses/inverse_101/) |
+| Run the multi-agent solver | [`agents/agentic_pipeline_dev/`](./agents/agentic_pipeline_dev/) |
+| Spin up the showcase website locally | [`website/`](./website/) |
+
+Each subfolder has its own `README.md` with installation, configuration, and usage instructions.
+
+---
+
+## 🤖 Supported LLMs (by the harnesses)
+
+GPT-5.2 · Claude Opus 4.5/4.6 · Gemini 3 Pro · DeepSeek V3.2 · Qwen3 Max · GLM-4.7 · Kimi K2 · Grok 3 — and more, configured in `harnesses/inverse_101/config_llm.yaml`.
+
+---
+
+## 📜 History & Provenance
+
+This repo is the consolidation of a 5-repo research line developed during 2026-Q1. As of **2026-04-10**, the previously separate repos were merged here:
+
+| Original repo | Now lives at |
+|---|---|
+| `inverse_benchmark` (this repo, original) | top-level + `agents/` + `pipelines/agentic_reproduce` + `pipelines/new_flow` |
+| `inverse_benchmark_details` | `tasks/` |
+| `Paper2Executable` | `pipelines/paper2executable/` |
+| `inverse-101` | `harnesses/inverse_101/` (replaces deprecated `inverse_planning_eval` which has been removed) |
+| `agent-imaging-website` | `website/` |
+
+No git history was preserved during the merge — the latest contents from each source repo were copied directly.
+
+---
+
+## 📄 License
+
+See [LICENSE.md](./LICENSE.md).

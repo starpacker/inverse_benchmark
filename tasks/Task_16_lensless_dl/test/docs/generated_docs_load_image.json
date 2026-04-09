@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Loads an image from a file path and returns it as a numpy array with a specified data type.",
+    "function_docstring": "def load_image(fp, dtype='float32'):\n    \"\"\"\n    Load an image file and return it as a numpy array.\n\n    Args:\n        fp (str): The file path to the image to be loaded.\n        dtype (str, optional): The desired data type for the numpy array. Defaults to 'float32'.\n\n    Returns:\n        np.ndarray: A numpy array representation of the image with the specified data type.\n    \"\"\"",
+    "usage_example": "import numpy as np\nfrom PIL import Image\n\n# Example usage\nimage_path = 'path/to/image.jpg'\nimage_array = load_image(image_path, dtype='float32')\nprint(image_array.shape)  # Outputs the shape of the loaded image array"
+}

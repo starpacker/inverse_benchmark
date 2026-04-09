@@ -1,0 +1,64 @@
+{
+    "questions": [
+        {
+            "function_name": "load_image",
+            "question_prompt": "Function Name: load_image\nTarget/Goal: The goal of the function is to read an image file from the file system and convert it into a numerical array that can be used for further processing.\nMethod/Algorithm: The function utilizes the Python Imaging Library (PIL) to open an image file and then converts the image data into a NumPy array with a specified floating-point precision, which is defaulted to 32-bit float.\nInput/Output:\n- Input: The function takes two arguments:\n  1. `fp`: a string representing the file path to the image.\n  2. `dtype`: a string specifying the desired data type for the array (default is \"float32\").\n- Output: The function returns a NumPy array representing the raw image data."
+        },
+        {
+            "function_name": "normalize_image",
+            "question_prompt": "Function Name: normalize_image\nTarget/Goal: The aim of the function is to normalize the pixel values of an image to a standardized range [0, 1], which is essential for numerical stability in further processing steps.\nMethod/Algorithm: This function implements a min-max normalization technique by shifting and scaling the input data based on its minimum and maximum pixel values.\nInput/Output:\n- Input: The function takes a single argument:\n  1. `img`: a NumPy array representing the image to be normalized.\n- Output: The function returns a normalized NumPy array, where all values are mapped to the range [0, 1]."
+        },
+        {
+            "function_name": "downsample_image",
+            "question_prompt": "Function Name: downsample_image\nTarget/Goal: The function's goal is to reduce the spatial resolution of an image, which decreases computational and memory load for subsequent image processing tasks.\nMethod/Algorithm: The function uses NumPy's slicing capabilities to perform direct spatial subsampling by a specified stride factor.\nInput/Output:\n- Input: The function takes two arguments:\n  1. `img`: a NumPy array representing the image to be downsampled.\n  2. `factor`: an integer indicating the stride for subsampling (e.g., `4` keeps every 4th pixel).\n- Output: A downsampled NumPy array, retaining the original number of channels in a 3D image if applicable."
+        },
+        {
+            "function_name": "prepare_4d_array",
+            "question_prompt": "Function Name: prepare_4d_array\nTarget/Goal: The function is designed to standardize the dimensionality of an input array to be compatible with operations that require 4D tensors, such as those in convolutional neural networks.\nMethod/Algorithm: The function adjusts dimensions using NumPy's new axis insertion to ensure that all inputs conform to the 4D structure.\nInput/Output:\n- Input: The function takes one argument:\n  1. `img`: a NumPy array that is either 2D or 3D, representing an image.\n- Output: A 4D NumPy array with the shape structured as `(Depth/Batch, Height, Width, Channels)`."
+        },
+        {
+            "function_name": "load_and_preprocess_data",
+            "question_prompt": "Function Name: load_and_preprocess_data\nTarget/Goal: The function orchestrates the loading and preprocessing of both Point Spread Functions (PSF) and sensor measurement data to prepare them for computational imaging algorithms.\nMethod/Algorithm: The function sequentially loads image data, applies downsampling, normalization, and reshapes them into a 4D array suitable for further processing.\nInput/Output:\n- Input: The function takes three arguments:\n  1. `psf_path`: a string specifying the file path to the Point Spread Function image.\n  2. `data_path`: a string specifying the file path to the sensor measurement image.\n  3. `downsample`: an integer indicating the factor by which to downsample the images (default is `4`).\n- Output: A dictionary containing two 4D NumPy arrays, `"
+        },
+        {
+            "function_name": "rfft2_convolve_setup",
+            "question_prompt": "Function Name: rfft2_convolve_setup\nTarget/Goal: The function's goal is to set up the necessary parameters and configurations for performing FFT-based convolution operations, which are crucial for efficient image processing using the Convolution Theorem.\nMethod/Algorithm: The function calculates the optimal padded size of the Point Spread Function (PSF) for FFT operations using efficient size selection (powers of 2, 3, 5) and computes the padding indices for centering the PSF in a larger buffer.\nInput/Output:\n- Input: The function takes two arguments:\n  1. `psf`: a NumPy array representing the Point Spread Function.\n  2. `dtype`: an optional parameter to set the data type for the calculations (default is `np.float32`).\n- Output: A dictionary containing the PSF and configuration details, including shapes and index slices for padding and cropping during FFT operations."
+        },
+        {
+            "function_name": "pad_array",
+            "question_prompt": "Function Name: pad_array\nTarget/Goal: The function is designed to expand the input image array to a larger padded size, preparing it for FFT operations which assume circular convolution by default.\nMethod/Algorithm: This function uses zero-padding techniques, where a new array is created and the input image is placed at the center of this array, with zeros filling the surrounding areas based on predefined indices.\nInput/Output:\n- Input: The function takes two arguments:\n  1. `v`: a NumPy array representing the image or data to be padded.\n  2. `setup`: a dictionary containing padding configuration details such as padded shape and slicing indices.\n- Output: A padded NumPy array with larger dimensions based on the calculated configuration."
+        },
+        {
+            "function_name": "crop_array",
+            "question_prompt": "Function Name: crop_array\nTarget/Goal: The function's goal is to reduce a padded array back to its original size by removing the padding that was added for FFT operations.\nMethod/Algorithm: This function uses slicing techniques to extract only the central portion of the array that corresponds to the original, unpadded data dimensions.\nInput/Output:\n- Input: The function takes two arguments:\n 1. `x`: a NumPy array which is the padded data.\n  2. `setup`: a dictionary containing cropping configuration details, including the indices that define the original data size.\n- Output: A cropped NumPy array that corresponds to the original dimensions of the input before padding was applied."
+        },
+        {
+            "function_name": "compute_psf_fft",
+            "question_prompt": "Function Name: compute_psf_fft\nTarget/Goal: The goal is to compute the Fourier Transform of a padded Point Spread Function (PSF) to obtain the Optical Transfer Function (OTF), critical for fast convolution operations in the frequency domain.\nMethod/Algorithm: The FFT (Fast Fourier Transform) is applied to the padded PSF array to achieve this, using axes that correspond to the spatial dimensions and applying proper normalization.\nInput/Output:\n- Input: The function takes one argument:\n  1. `setup`: a dictionary containing the padded shape, psf, and axes information.\n- Output: A NumPy array representing the computed OTF (Fourier Transform of the PSF)."
+        },
+        {
+            "function_name": "convolve_fft",
+            "question_prompt": "Function Name: convolve_fft\nTarget/Goal: The function performs frequency domain convolution of an image with a Point Spread Function (PSF) using precomputed FFTs, crucial for simulating sensor measurements.\nMethod/Algorithm: By applying the convolution theorem, it computes FFT on the image, multiplies with the PSF's OTF, and applies inverse FFT to obtain the convolved result, properly handling padding and cropping to obtain linear convolution.\nInput/Output:\n- Input: The function takes four arguments:\n  1. `x`: a NumPy array representing the image.\n  2. `H`: a NumPy array that is the Optical Transfer Function (OTF).\n  3. `setup`: a dictionary providing the dimensions and indices for FFT operations.\n  4. `pad`: a boolean to indicate if padding is used (default is True).\n- Output: A real-valued NumPy array that is the frequency domain convolved result."
+        },
+        {
+            "function_name": "deconvolve_fft",
+            "question_prompt": "Function Name: deconvolve_fft\nTarget/Goal: The function computes the adjoint convolution (cross-correlation) in the frequency domain, which is essential for backpropagating errors in gradient-based optimization methods.\nMethod/Algorithm: This process involves Fourier transforms of both the input data and the conjugate of the PSF's Fourier transform, followed by inverse transforms and proper cropping to align with the original image dimensions.\nInput/Output:\n- Input: The function takes four arguments:\n  1. `y`: a NumPy array with the data to be deconvolved.\n  2. `H_adj`: a NumPy array that is the conjugate of the Optical Transfer Function (OTF).\n  3. `setup`: a dictionary containing the padding and cropping configuration.\n  4. `pad`: a boolean indicating whether to use padding (default is True).\n- Output: A real-valued NumPy array that represents the result of the adjoint convolution operation."
+        },
+        {
+            "function_name": "power_method_lipschitz",
+            "question_prompt": "Function Name: power_method_lipschitz\nTarget/Goal: The purpose of this function is to estimate the Lipschitz constant of a transformation using the Power Method, which is critical for determining step sizes in iterative optimization algorithms.\nMethod/Algorithm: This function applies the power method by iteratively computing forward and adjoint transformations to converge towards the Lipschitz constant, effectively normalizing the input at each step.\nInput/Output:\n- Input: The function takes four arguments:\n  1. `setup`: a dictionary containing convolution setup parameters.\n  2. `H`: a NumPy array that is the Optical Transfer Function (OTF).\n  3. `H_adj`: a NumPy array that represents the conjugate of the OTF.\n  4. `max_iter`: an integer specifying the maximum number of iterations (default is 20).\n- Output: A float representing an estimated Lipschitz constant."
+        },
+        {
+            "function_name": "prox_nonneg",
+            "question_prompt": "Function Name: prox_nonneg\nTarget/Goal: The function enforces non-negativity constraints on image data, ensuring all pixel values are zero or positive, reflective of true light intensity values.\nMethod/Algorithm: Utilizes a simple projection via element-wise operations, setting all negative values to zero.\nInput/Output:\n- Input: The function takes a single argument:\n  1. `x`: a NumPy array of image data to be processed.\n- Output: A NumPy array with the same shape as `x`, with all negative values replaced by zero."
+        },
+        {
+            "function_name": "run_inversion",
+            "question_prompt": "Function Name: run_inversion\nTarget/Goal: The function is an implementation of the Accelerated Proximal Gradient Descent (APGD) method to recover a latent image from its degraded measurements through iterative minimization of an objective function.\nMethod/Algorithm: This algorithm iteratively updates image estimates by applying gradient descent steps, proximal mapping, and momentum updates, using precomputed FFTs to ensure computational efficiency.\nInput/Output:\n- Input: The function takes two arguments:\n  1. `data_dict`: a dictionary containing preprocessed `'psf'` and `'data'` tensors.\n  2. `n_iter`: an integer specifying the number of iterations for the reconstruction process (default is 50).\n- Output: A NumPy array representing the reconstructed image post-iteration."
+        },
+        {
+            "function_name": "evaluate_results",
+            "question_prompt": "Function Name: evaluate_results\nTarget/Goal: To visually and quantitatively assess the output of an image reconstruction process, saving the result as an image file and archiving raw data for further analysis.\nMethod/Algorithm: The function normalizes the reconstructed image data to the display-friendly range [0, 1], handles various dimensionalities, and saves both the visual output and the numerical data.\nInput/Output:\n- Input: The function takes two arguments:\n  1. `reconstruction`: a NumPy array representing the reconstructed image data.\n  2. `output_path`: a string indicating the file path for saving the output image and data.\n- Output: None, but it saves a PNG image and a corresponding NumPy file."
+        }
+    ]
+}

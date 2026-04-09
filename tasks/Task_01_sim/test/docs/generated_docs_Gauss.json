@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Generates a Gaussian Point Spread Function (PSF) based on the provided sigma values.",
+    "function_docstring": "Generates a Gaussian Point Spread Function (PSF) based on the provided sigma values.\n\nArgs:\n    sigma (float or list of float): A single float or a list of floats representing the standard deviation(s) of the Gaussian distribution. If a single float is provided, it is used for both dimensions in a 2D PSF.\n\nReturns:\n    numpy.ndarray: A normalized Gaussian PSF array. The shape of the array depends on the dimensionality of the input sigma. For a single sigma, a 1D array is returned. For a list of two sigmas, a 2D array is returned. For a list of three sigmas, a 3D array is returned.",
+    "usage_example": "import numpy as np\n\n# Example usage of the Gauss function\nsigma = [2.0, 3.0]\ngaussian_psf = Gauss(sigma)\nprint(gaussian_psf)\n\n# Check that the PSF sums to 1\nassert np.isclose(gaussian_psf.sum(), 1.0, rtol=1e-5)"
+}

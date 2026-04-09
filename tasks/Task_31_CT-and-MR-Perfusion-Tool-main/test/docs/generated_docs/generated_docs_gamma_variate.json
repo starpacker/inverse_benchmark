@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Calculates the gamma variate function values for a given sequence of time points, commonly used to model hemodynamic response functions.",
+    "function_docstring": "Args:\n    t (Array-like): The input time points for which to evaluate the function. Can be a scalar, list, or numpy array of shape (N,).\n    t0 (float): The onset time (time shift). The function evaluates to 0 for all t <= t0.\n    alpha (float): The shape parameter (exponent) of the gamma function.\n    beta (float): The scale parameter (decay rate) of the exponential term.\n    amplitude (float, optional): A scaling factor applied to the result. Defaults to 1.0.\n\nReturns:\n    numpy.ndarray: An array of the same shape as `t` containing the calculated gamma variate values.",
+    "usage_example": "import numpy as np\nfrom agent_gamma_variate import gamma_variate\n\n# Define time points\nt = np.linspace(0, 20, 100)\n\n# Calculate gamma variate response\n# Onset at t=2.0, shape=3.0, scale=1.5\nresponse = gamma_variate(t, t0=2.0, alpha=3.0, beta=1.5, amplitude=10.0)\n\nprint(response.shape)\n# Output: (100,)"
+}

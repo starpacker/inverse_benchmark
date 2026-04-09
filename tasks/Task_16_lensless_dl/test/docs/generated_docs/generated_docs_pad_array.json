@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Pads a 4D or 5D tensor to a specified shape using given indices for placement.",
+    "function_docstring": "Pads a 4D or 5D tensor to a specified shape using given indices for placement.\n\nArgs:\n    v (np.ndarray): A 4D or 5D tensor to be padded. If 5D, the first dimension represents the batch size.\n    setup (dict): A dictionary containing padding configuration with keys:\n        - 'padded_shape' (list): The target shape to pad the tensor to.\n        - 'start_idx' (list): The starting indices for placing the original tensor within the padded tensor.\n        - 'end_idx' (list): The ending indices for placing the original tensor within the padded tensor.\n\nReturns:\n    np.ndarray: A tensor padded to the specified shape with the original tensor placed according to the given indices.",
+    "usage_example": "import numpy as np\n\n# Example tensor\nv = np.random.rand(2, 3, 4, 5)\n\n# Padding setup\nsetup = {\n    'padded_shape': [2, 6, 8, 5],\n    'start_idx': [1, 2],\n    'end_idx': [4, 6]\n}\n\n# Pad the tensor\npadded_tensor = pad_array(v, setup)\nprint(padded_tensor.shape)  # Output: (2, 6, 8, 5)"
+}

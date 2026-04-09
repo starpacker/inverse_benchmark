@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Applies p-shrinkage with mollification to a 1-D array.",
+    "function_docstring": "def p_shrink(X, lmbda=1, p=0, epsilon=0):\n    \"\"\"\n    Applies p-shrinkage with mollification to a 1-D array.\n\n    Args:\n        X (np.ndarray): A 1-D numpy array representing the input data.\n        lmbda (float, optional): A regularization parameter. Default is 1.\n        p (float, optional): The shrinkage exponent. Default is 0.\n        epsilon (float, optional): A small constant added for numerical stability. Default is 0.\n\n    Returns:\n        np.ndarray: A 1-D numpy array after applying p-shrinkage.\n    \"\"\"\n",
+    "usage_example": "import numpy as np\n\n# Example usage of p_shrink\nX = np.array([1.0, 2.0, 3.0])\nlmbda = 0.5\np = 1.0\nepsilon = 0.01\n\nresult = p_shrink(X, lmbda, p, epsilon)\nprint(result)"
+}

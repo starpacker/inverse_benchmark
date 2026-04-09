@@ -1,0 +1,37 @@
+# LLM model configurations for evaluation harness
+# Usage: python -m evaluation_harness end2end --task TASK --model "MODEL_NAME"
+#
+# Each entry is keyed by model name and must provide:
+#   base_url:    OpenAI-compatible API endpoint
+#   api_key:     API key (or set OPENAI_API_KEY env var)
+#   temperature: sampling temperature (optional, default 0.2)
+
+"global.anthropic.claude-opus-4-6-v1":
+    api_type: "openai"
+    base_url: "https://ai-gateway-internal.dp.tech/v1"
+    api_key: "sk-Zj3a7RQDVCXr-Axg-0gtkg"
+    temperature: 0.2
+
+"zhangli/claude-4.6-opus":
+    api_type: "openai"
+    base_url: "https://ai-gateway-internal.dp.tech/v1"
+    api_key: "sk-Zj3a7RQDVCXr-Axg-0gtkg"
+    temperature: 0.2
+
+"cds/Claude-4.6-opus":
+    api_type: "openai"
+    base_url: "https://ai-gateway-internal.dp.tech/v1"
+    api_key: "sk-Zj3a7RQDVCXr-Axg-0gtkg"
+    temperature: 0.2
+
+"gemini-3.1-pro-preview":
+    api_type: "openai"
+    base_url: "https://ai-gateway-internal.dp.tech/v1"
+    api_key: "sk-Zj3a7RQDVCXr-Axg-0gtkg"
+    temperature: 0.2
+
+"gemini-3-pro-preview":
+    api_type: "openai"
+    base_url: "https://ai-gateway-internal.dp.tech/v1"
+    api_key: "sk-Zj3a7RQDVCXr-Axg-0gtkg"
+    temperature: 0.2

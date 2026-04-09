@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Calculates the Total Variation (TV) loss by averaging the absolute differences between neighboring pixels along the vertical and horizontal dimensions.",
+    "function_docstring": "Args:\n    y_pred (torch.Tensor): The input tensor representing predicted values, typically with shape (Batch, Height, Width). The function assumes the last two dimensions are spatial dimensions to be regularized.\n\nReturns:\n    torch.Tensor: A tensor of shape (Batch,) containing the mean total variation loss for each sample in the batch.",
+    "usage_example": "import torch\n\n# Create a batch of dummy image predictions (Batch, Height, Width)\n# Shape: (16, 64, 64)\ny_pred = torch.rand(16, 64, 64)\n\n# Calculate the Total Variation loss\nloss = Loss_TV(y_pred)\n\nprint(f\"Input shape: {y_pred.shape}\")\nprint(f\"Loss shape: {loss.shape}\")  # Expected: (16,)"
+}

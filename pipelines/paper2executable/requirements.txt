@@ -1,0 +1,40 @@
+# Paper2Executable Dependencies
+
+# Core
+pyyaml>=6.0
+sqlalchemy>=2.0
+requests>=2.31
+aiohttp>=3.9
+
+# ArXiv & paper sources
+arxiv>=2.1
+feedparser>=6.0
+
+# Web search
+duckduckgo-search>=4.0
+
+# Text similarity
+rapidfuzz>=3.0
+scikit-learn>=1.3
+
+# Scientific computing & metrics
+numpy>=1.24
+scipy>=1.11
+scikit-image>=0.21
+torch>=2.0
+torchmetrics>=1.0
+
+# GitHub operations
+gitpython>=3.1
+
+# Logging & CLI
+rich>=13.0
+click>=8.1
+tqdm>=4.65
+
+# HTML parsing (for web search results)
+beautifulsoup4>=4.12
+lxml>=4.9
+
+# OpenAI-compatible client
+openai>=1.12

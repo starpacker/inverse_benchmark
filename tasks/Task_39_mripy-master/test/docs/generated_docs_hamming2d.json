@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Generates a 2D Hamming window by computing the outer product of two 1D Hamming windows and taking the square root of the result.",
+    "function_docstring": "Generates a 2D Hamming window of shape (a, b).\n\n    This function constructs a 2D window by taking the outer product of two 1D Hamming\n    windows of lengths ``a`` and ``b``, respectively. It then returns the square root\n    of this 2D window.\n\n    Args:\n        a (int): The length of the first dimension (height) of the window.\n        b (int): The length of the second dimension (width) of the window.\n\n    Returns:\n        numpy.ndarray: A 2D array of shape (a, b) containing the square root of the\n        outer product of the Hamming windows.\n",
+    "usage_example": "import numpy as np\nfrom agent_hamming2d import hamming2d\n\n# Generate a 2D Hamming window of size 10x20\nheight = 10\nwidth = 20\nwindow = hamming2d(height, width)\n\nprint(f\"Window shape: {window.shape}\")\n# Output: Window shape: (10, 20)\nprint(f\"Max value: {np.max(window)}\")"
+}

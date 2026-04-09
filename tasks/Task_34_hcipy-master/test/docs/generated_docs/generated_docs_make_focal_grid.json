@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Generates a Cartesian grid representing a focal plane, with sampling and extent determined by optical parameters and a specified sampling quality.",
+    "function_docstring": "Args:\n    q (float): The sampling quality, defined as the number of pixels per resolution element (lambda * f / D).\n    num_airy (float): The spatial extent of the grid radius in units of resolution elements (Airy rings). The total field of view will be approximately 2 * num_airy.\n    pupil_diameter (float, optional): The diameter of the entrance pupil. Defaults to 1.\n    focal_length (float, optional): The focal length of the optical system. Defaults to 1.\n    wavelength (float, optional): The wavelength of the light. Defaults to 1.\n\nReturns:\n    CartesianGrid: A grid object containing the focal plane coordinates, with attributes `dims` (shape of the grid) and `delta` (pixel spacing).",
+    "usage_example": "grid = make_focal_grid(q=2.5, num_airy=10, pupil_diameter=8.0, focal_length=150.0, wavelength=1e-6)\nprint(f\"Grid dimensions: {grid.dims}\")\nprint(f\"Pixel spacing: {grid.delta}\")"
+}

@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Interpolates absorption spectra for hemoglobin (Hb) and oxyhemoglobin (HbO2) at specified wavelengths.",
+    "function_docstring": "def get_absorption_spectra(wavelengths):\n    \"\"\"\n    Interpolates absorption spectra for hemoglobin (Hb) and oxyhemoglobin (HbO2) at specified wavelengths.\n\n    Args:\n        wavelengths (array-like): A sequence of wavelengths at which to interpolate the absorption spectra.\n\n    Returns:\n        Tuple[np.ndarray, np.ndarray]:\n            A tuple containing two arrays:\n            - The first array represents the interpolated absorption spectra for hemoglobin (Hb).\n            - The second array represents the interpolated absorption spectra for oxyhemoglobin (HbO2).\n    \"\"\"",
+    "usage_example": "import numpy as np\n\n# Example wavelengths\nwavelengths = np.array([710, 740, 770, 810, 860, 910])\n\n# Get absorption spectra\nhb_spectra, hbo2_spectra = get_absorption_spectra(wavelengths)\n\nprint(\"Hb Spectra:\", hb_spectra)\nprint(\"HbO2 Spectra:\", hbo2_spectra)"
+}

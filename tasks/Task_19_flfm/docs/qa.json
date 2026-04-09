@@ -1,0 +1,20 @@
+{
+    "questions": [
+        {
+            "function_name": "load_and_preprocess_data",
+            "question_prompt": "Write a function named `load_and_preprocess_data` whose goal is to generate a synthetic dataset and precompute operators for 3D deconvolution. The method involves creating a 3D Point Spread Function (PSF) as a stack of 2D Gaussians where the variance increases linearly with distance from the focal plane, generating a sparse 3D 'ground truth' object with random high-intensity points, and simulating a 2D measurement by convolving these using FFTs and adding Gaussian noise. Specifically, you must precompute the FFT of the PSF (`psf_fft`) and the FFT of the spatially flipped PSF (`psft_fft`) for the adjoint operator. \n\n**Inputs:** \n- `shape` (tuple): Dimensions of the volume (nz, ny, nx), defaulting to (20, 128, 128).\n- `pixel_size`, `wavelength`, `na`, `ref_index`: Float parameters (placeholders for physical scaling).\n- `device`: String indicating the compute device (e.g., 'cpu').\n\n**Output:** \n- A dictionary containing: 'measurement' (2D Tensor), 'psf_fft' (3D Complex Tensor), 'psft_fft' (3D Complex Tensor), 'ground_truth' (3D Tensor), 'psf' (3D Tensor), 'shape', and 'device'."
+        },
+        {
+            "function_name": "forward_operator",
+            "question_prompt": "Write a function named `forward_operator` whose goal is to simulate the forward physical projection of a 3D object volume onto a 2D sensor. The method utilizes the Convolution Theorem to perform efficient layer-wise convolution: compute the 2D Real-to-Complex FFT (`rfft2`) of the input estimate, multiply it element-wise with a pre-computed frequency-domain PSF, perform the Inverse 2D FFT (`irfft2`), and finally sum the resulting tensor along the depth (Z) axis to produce a 2D image.\n\n**Inputs:**\n- `estimate`: A 3D Tensor of shape `[nz, ny, nx]` representing the object volume.\n- `psf_fft`: A 3D Complex Tensor of shape `[nz, ny, nx/2 + 1]` representing the FFT of the PSF stack.\n\n**Output:**\n- `proj_image`: A 2D Tensor of shape `[ny, nx]` representing the simulated camera image."
+        },
+        {
+            "function_name": "run_inversion",
+            "question_prompt": "Write a function named `run_inversion` whose goal is to reconstruct a 3D volume from a single 2D measurement. The method used is the **Richardson-Lucy Deconvolution** algorithm. You must initialize a flat 3D estimate and iteratively update it. Inside the loop, perform three main steps: 1) **Forward Projection** (using the logic of `forward_operator`), 2) **Error Ratio Calculation** (measurement divided by projection + epsilon), and 3) **Back Projection** (calculate the FFT of the ratio, multiply by the adjoint PSF `psft_fft` using broadcasting, and inverse FFT). The update rule is $x_{new} = x_{old} \\times \\text{BackProjectedError}$. Enforce a non-negativity constraint (ReLU) after every update.\n\n**Inputs:**\n- `measurement`: 2D Tensor (observed image).\n- `psf_fft`: 3D Complex Tensor (forward kernel).\n- `psft_fft`: 3D Complex Tensor (adjoint kernel).\n- `shape`: Tuple `(nz, ny, nx)`.\n- `num_iter`: Integer for iteration count.\n- `device`: String for compute device.\n\n**Output:**\n- Returns `estimate`, the reconstructed 3D Tensor of shape `[nz, ny, nx]`."
+        },
+        {
+            "function_name": "evaluate_results",
+            "question_prompt": "Write a function named `evaluate_results` whose goal is to quantify the quality of the reconstruction. The method involves calculating two standard metrics: **Mean Squared Error (MSE)** and **Peak Signal-to-Noise Ratio (PSNR)**. The PSNR should be calculated using the maximum value of the ground truth volume as the signal peak ($20 \\cdot \\log_{10}(\\text{MAX}_V / \\sqrt{\\text{MSE}})$). Optionally, if `save_figures` is True, generate and save a PNG comparison of the Maximum Intensity Projections (MIP) of both volumes.\n\n**Inputs:**\n- `reconstruction`: 3D Tensor `[nz, ny, nx]`.\n- `ground_truth`: 3D Tensor `[nz, ny, nx]`.\n- `save_figures`: Boolean flag.\n\n**Output:**\n- A dictionary containing float values for `mse` and `psnr`."
+        }
+    ]
+}

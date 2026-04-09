@@ -1,0 +1,5 @@
+{
+    "function_explanation": "The function adjusts the shape of a given 2D numpy array based on specified dimensions, handling different parity conditions for the dimensions.",
+    "function_docstring": "Adjusts the shape of a given 2D numpy array based on specified dimensions, handling different parity conditions for the dimensions.\n\nArgs:\n    Biter (np.ndarray): A 2D numpy array of unsigned 8-bit integers.\n    x (int): The target number of rows for the output array.\n    y (int): The target number of columns for the output array.\n\nReturns:\n    np.ndarray: A 2D numpy array of shape (x, y) with dtype 'uint8', adjusted according to the parity of x and y.",
+    "usage_example": "import numpy as np\n\n# Create a sample 2D numpy array\nBiter = np.random.randint(0, 256, (6, 7), dtype='uint8')\n\n# Define target dimensions\nx, y = 5, 6\n\n# Adjust the array shape\nresult = rm_1(Biter, x, y)\n\nprint(result)"
+}

@@ -1,0 +1,25 @@
+# Paper2Executable - LLM Configuration
+# Mirrors the format from agentic_pipeline_dev for compatibility
+
+models:
+  "cds/Claude-4.6-opus":
+    api_type: "openai"
+    base_url: "https://ai-gateway-internal.dp.tech/v1"
+    api_key: "sk-Zj3a7RQDVCXr-Axg-0gtkg"
+    temperature: 0.3
+    max_tokens: 8192
+
+  "cds/Claude-4.5-Opus":
+    api_type: "openai"
+    base_url: "https://ai-gateway-internal.dp.tech/v1"
+    api_key: "sk-Zj3a7RQDVCXr-Axg-0gtkg"
+    temperature: 0.3
+    max_tokens: 8192
+
+  # Fallback models (via third-party gateway)
+  "deepseek-v3.2":
+    api_type: "openai"
+    base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    api_key: "sk-f99cec8c420c4de3a11d7bf8b579d6e0"
+    temperature: 0.3
+    max_tokens: 8192

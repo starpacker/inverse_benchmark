@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Crops a multi-dimensional array based on specified start and end indices.",
+    "function_docstring": "def crop_array(x, setup):\n    \"\"\"\n    Crop a multi-dimensional array from a padded shape to its original shape.\n\n    Args:\n        x (np.ndarray or torch.Tensor): A multi-dimensional array or tensor to be cropped, with shape (..., H_padded, W_padded, C).\n        setup (dict): A dictionary containing cropping indices with keys 'start_idx' and 'end_idx'.\n            - 'start_idx' (list or tuple): The starting indices for cropping, typically of length 2.\n            - 'end_idx' (list or tuple): The ending indices for cropping, typically of length 2.\n\n    Returns:\n        np.ndarray or torch.Tensor: The cropped array or tensor with shape (..., H_original, W_original, C).\n    \"\"\"\n",
+    "usage_example": "import numpy as np\n\n# Example array\nx = np.random.rand(10, 100, 100, 3)\n\n# Setup for cropping\nsetup = {\n    'start_idx': [10, 10],\n    'end_idx': [90, 90]\n}\n\n# Crop the array\ncropped_x = crop_array(x, setup)\nprint(cropped_x.shape)  # Expected output shape: (10, 80, 80, 3)"
+}

@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Calculates the oxygen saturation (sO2) from given hemoglobin concentrations.",
+    "function_docstring": "def calculate_so2(concentrations):\n    \"\"\"\n    Calculate the oxygen saturation (sO2) from hemoglobin concentrations.\n\n    Args:\n        concentrations (numpy.ndarray): A 4D array of shape (2, D, H, W) where the first dimension contains two elements:\n            - concentrations[0] represents the hemoglobin (Hb) concentration.\n            - concentrations[1] represents the oxyhemoglobin (HbO2) concentration.\n\n    Returns:\n        numpy.ndarray: A 3D array of shape (D, H, W) representing the oxygen saturation map, with values clipped between 0 and 1.\n    \"\"\"\n",
+    "usage_example": "import numpy as np\n\n# Example concentrations\nconcentrations = np.random.rand(2, 64, 64, 64)  # Random data for demonstration\n\n# Calculate oxygen saturation\nso2_map = calculate_so2(concentrations)\n\nprint(so2_map.shape)  # Output should be (64, 64, 64)"
+}

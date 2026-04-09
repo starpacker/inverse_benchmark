@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Designs a bandpass Butterworth filter based on specified frequency parameters.",
+    "function_docstring": "def butter_bandpass(lowcut, highcut, fs, order=5):\n    \"\"\"\n    Design a bandpass Butterworth filter.\n\n    Args:\n        lowcut (float): The lower frequency boundary of the bandpass filter.\n        highcut (float): The upper frequency boundary of the bandpass filter.\n        fs (float): The sampling frequency of the signal to be filtered.\n        order (int, optional): The order of the Butterworth filter. Defaults to 5.\n\n    Returns:\n        Tuple[numpy.ndarray, numpy.ndarray]: Coefficients of the filter (b, a) where 'b' is the numerator and 'a' is the denominator of the filter's transfer function.\n    \"\"\"",
+    "usage_example": "import numpy as np\nfrom scipy.signal import filtfilt\n\n# Define filter parameters\nlowcut = 0.1\nhighcut = 30.0\nfs = 100.0\norder = 5\n\n# Design the filter\nb, a = butter_bandpass(lowcut, highcut, fs, order)\n\n# Example signal\nsignal = np.random.randn(1000)\n\n# Apply the filter\nfiltered_signal = filtfilt(b, a, signal)"
+}

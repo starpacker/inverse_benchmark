@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Computes the gradient of the Q-Generalized Gaussian Markov Random Field (Q-GGMRF) prior for a given image, accounting for interactions with 4-connected neighbors.",
+    "function_docstring": "Args:\n    image (numpy.ndarray): The input image array with shape (H, W).\n    sigma_x (float): The scaling parameter for the prior model.\n    p (float): The shape parameter p for the Q-GGMRF potential function.\n    q (float): The shape parameter q for the Q-GGMRF potential function.\n    T (float): The threshold parameter T for the Q-GGMRF potential function.\n\nReturns:\n    numpy.ndarray: An array of the same shape as the input image (H, W), representing the computed gradient of the prior.",
+    "usage_example": "import numpy as np\n\n# Create a dummy image\nimage = np.random.rand(128, 128)\n\n# Define Q-GGMRF parameters\nsigma_x = 1.0\np = 2.0\nq = 1.2\nT = 0.5\n\n# Compute the prior gradient\ngradient = _compute_prior_gradient(image, sigma_x, p, q, T)\nprint(gradient.shape)  # Output: (128, 128)"
+}

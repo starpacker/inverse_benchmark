@@ -1,0 +1,5 @@
+{
+    "function_explanation": "The function performs a sparse iteration update using shrinkage and returns updated sparse components.",
+    "function_docstring": "Performs a sparse iteration update using shrinkage and returns updated sparse components.\n\nArgs:\n    gsparse (np.ndarray): A numpy array representing the gradient of the sparse component.\n    bsparse (np.ndarray): A numpy array representing the bias of the sparse component.\n    para (float): A parameter used to scale the sparse update.\n    mu (float): A parameter used in the shrinkage function to control the threshold.\n\nReturns:\n    Tuple[np.ndarray, np.ndarray]: A tuple containing two numpy arrays:\n        - Lsparse: The updated sparse component after applying the shrinkage and scaling.\n        - bsparse: The updated bias of the sparse component.",
+    "usage_example": "import numpy as np\n\ngsparse = np.random.randn(10)\nbsparse = np.random.randn(10)\npara = 0.5\nmu = 1.0\n\nLsparse, new_bsparse = iter_sparse(gsparse, bsparse, para, mu)\nprint('Updated Lsparse:', Lsparse)\nprint('Updated bsparse:', new_bsparse)"
+}

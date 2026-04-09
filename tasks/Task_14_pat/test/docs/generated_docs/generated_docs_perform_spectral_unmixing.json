@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Performs linear spectral unmixing to estimate concentrations of hemoglobin (Hb) and oxyhemoglobin (HbO2) from reconstructed images at specified wavelengths.",
+    "function_docstring": "def perform_spectral_unmixing(reconstruction, wavelengths):\n    \"\"\"\n    Perform linear spectral unmixing to estimate Hb and HbO2 concentrations.\n\n    Args:\n        reconstruction: A numpy array of shape (n_wl, nz, ny, nx) representing reconstructed images at different wavelengths.\n        wavelengths: A numpy array of wavelengths used for the reconstruction.\n\n    Returns:\n        concentrations: A numpy array of shape (2, nz, ny, nx) where the first dimension represents the estimated concentrations of Hb and HbO2.\n    \"\"\"",
+    "usage_example": "import numpy as np\n\n# Example reconstructed images with shape (n_wl, nz, ny, nx)\nreconstructed_images = np.random.rand(5, 10, 10, 10)\n\n# Example wavelengths\nwavelengths = np.array([710, 740, 770, 810, 860])\n\n# Perform spectral unmixing\nconcentrations = perform_spectral_unmixing(reconstructed_images, wavelengths)\n\nprint(concentrations.shape)  # Output should be (2, 10, 10, 10)"
+}

@@ -1,0 +1,16 @@
+{
+    "questions": [
+        {
+            "function_name": "load_and_preprocess_data",
+            "question_prompt": "Function Name: load_and_preprocess_data\nTarget/Goal: The function's goal is to load configuration parameters from a YAML file, initialize the computational environment, and transform raw experimental data into a format suitable for an optimization process.\nBrief Explanation: The function implements a data preprocessing pipeline specifically for electron ptychography experiments. It scales and validates data, initializes logger and GPU settings, and prepares initialization data structures.\nDetailed Explanation of Inputs/Outputs:\n- Inputs:\n  - params_path (str): A string representing the path to the YAML configuration file.\n  - gpuid (int): An integer representing the GPU index that should be used for computation.\n  - logger (CustomLogger, optional): An optional instance of a CustomLogger for logging. If not provided, a new logger is initialized.\n- Outputs:\n  - Returns a dictionary called data_context with initialized data such as optimized physics parameters, loss functions, constraints, and logger settings essential for the reconstruction loop."
+        },
+        {
+            "function_name": "run_inversion",
+            "question_prompt": "Function Name: run_inversion\nTarget/Goal: The function's goal is to execute the main optimization loop that reconstructs the object and probe functions from experimental data using automatic differentiation.\nBrief Explanation: This function orchestrates the setup and execution of the optimization process. It initializes model parameters, prepares data for processing through GPU handling, and runs a reconstruction loop, measuring the time taken for the process.\nDetailed Explanation of Inputs/Outputs:\n- Inputs:\n  - data_context (dict): A dictionary that includes initialized parameters, model settings, and computational configurations typically outputted from a preprocessing function.\n- Outputs:\n  - Returns a dictionary containing the reconstructed model, optimizer state, output path for results, logger information, and a 'solver_time' key reflecting the total execution time of the inversion process."
+        },
+        {
+            "function_name": "evaluate_results",
+            "question_prompt": "Function Name: evaluate_results\nTarget/Goal: The function's goal is to assess the quality of reconstruction by calculating statistical metrics, and to perform system cleanup by ensuring resources are released correctly post-computation.\nBrief Explanation: This function extracts metrics from the reconstruction model to evaluate the amplitude and phase statistics, and manages cleanup operations such as logger and distributed process group shutdown.\nDetailed Explanation of Inputs/Outputs:\n- Inputs:\n  - results (dict): A dictionary containing entries for model data, output path, and execution time from a preceding inversion process.\n- Outputs:\n  - Returns a dictionary with statistical metrics (mean and standard deviation) for both amplitude and phase of the reconstructed object, alongside the shape of object and probe tensors for further analysis."
+        }
+    ]
+}

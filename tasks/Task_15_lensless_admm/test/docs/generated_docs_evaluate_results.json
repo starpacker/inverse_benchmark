@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Evaluates a reconstructed image by saving it as a PNG and NPY file, and prints basic statistics.",
+    "function_docstring": "def evaluate_results(reconstruction: np.ndarray, output_path: str = \"result.png\") -> None:\n    \"\"\"\n    Evaluates a reconstructed image by saving it as a PNG and NPY file, and prints basic statistics.\n\n    Args:\n        reconstruction (np.ndarray): A 2D array representing the reconstructed image.\n        output_path (str): The file path where the output image will be saved. Defaults to 'result.png'.\n\n    Returns:\n        None\n    \"\"\"",
+    "usage_example": "import numpy as np\n\n# Example reconstructed image\nreconstructed_image = np.random.rand(256, 256)\n\n# Evaluate and save the results\nevaluate_results(reconstructed_image, output_path=\"output_image.png\")"
+}

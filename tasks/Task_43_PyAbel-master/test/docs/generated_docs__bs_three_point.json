@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Generates a basis matrix for the three-point deconvolution method used in Abel transform inversions.",
+    "function_docstring": "Generates the deconvolution basis matrix `D` for the three-point method.\n\nThis function constructs a square matrix of size `(cols, cols)` containing coefficients calculated using specific integral approximations (I0, I1) required for the three-point Abel inversion algorithm. The matrix is populated based on geometric relationships defined by the indices `i` and `j`.\n\nArgs:\n    cols (int): The number of columns (and rows) for the basis matrix, typically corresponding to the number of radial points or pixels in the image profile.\n\nReturns:\n    numpy.ndarray: A square matrix `D` of shape `(cols, cols)` containing the calculated basis coefficients.",
+    "usage_example": "import numpy as np\nfrom agent__bs_three_point import _bs_three_point\n\n# Generate a basis matrix for a profile with 10 points\ncols = 10\nD_matrix = _bs_three_point(cols)\n\nprint(f\"Basis matrix shape: {D_matrix.shape}\")\n# Expected output: Basis matrix shape: (10, 10)"
+}

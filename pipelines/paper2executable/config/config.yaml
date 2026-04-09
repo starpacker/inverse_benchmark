@@ -1,0 +1,161 @@
+# ============================================================
+# Paper2Executable - Main Pipeline Configuration
+# ============================================================
+
+# --- General Settings ---
+general:
+  project_name: "paper2executable"
+  workspace_base: "/data/yjh/paper2executable_workspace"
+  database_path: "database/papers.db"
+  log_dir: "logs"
+  log_level: "INFO"
+
+# --- LLM Settings ---
+llm:
+  default_model: "cds/Claude-4.6-opus"
+  models:
+    "cds/Claude-4.6-opus":
+      api_type: "openai"
+      base_url: "https://ai-gateway-internal.dp.tech/v1"
+      api_key: "sk-Zj3a7RQDVCXr-Axg-0gtkg"
+      temperature: 0.3
+      max_tokens: 8192
+
+# --- Phase 1: Baseline Integration ---
+baseline:
+  # Existing benchmark dataset location
+  benchmark_dataset_path: "/data/yjh/benchmark_dataset"
+  task_descriptions_path: "/data/yjh/task_descriptions"
+  # Dedup settings
+  dedup:
+    title_similarity_threshold: 0.85  # Cosine similarity threshold for title matching
+    use_arxiv_id_first: true          # Prefer ArXiv ID match over title
+
+# --- Phase 2: Code Discovery ---
+discovery:
+  # PDF to Markdown (OCR)
+  pdf_ocr:
+    enabled: true
+    # Local copy of the OCR script (no external dependency on new_flow)
+    script_path: "tools/run_ocr_tool.py"  # relative to project root
+    python_env: "/home/yjh/.conda/envs/paddle_env/bin/python"
+    output_dir: "/data/yjh/paper2executable_workspace/ocr_results"
+    # GPU acceleration for OCR.  Specify gpu_id to pick a specific card
+    # (useful when GPU 0 is occupied by other jobs).
+    use_gpu: true
+    gpu_id: 1  # use GPU 1 (GPU 0 is usually occupied)
+    timeout: 600  # seconds (10 min) — model init ~2min + processing scales with pages
+
+  # Level 1: Local markdown parsing
+  local_parser:
+    github_regex: 'https?://github\.com/[a-zA-Z0-9_\-]+/[a-zA-Z0-9_\-]+'
+    scan_sections: ["abstract", "introduction", "method", "references", "footnotes"]
+
+  # Level 2: PapersWithCode API
+  pwc_api:
+    base_url: "https://paperswithcode.com/api/v1"
+    timeout: 30
+    rate_limit_delay: 1.0  # seconds between requests
+
+  # Level 3: Web search + LLM verification
+  web_search:
+    engine: "duckduckgo"  # or "serp" for SerpAPI
+    max_results: 5
+    search_template: '"{title}" github code "inverse problem"'
+    llm_verify: true
+    verify_top_n: 3  # Verify top N search results with LLM
+
+  # Topic filter
+  topic_filter:
+    target_topics:
+      - "computational imaging"
+      - "inverse problems"
+      - "image reconstruction"
+      - "phase retrieval"
+      - "tomography"
+      - "deconvolution"
+      - "deblurring"
+      - "compressed sensing"
+      - "super resolution"
+      - "inpainting"
+      - "MRI reconstruction"
+      - "CT reconstruction"
+      - "optical coherence tomography"
+      - "holography"
+      - "light field"
+      - "ptychography"
+      - "fluorescence microscopy"
+      - "acoustic imaging"
+      - "seismic inversion"
+      - "electrical impedance tomography"
+    strict_mode: true  # Require LLM confirmation
+
+# --- Phase 3: OpenHands Consolidation ---
+openhands:
+  # OpenHands installation path
+  install_path: "/home/yjh/OpenHands"
+  config_path: "/home/yjh/OpenHands/config.toml"
+  # conda environment used for OpenHands subprocess
+  conda_env: "openhands"
+  # whether to run OpenHands as a subprocess (recommended to keep ragas untouched)
+  use_subprocess: true
+
+  # Agent settings
+  agent: "CodeActAgent"
+  max_iterations: 50
+  timeout_per_step: 600  # 10 minutes
+
+  # Sandbox
+  sandbox:
+    runtime: "local"
+    gpu_enabled: true
+    conda_base: "/home/yjh/.conda"
+
+  # Step-specific iteration limits — set high enough that the agent can
+  # naturally reach FINISHED rather than being cut off at max-iter.
+  step_limits:
+    data_extraction: 50
+    code_consolidation: 60
+    evaluate_generation: 40
+
+  # Workspace
+  staging_dir: "/data/yjh/paper2executable_workspace/staging"
+  output_dir: "/data/yjh/paper2executable_workspace/output"
+
+# --- Phase 4: Sandbox Validation ---
+sandbox:
+  # Execution settings
+  conda_env_prefix: "p2e_"          # Prefix for per-paper conda envs
+  execution_timeout: 600             # 10 minutes for run_gt.py
+  evaluation_timeout: 120            # 2 minutes for evaluate.py
+
+  # Auto-debug
+  max_debug_retries: 5
+  debug_agent_iterations: 30
+
+  # Quality thresholds
+  thresholds:
+    psnr_min: 20.0          # dB - minimum acceptable PSNR
+    ssim_min: 0.5            # minimum acceptable SSIM
+    psnr_good: 25.0          # dB - considered good quality
+    ssim_good: 0.8           # considered good quality
+
+  # Fallback behavior
+  fallback:
+    allow_mock_data: true
+    allow_random_weights: true
+    mock_data_method: "gaussian_noise"  # gaussian_noise | zeros | uniform
+
+# --- Output Schema ---
+output:
+  result_dir: "/data/yjh/paper2executable_workspace/results"
+  save_artifacts: true
+  artifacts:
+    - "run_gt.py"
+    - "evaluate.py"
+    - "input.npy"
+    - "gt_output.npy"
+    - "aux_data.npy"
+    - "baseline.npy"
+    - "result.json"
+    - "environment.yml"

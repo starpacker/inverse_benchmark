@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Computes the transpose of a forward model by element-wise multiplication of a repeated tensor with another tensor.",
+    "function_docstring": "def backward_operator(y, Phi):\n    \"\"\"\n    Computes the transpose of a forward model.\n\n    Args:\n        y (np.ndarray): A 2D array with shape (H, W) representing the input data.\n        Phi (np.ndarray): A 3D array with shape (H, W, C) representing the forward model tensor.\n\n    Returns:\n        np.ndarray: A 3D array with shape (H, W, C) resulting from the element-wise multiplication of the repeated `y` tensor with `Phi`.\n    \"\"\"",
+    "usage_example": "import numpy as np\n\n# Example input data\nH, W, C = 64, 64, 3\ny = np.random.rand(H, W)\nPhi = np.random.rand(H, W, C)\n\n# Compute the backward operator\nresult = backward_operator(y, Phi)\nprint(result.shape)  # Expected output shape: (H, W, C)"
+}

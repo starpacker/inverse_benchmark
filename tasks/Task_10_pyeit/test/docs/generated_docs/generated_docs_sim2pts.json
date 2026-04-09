@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Interpolates element values to node values for visualization purposes.",
+    "function_docstring": "Interpolates element values to node values for visualization purposes.\n\nArgs:\n    pts (np.ndarray): An array of shape (N, D) representing the coordinates of N nodes in D-dimensional space.\n    sim (np.ndarray): An array of shape (M, K) where each row contains indices of nodes forming an element, with M elements and K nodes per element.\n    sim_values (np.ndarray): An array of shape (M,) containing the values associated with each of the M elements.\n\nReturns:\n    np.ndarray: An array of shape (N,) containing the interpolated values at each of the N nodes.",
+    "usage_example": "import numpy as np\n\n# Example data\npts = np.array([[0, 0], [1, 0], [0, 1], [1, 1]])  # 4 nodes in 2D\nsim = np.array([[0, 1, 2], [1, 2, 3]])  # 2 elements, each with 3 nodes\nsim_values = np.array([10, 20])  # Values for each element\n\n# Interpolate values to nodes\nnode_values = sim2pts(pts, sim, sim_values)\nprint(node_values)  # Output: array with interpolated node values"
+}

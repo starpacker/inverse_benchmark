@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Loads an image from a file, preprocesses it by estimating and removing the background, and optionally upsamples the image.",
+    "function_docstring": "Load image from file and preprocess it.\n\nArgs:\n    input_path (str): Path to the input image file.\n    up_sample (int): Upsampling method to apply. 0 for no upsampling, 1 for Fourier upsampling, and 2 for spatial upsampling.\n\nReturns:\n    Tuple[np.ndarray, float]: A tuple containing the preprocessed image as a NumPy array and the original maximum value for rescaling the output.",
+    "usage_example": "from your_module import load_and_preprocess_data\n\n# Example usage\nimage_path = 'path/to/image.png'\npreprocessed_image, original_max = load_and_preprocess_data(image_path, up_sample=1)\nprint(preprocessed_image.shape, original_max)"
+}

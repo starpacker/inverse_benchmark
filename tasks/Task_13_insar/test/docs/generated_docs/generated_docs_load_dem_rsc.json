@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Loads and parses a .dem.rsc file to extract specific metadata into an ordered dictionary.",
+    "function_docstring": "def load_dem_rsc(filename, lower=False):\n    \"\"\"\n    Loads and parses the .dem.rsc file to extract metadata.\n\n    Args:\n        filename (str): The name of the file to load. If the filename does not end with '.rsc',\n            '.rsc' will be appended to it.\n        lower (bool, optional): If True, converts the keys of the output dictionary to lowercase.\n            Defaults to False.\n\n    Returns:\n        collections.OrderedDict: An ordered dictionary containing the parsed metadata from the file.\n            The keys include 'width', 'file_length', 'x_first', 'y_first', 'x_step', 'y_step',\n            'x_unit', 'y_unit', 'z_offset', 'z_scale', and 'projection', with their respective\n            types as int, float, or str.\n    \"\"\"",
+    "usage_example": "import collections\n\n# Example usage of load_dem_rsc\nfilename = 'example.dem'\nmetadata = load_dem_rsc(filename, lower=True)\nprint(metadata)"
+}

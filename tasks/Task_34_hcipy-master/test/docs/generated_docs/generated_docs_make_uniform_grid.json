@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Creates a two-dimensional Cartesian grid with uniform spacing centered around zero, defined by its dimensions and physical extent.",
+    "function_docstring": "Args:\n    dims (int or array_like): The number of grid points in each dimension. If a scalar is provided, the same number of points is used for both dimensions.\n    extent (float or array_like): The total physical size of the grid in each dimension. If a scalar is provided, the grid is square with that size.\n\nReturns:\n    CartesianGrid: A grid object containing the generated coordinates (flattened) and weights, with attributes `dims` and `delta` set to reflect the grid structure.",
+    "usage_example": "import numpy as np\nfrom agent_make_uniform_grid import make_uniform_grid\n\n# Create a 256x256 grid with a total size of 10.0 units in both x and y\ngrid = make_uniform_grid(dims=256, extent=10.0)\n\n# Access grid properties\nprint(f\"Grid size: {grid.size}\")\nprint(f\"X coordinates shape: {grid.x.shape}\")\nprint(f\"Grid delta (spacing): {grid.delta}\")"
+}

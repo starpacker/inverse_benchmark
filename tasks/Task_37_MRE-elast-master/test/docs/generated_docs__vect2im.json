@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Interpolates unstructured vector data defined at specific 2D coordinates onto a regular grid to create a 2D image representation.",
+    "function_docstring": "Args:\n    A (numpy.ndarray): A 1D array or flattenable array of shape (N,) containing the values to be interpolated.\n    vertices (numpy.ndarray): A 2D array of shape (N, 2) representing the (x, y) coordinates corresponding to each value in ``A``.\n\nReturns:\n    numpy.ndarray: A 2D array of shape (N, N) representing the interpolated image on a regular grid. The grid spans the min/max range of the input vertices, and the resolution is determined by the number of input points (N).",
+    "usage_example": "import numpy as np\n\n# Generate synthetic data\nN = 20\n# Random (x, y) coordinates\nvertices = np.random.rand(N, 2)\n# Values associated with each coordinate\nA = np.sin(vertices[:, 0]) * np.cos(vertices[:, 1])\n\n# Convert the vector data to an image representation\nimage = _vect2im(A, vertices)\n\nprint(f\"Input vector shape: {A.shape}\")\nprint(f\"Output image shape: {image.shape}\")  # Expected: (20, 20)"
+}

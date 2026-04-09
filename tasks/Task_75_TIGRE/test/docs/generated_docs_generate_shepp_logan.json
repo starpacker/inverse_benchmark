@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Generates the Shepp-Logan phantom, a standard CT test image composed of ellipses with varying attenuation coefficients.",
+    "function_docstring": "Generate the Shepp-Logan phantom.\n\nCreates a standard CT test image consisting of overlapping ellipses with\nvarying attenuation coefficients. The Shepp-Logan phantom is commonly used\nfor testing and validating CT reconstruction algorithms.\n\nArgs:\n    size: The size of the output image in pixels. The resulting phantom\n        will be a square image with dimensions (size, size).\n\nReturns:\n    A 2D numpy array of shape (size, size) containing the Shepp-Logan\n    phantom image. Pixel values represent attenuation coefficients,\n    clipped to be non-negative.",
+    "usage_example": "import numpy as np\n\n# Generate a 256x256 Shepp-Logan phantom\nphantom = generate_shepp_logan(256)\n\n# Display information about the phantom\nprint(f\"Phantom shape: {phantom.shape}\")  # Output: (256, 256)\nprint(f\"Value range: [{phantom.min():.3f}, {phantom.max():.3f}]\")\n\n# Generate a smaller phantom for quick testing\nsmall_phantom = generate_shepp_logan(64)"
+}

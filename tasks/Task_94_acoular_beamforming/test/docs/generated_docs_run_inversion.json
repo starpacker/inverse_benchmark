@@ -1,0 +1,3 @@
+{
+    "error": "Error code: 400 - {'error': {'message': 'litellm.BadRequestError: OpenAIException - Insufficient balance  tid:1773632024957-d3d5fece-7d4a-46a9-9892-59cd7a5ae338 (request id: 20260316113344795111070mFpQ5IgP). Received Model Group=cds/Claude-4.5-Opus\\nAvailable Model Group Fallbacks=None', 'type': None, 'param': None, 'code': '400'}}"
+}

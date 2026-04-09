@@ -1,0 +1,9 @@
+[
+    "fft2c",
+    "ifft2c",
+    "generate_initial_probe",
+    "load_and_preprocess_data",
+    "forward_operator",
+    "run_inversion",
+    "evaluate_results"
+]

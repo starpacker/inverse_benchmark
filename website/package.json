@@ -1,0 +1,32 @@
+{
+  "name": "agent-imaging-website",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "export": "next build"
+  },
+  "dependencies": {
+    "framer-motion": "^11.0.0",
+    "katex": "^0.16.9",
+    "lucide-react": "^0.344.0",
+    "next": "^14.2.0",
+    "react": "^18.2.0",
+    "react-compare-image": "^3.5.14",
+    "react-compare-slider": "^3.1.0",
+    "react-dom": "^18.2.0",
+    "react-syntax-highlighter": "^15.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "@types/react-syntax-highlighter": "^15",
+    "autoprefixer": "^10.4.17",
+    "postcss": "^8.4.35",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5"
+  }
+}

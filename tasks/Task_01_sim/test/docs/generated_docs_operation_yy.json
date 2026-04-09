@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Computes the power spectrum of a predefined 3D kernel using FFT for a given grid size.",
+    "function_docstring": "    \n    Args:\n        gsize (tuple of int): A tuple representing the grid size for the FFT computation, \n            typically in the form (depth, height, width).\n\n    Returns:\n        numpy.ndarray: A 3D array of complex numbers representing the power spectrum of the \n            predefined kernel, with the same shape as the specified grid size.\n    ",
+    "usage_example": "import numpy as np\n\ngsize = (8, 8, 8)\nresult = operation_yy(gsize)\nprint(\"Result shape:\", result.shape)\nprint(\"Result dtype:\", result.dtype)"
+}

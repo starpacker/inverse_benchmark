@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Calculates the Strehl ratio as a percentage by comparing the sums of the magnitudes of the Optical Transfer Functions (OTF) of a measured PSF and a reference PSF.",
+    "function_docstring": "Helper: Computes Strehl Ratio using OTF (Optical Transfer Function) method.\n\n    The Strehl ratio is estimated as the ratio of the sum of the OTF magnitude of the\n    input PSF to that of the reference PSF, expressed as a percentage.\n\n    Args:\n        psf (numpy.ndarray): The measured Point Spread Function (PSF) data. \n            Expected shape is (H, W).\n        psf_ref (numpy.ndarray): The reference (diffraction-limited) Point Spread Function \n            data. Expected shape is (H, W), matching ``psf``.\n\n    Returns:\n        float: The computed Strehl ratio as a percentage (0-100).",
+    "usage_example": "import numpy as np\n\n# Generate dummy PSF data (e.g., 64x64 images)\npsf_measured = np.random.random((64, 64))\npsf_reference = np.random.random((64, 64))\n\n# Compute the Strehl ratio\nstrehl_value = _compute_strehl(psf_measured, psf_reference)\nprint(f\"Strehl Ratio: {strehl_value:.2f}%\")"
+}

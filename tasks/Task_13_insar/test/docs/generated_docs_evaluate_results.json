@@ -1,0 +1,5 @@
+{
+    "function_explanation": "The function evaluates and saves the results of an unwrapped phase, printing statistics and saving the data in various formats based on the output filename extension.",
+    "function_docstring": "Evaluates the unwrapped phase results, prints statistics, and saves the data in specified formats.\n\nArgs:\n    F (np.ndarray): A 2D array representing the unwrapped phase result.\n    preprocessed_data (dict): A dictionary containing metadata, including a key 'mag' which holds the magnitude data as a 2D array.\n    outname (str): The output filename, which determines the format in which the results are saved.\n\nReturns:\n    float: The mean value of the unwrapped phase.",
+    "usage_example": "import numpy as np\n\n# Example data\nF = np.random.rand(100, 100)  # Unwrapped phase result\npreprocessed_data = {'mag': np.random.rand(100, 100)}  # Magnitude data\noutname = 'result.tif'  # Output filename\n\n# Evaluate and save results\nmean_phase = evaluate_results(F, preprocessed_data, outname)\nprint(f\"Mean phase: {mean_phase}\")"
+}

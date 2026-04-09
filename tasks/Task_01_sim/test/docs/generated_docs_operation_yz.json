@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Computes the Fourier transform of a specific 3D tensor and its conjugate, returning their product.",
+    "function_docstring": "Computes the Fourier transform of a predefined 3D tensor and its conjugate, then returns their product.\n\nArgs:\n    gsize (tuple of int): A tuple representing the grid size for the FFT operation, typically in the form (D, H, W) where D is the depth, H is the height, and W is the width.\n\nReturns:\n    numpy.ndarray: A complex-valued numpy array of shape `gsize`, representing the product of the Fourier transform of the tensor and its conjugate.",
+    "usage_example": "import numpy as np\n\ngsize = (4, 4, 4)\nresult = operation_yz(gsize)\nprint(result)"
+}

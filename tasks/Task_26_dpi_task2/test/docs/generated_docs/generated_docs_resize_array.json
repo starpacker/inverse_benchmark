@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Resizes a 2D input array to a specified square dimension using bilinear interpolation via the PIL library.",
+    "function_docstring": "Resizes a 2D numpy array to a new square shape using bilinear interpolation.\n\nArgs:\n    arr (np.ndarray): The input 2D array of shape (H, W). It will be converted to\n        float32 before resizing.\n    new_size (int): The target dimension for both width and height.\n\nReturns:\n    np.ndarray: The resized array with shape (new_size, new_size) and dtype float32.",
+    "usage_example": "import numpy as np\nfrom agent_resize_array import resize_array\n\n# Create a dummy 2D array\ninput_arr = np.random.rand(100, 100).astype(np.float32)\ntarget_size = 50\n\n# Resize the array\nresized_arr = resize_array(input_arr, target_size)\n\nprint(f\"Original shape: {input_arr.shape}\")\nprint(f\"Resized shape: {resized_arr.shape}\")\n# Output:\n# Original shape: (100, 100)\n# Resized shape: (50, 50)"
+}

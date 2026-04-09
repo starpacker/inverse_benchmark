@@ -1,0 +1,52 @@
+{
+    "questions": [
+        {
+            "function_name": "build_exc_pattern_std",
+            "question_prompt": "Function Name: build_exc_pattern_std\nTarget/Goal: To generate the excitation matrix for adjacent current injection.\nMethod/Algorithm: This function iterates through electrodes indexed from 0 to N-1, setting each electrode as a source and its opposite or adjacent as the sink, based on the specified distance (dist).\nInput: Takes two arguments, n_el (integer, total number of electrodes) and dist (integer, distance for sink electrode). Output: Returns an N x 2 NumPy array where each row contains a source and a sink electrode index pair."
+        },
+        {
+            "function_name": "build_meas_pattern_std",
+            "question_prompt": "Function Name: build_meas_pattern_std\nTarget/Goal: To construct a measurement pattern that excludes electrodes currently involved in current injection.\nMethod/Algorithm: The function iterates over each excitation pair in ex_mat to construct all possible voltage measurement pairs and applies a filter to exclude measurements involving the current injection electrodes.\nInput: Takes ex_mat (NumPy array, excitation pairs), n_el (integer, number of electrodes), and step (integer, measurement step distance). Output: Returns a tuple containing meas_mat (NumPy array of measurement pairs and their excitation indices) and keep_ba (NumPy array boolean mask)."
+        },
+        {
+            "function_name": "create_protocol",
+            "question_prompt": "Function Name: create_protocol\nTarget/Goal: To initialize an EIT measurement protocol incorporating excitation and measurement patterns in a structured format.\nMethod/Algorithm: This function calls the build_exc_pattern_std to create an excitation pattern, followed by build_meas_pattern_std to establish a measurement pattern, wrapping the results in a protocol object.\nInput: Takes three integer arguments, n_el (number of electrodes), dist_exc (excitation distance), and step_meas (measurement interval step). Output: Returns a PyEITProtocol object containing the excitation matrix, measurement matrix, and validity mask."
+        },
+        {
+            "function_name": "_k_tetrahedron",
+            "question_prompt": "Function Name: _k_tetrahedron\nTarget/Goal: To calculate the local stiffness matrix for a single 3D tetrahedron element using Finite Element Method (FEM).\nMethod/Algorithm: The function calculates the edge vectors, the volume of the tetrahedron using determinants, and the gradients from these vectors to derive the local stiffness matrix values.\nInput: Takes a single input, xy, a 4x3 NumPy array containing the 3D coordinates of the tetrahedron's vertices. Output: Returns a 4x4 NumPy array representing the local stiffness matrix for the tetrahedron."
+        },
+        {
+            "function_name": "calculate_ke",
+            "question_prompt": "Function Name: calculate_ke\nTarget/Goal: To compute the local stiffness matrices for all finite elements in the mesh.\nMethod/Algorithm: It loops over all elements, extracting vertex coordinates for each element and calculating its local stiffness matrix using _k_tetrahedron.\nInput: Takes two inputs, pts (NumPy array of node coordinates) and tri (NumPy array of element node indices). Output: Returns a tensor of shape (N_elems, 4, 4) containing the stiffness matrices for all elements."
+        },
+        {
+            "function_name": "assemble",
+            "question_prompt": "Function Name: assemble\nTarget/Goal: To construct the global sparse stiffness matrix required for FEM from local matrices and mesh data.\nMethod/Algorithm: This function assembles the global matrix in COO format for efficient sparse representation, accounts for element-wise permittivity, and applies Dirichlet conditions for matrix invertibility.\nInput: Takes inputs ke (tensor of local stiffness matrices), tri (NumPy array of element topology), perm (array of element permittivity values), n_pts (number of mesh nodes), and ref (reference node index). Output: Returns a scipy.sparse.csr_matrix representing the global stiffness matrix."
+        },
+        {
+            "function_name": "subtract_row_vectorized",
+            "question_prompt": "Function Name: subtract_row_vectorized\nTarget/Goal: To compute voltage differences across specified measurement patterns efficiently using vectorized operations.\nMethod/Algorithm: The function uses numpy indexing to subtract voltages between positive and negative terminals as specified by the measurement pattern, leveraging advanced indexing for efficiency.\nInput: Takes two inputs, v (NumPy array of potentials) and meas_pattern (NumPy array describing measurement pairs). Output: Returns a 1D NumPy array containing the resultant voltage differences for each measurement."
+        },
+        {
+            "function_name": "sim2pts",
+            "question_prompt": "Function Name: sim2pts\nTarget/Goal: To interpolate element-based values (conductivities) to node-based values for smoother visualization in FEM.\nMethod/Algorithm: The function iterates over each element, distributing its value uniformly across its nodes and averaging these at each node for visualization purposes.\nInput: Takes pts (coordinates of nodes), sim (element connectivity array), and sim_values (values at elements to be interpolated). Output: Returns a 1D NumPy array of interpolated node values."
+        },
+        {
+            "function_name": "load_and_preprocess_data",
+            "question_prompt": "Function Name: load_and_preprocess_data\nTarget/Goal: To generate and preprocess the mesh, FEM matrices, and EIT measurement datasets required for simulation.\nMethod/Algorithm: This is an end-to-end driver function that calls sequentially mesh creation, protocol setup, stiffness calculations, baseline, and anomaly measurements through massive setup and solve processes.\nInput: Receives multiple parameters controlling mesh/electrode geometry, including n_el (number of electrodes, integer), h0 (meshing parameter, float), and others about anomalies. Output: Returns a dictionary containing mesh details, baseline/anomaly measurements, and related simulation data structures."
+        },
+        {
+            "function_name": "forward_operator",
+            "question_prompt": "Function Name: forward_operator\nTarget/Goal: To simulate boundary voltage readings based on conductivity distribution over the mesh using FEM for EIT applications.\nMethod/Algorithm: The function assembles a global stiffness matrix constrained by reference nodes, solves the linear system for potentials, and extracts the measured voltages using the measurement protocol definition.\nInput: Takes x (conductivity array), mesh_obj (mesh object with FEM features), protocol_obj (EIT protocol definition object), and se (local stiffness matrices). Output: Returns a 1D NumPy array representing predicted electrode voltage differences for the provided conductivity distribution."
+        },
+        {
+            "function_name": "run_inversion",
+            "question_prompt": "Function Name: run_inversion\nTarget/Goal: To compute the conductivity distribution changes in a domain by solving the inverse EIT problem using the Gauss-Newton one-step method.\nMethod/Algorithm: The function constructs the Jacobian matrix using FEM solutions, applies regularization (e.g., Tikhonov, Kotre), and calculates the conductivity change by solving a regularized least squares problem.\nInput: Takes multiple arguments, including v1 (perturbed measurements), v0 (baseline measurements), mesh_obj (FEM mesh object), protocol_obj (measurement protocol), se (local stiffness matrices, array), and other parameters for regularization/solving. Output: Returns a NumPy array with computed changes in conductivity for the entire mesh."
+        },
+        {
+            "function_name": "evaluate_results",
+            "question_prompt": "Function Name: evaluate_results\nTarget/Goal: To assess the quality of an EIT reconstruction by calculating metrics and rendering a visual plot of reconstructed conductivity changes.\nMethod/Algorithm: This function interpolates element-based to node-based values for plotting, computes various statistical metrics, and visualizes the results using a 3D scatter plot.\nInput: Accepts ds (conductivity changes, 1D array), pts (node coordinates, array), tri (element connectivity, array), v0 (baseline voltages), and v1 (perturbed voltages). Output: Produces a dictionary containing reconstruction quality metrics and optionally saves a visual plot of the results to disk."
+        }
+    ]
+}

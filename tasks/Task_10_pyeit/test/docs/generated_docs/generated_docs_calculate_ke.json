@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Calculates the local stiffness matrix for a set of 3D tetrahedral elements.",
+    "function_docstring": "Calculate the local stiffness matrix for a set of 3D tetrahedral elements.\n\nArgs:\n    pts (np.ndarray): A 2D array of shape (P, 3) representing the coordinates of P points in 3D space.\n    tri (np.ndarray): A 2D array of shape (T, 4) representing T tetrahedral elements, each defined by indices into the `pts` array.\n\nReturns:\n    np.ndarray: A 3D array of shape (T, 4, 4) where each (4, 4) matrix is the local stiffness matrix for a tetrahedral element.",
+    "usage_example": "import numpy as np\n\n# Define points in 3D space\npoints = np.array([\n    [0.0, 0.0, 0.0],\n    [1.0, 0.0, 0.0],\n    [0.0, 1.0, 0.0],\n    [0.0, 0.0, 1.0]\n])\n\n# Define a single tetrahedral element using indices into the points array\ntriangles = np.array([\n    [0, 1, 2, 3]\n])\n\n# Calculate the local stiffness matrix\nstiffness_matrices = calculate_ke(points, triangles)\nprint(stiffness_matrices)"
+}

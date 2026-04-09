@@ -1,0 +1,6 @@
+{
+    "function_explanation": "Documentation generation failed (JSON parse error).",
+    "function_docstring": "Documentation could not be generated.",
+    "usage_example": "",
+    "error": "JSON parse failed after 3 attempts: Expecting value: line 3 column 1 (char 2)"
+}

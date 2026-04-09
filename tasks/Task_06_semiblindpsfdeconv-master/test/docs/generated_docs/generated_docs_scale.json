@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Normalizes an input array by its L1 norm and then rescales it such that the maximum absolute value of the resulting array is 1.",
+    "function_docstring": "Args:\n    v (numpy.ndarray): The input array to be scaled. Can be of any shape.\n\nReturns:\n    numpy.ndarray: The scaled array, having the same shape as the input `v`. The scaling process involves dividing by the L1 norm and then multiplying by the inverse of the maximum absolute value of the intermediate result.",
+    "usage_example": "import numpy as np\nfrom agent_scale import scale\n\n# Create a sample array\nv = np.array([1.0, -2.0, 3.0])\n\n# Scale the array\nscaled_v = scale(v)\n\nprint(f\"Original: {v}\")\nprint(f\"Scaled: {scaled_v}\")\n# Expected output logic: \n# L1 norm = 1+2+3 = 6. \n# Intermediate = [1/6, -2/6, 3/6] = [0.166, -0.333, 0.5].\n# Max abs intermediate = 0.5.\n# Final = Intermediate * (1/0.5) = Intermediate * 2 = [0.333, -0.666, 1.0]."
+}

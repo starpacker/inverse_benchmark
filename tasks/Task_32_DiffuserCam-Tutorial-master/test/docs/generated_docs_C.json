@@ -1,0 +1,5 @@
+{
+    "function_explanation": "Performs a center crop on a 2D array or tensor, extracting a region of a specified sensor size from the center of the input.",
+    "function_docstring": "Args:\n    M_arr (numpy.ndarray or torch.Tensor): The input 2D array or tensor to be cropped. It is expected to have dimensions corresponding to `full_size`.\n    full_size (tuple[int, int]): A tuple `(height, width)` representing the full dimensions of the input array `M_arr`.\n    sensor_size (tuple[int, int]): A tuple `(height, width)` representing the desired dimensions of the cropped output.\n\nReturns:\n    numpy.ndarray or torch.Tensor: The center-cropped portion of `M_arr` with shape `sensor_size`.",
+    "usage_example": "import numpy as np\n\n# Create a 10x10 array\nfull_image = np.random.rand(10, 10)\nfull_dims = (10, 10)\n\n# Define the desired crop size (e.g., 4x4)\ncrop_dims = (4, 4)\n\n# Perform the center crop\ncropped_image = C(full_image, full_dims, crop_dims)\nprint(cropped_image.shape)  # Output: (4, 4)"
+}

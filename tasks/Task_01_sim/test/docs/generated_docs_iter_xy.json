@@ -1,0 +1,5 @@
+{
+    "function_explanation": "The function iteratively computes a modified gradient and updates a bias term using forward and backward finite differences.",
+    "function_docstring": "Iteratively computes a modified gradient and updates a bias term using forward and backward finite differences.\n\nArgs:\n    g (np.ndarray): A 3D array representing the input data with shape (R, N, M).\n    bxy (np.ndarray): A 3D array representing the bias term with shape (R, N, M).\n    para (float): A parameter used to scale the backward difference result.\n    mu (float): A parameter used in the shrinkage operation.\n\nReturns:\n    tuple: A tuple containing:\n        - Lxy (np.ndarray): A 3D array with the same shape as `g`, representing the updated gradient.\n        - bxy (np.ndarray): A 3D array with the same shape as `bxy`, representing the updated bias term.",
+    "usage_example": "import numpy as np\n\ng = np.random.randn(2, 4, 4).astype(np.float32)\nbxy = np.random.randn(2, 4, 4).astype(np.float32)\npara = 0.1\nmu = 0.5\n\nLxy, bxy_out = iter_xy(g, bxy, para, mu)\nprint(Lxy, bxy_out)"
+}
